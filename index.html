@@ -213,13 +213,13 @@ textarea{resize:vertical;min-height:80px;}
     <div style="font-size:15px;font-weight:600;margin-bottom:6px">Changer d'entreprise</div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:20px">Les donn&eacute;es seront recharg&eacute;es pour l'entreprise s&eacute;lectionn&eacute;e.</div>
     <div class="switch-company-row current" id="sw-row-A" onclick="switchCompany('A')">
-      <div class="company-avatar" style="background:#0f6e56">&#127959;&#65039;</div>
-      <div style="flex:1"><div style="font-size:14px;font-weight:600">BTP R&eacute;union SARL</div><div style="font-size:11px;color:var(--text3)">47 mat&eacute;riels &middot; 612 r&eacute;f&eacute;rences</div></div>
+      <div class="company-avatar" id="sw-avatar-A" style="background:#1a3a6b"></div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600" id="sw-name-A">Sarl Ocetra</div><div style="font-size:11px;color:var(--text3)" id="sw-sub-A">Travaux maritimes et sous-marins</div></div>
       <div id="sw-check-A" style="color:var(--teal)">&#10003;</div>
     </div>
     <div class="switch-company-row" id="sw-row-B" onclick="switchCompany('B')">
-      <div class="company-avatar" style="background:#185fa5">&#9889;</div>
-      <div style="flex:1"><div style="font-size:14px;font-weight:600">&Eacute;nergie &Icirc;le SAS</div><div style="font-size:11px;color:var(--text3)">23 mat&eacute;riels &middot; 284 r&eacute;f&eacute;rences</div></div>
+      <div class="company-avatar" id="sw-avatar-B" style="background:#185fa5">&#9889;</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600" id="sw-name-B">&Eacute;nergie &Icirc;le SAS</div><div style="font-size:11px;color:var(--text3)" id="sw-sub-B">23 mat&eacute;riels &middot; 284 r&eacute;f&eacute;rences</div></div>
       <div id="sw-check-B" style="color:var(--teal);visibility:hidden">&#10003;</div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn" onclick="closeSwitchModal()">Annuler</button></div>
@@ -933,8 +933,23 @@ function openSwitchModal(){document.getElementById('switch-modal').classList.add
 function closeSwitchModal(){document.getElementById('switch-modal').classList.remove('open');}
 function updateSwitchModal(){
   ['A','B'].forEach(id=>{
+    const co=COMPANIES[id];
     document.getElementById('sw-row-'+id).classList.toggle('current',id===currentCompany);
     document.getElementById('sw-check-'+id).style.visibility=id===currentCompany?'visible':'hidden';
+    // Nom
+    document.getElementById('sw-name-'+id).textContent=co.name;
+    // Sous-titre : nb matériels
+    const nbMat=state[id]?.materiels?.length||0;
+    document.getElementById('sw-sub-'+id).textContent=co.sector||nbMat+' matériels';
+    // Avatar logo ou icône
+    const avatar=document.getElementById('sw-avatar-'+id);
+    if(co.logo){
+      avatar.innerHTML=`<img src="${co.logo}" style="width:36px;height:36px;object-fit:cover;border-radius:8px">`;
+      avatar.style.background='transparent';
+    } else {
+      avatar.textContent=co.icon;
+      avatar.style.background=co.color;
+    }
   });
 }
 function switchCompany(id){
