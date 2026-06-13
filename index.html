@@ -947,8 +947,14 @@ function switchCompany(id){
 
 function renderAll(){
   const co=COMPANIES[currentCompany], st=state[currentCompany];
-  document.getElementById('sidebar-avatar').textContent=co.icon;
-  document.getElementById('sidebar-avatar').style.background=co.color;
+  const avatar=document.getElementById('sidebar-avatar');
+  if(co.logo){
+    avatar.innerHTML=`<img src="${co.logo}" style="width:36px;height:36px;object-fit:cover;border-radius:8px">`;
+    avatar.style.background='transparent';
+  } else {
+    avatar.innerHTML=''; avatar.textContent=co.icon;
+    avatar.style.background=co.color;
+  }
   document.getElementById('sidebar-company-name').textContent=co.name;
   document.getElementById('footer-company').textContent=co.name.split(' ')[0];
   document.getElementById('badge-maint').textContent=co.badgeMaint;
