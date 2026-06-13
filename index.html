@@ -251,6 +251,7 @@ textarea{resize:vertical;min-height:80px;}
     <div class="nav-item" onclick="showPage('couts',this)"><span class="nav-icon">&#128176;</span> Co&ucirc;ts d'entretien</div>
     <div class="nav-item" onclick="showPage('rapports',this)"><span class="nav-icon">&#128200;</span> Rapports</div>
     <div class="nav-section">Configuration</div>
+    <div class="nav-item" id="nav-utilisateurs" onclick="showPage('utilisateurs',this)"><span class="nav-icon">&#128101;</span> Utilisateurs</div>
     <div class="nav-item" onclick="showPage('parametres',this)"><span class="nav-icon">&#9881;&#65039;</span> Param&egrave;tres</div>
   </nav>
   <div class="sidebar-footer">AtelierPro v1.0 &middot; <span id="footer-company">BTP R&eacute;union</span></div>
@@ -566,8 +567,105 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- PAGE UTILISATEURS -->
+<div class="page" id="page-utilisateurs" style="display:none">
+  <div class="section-header">
+    <div class="section-title">👥 Gestion des utilisateurs</div>
+    <button class="btn btn-primary btn-sm" onclick="openModalInvitation()">+ Générer un code d'invitation</button>
+  </div>
 
-<!-- MODAL OT -->
+  <!-- Stats -->
+  <div class="stat-row" id="user-stats-row">
+    <div class="stat-mini"><div class="stat-mini-val" id="user-total-kpi" style="color:var(--teal)">—</div><div class="stat-mini-lbl">Total utilisateurs</div></div>
+    <div class="stat-mini"><div class="stat-mini-val" id="user-admin-kpi" style="color:var(--purple)">—</div><div class="stat-mini-lbl">Admins</div></div>
+    <div class="stat-mini"><div class="stat-mini-val" id="user-resp-kpi" style="color:var(--blue)">—</div><div class="stat-mini-lbl">Responsables</div></div>
+    <div class="stat-mini"><div class="stat-mini-val" id="user-tech-kpi" style="color:var(--green)">—</div><div class="stat-mini-lbl">Techniciens</div></div>
+  </div>
+
+  <!-- Liste utilisateurs -->
+  <div class="card">
+    <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
+    <div class="card-body">
+      <table>
+        <thead><tr>
+          <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
+        </tr></thead>
+        <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Codes d'invitation -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><strong>🎟 Codes d'invitation actifs</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635; Rafraîchir</button></div>
+    <div class="card-body">
+      <table>
+        <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th>Utilisé par</th><th></th></tr></thead>
+        <tbody id="codes-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL INVITATION -->
+<div class="modal-bg" id="modal-invitation">
+  <div class="modal modal-sm">
+    <div class="modal-header"><strong>G&eacute;n&eacute;rer un code d'invitation</strong><button class="btn btn-sm" onclick="closeModal('modal-invitation')">&#10005;</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div class="form-group"><label>R&ocirc;le</label>
+        <select id="inv-role">
+          <option value="technicien">Technicien</option>
+          <option value="responsable">Responsable</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Entreprise</label>
+        <select id="inv-entreprise">
+          <option value="A">Sarl Ocetra</option>
+          <option value="B">&Eacute;nergie &Icirc;le SAS</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Code personnalis&eacute; (optionnel)</label>
+        <input id="inv-code" placeholder="Laissez vide pour g&eacute;n&eacute;rer automatiquement">
+      </div>
+      <div id="inv-result" style="display:none;background:var(--teal-light);border-radius:var(--radius);padding:14px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Code g&eacute;n&eacute;r&eacute; :</div>
+        <div id="inv-code-display" style="font-size:18px;font-weight:700;color:var(--teal);letter-spacing:2px"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Partagez ce code &agrave; l'utilisateur.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-invitation')">Fermer</button>
+      <button class="btn btn-primary" onclick="genererCodeInvitation()">G&eacute;n&eacute;rer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CHANGER ROLE -->
+<div class="modal-bg" id="modal-role">
+  <div class="modal modal-sm">
+    <div class="modal-header"><strong>Modifier le r&ocirc;le</strong><button class="btn btn-sm" onclick="closeModal('modal-role')">&#10005;</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">Utilisateur</div>
+        <div id="role-user-email" style="font-weight:600"></div>
+      </div>
+      <div class="form-group"><label>Nouveau r&ocirc;le</label>
+        <select id="role-select">
+          <option value="technicien">Technicien</option>
+          <option value="responsable">Responsable</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <input type="hidden" id="role-user-id">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-role')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveUserRole()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-ot">
   <div class="modal">
     <div class="modal-header"><strong id="ot-modal-title">Nouvel ordre de travail</strong><button class="btn btn-sm" onclick="closeModal('modal-ot')">&#10005;</button></div>
@@ -1485,9 +1583,10 @@ function showPage(id,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   el.classList.add('active');
-  const titles={dashboard:'Tableau de bord',materiels:'Matériels',maintenance:'Maintenance',pieces:'Pièces détachées',stock:'Gestion de stock',fournisseurs:'Fournisseurs',commandes:'Bons de commande',transport:'Transport & Douanes',couts:"Coûts d'entretien",rapports:'Rapports',parametres:'Paramètres'};
+  const titles={dashboard:'Tableau de bord',materiels:'Matériels',maintenance:'Maintenance',pieces:'Pièces détachées',stock:'Gestion de stock',fournisseurs:'Fournisseurs',commandes:'Bons de commande',transport:'Transport & Douanes',couts:"Coûts d'entretien",rapports:'Rapports',parametres:'Paramètres',utilisateurs:'Utilisateurs'};
+  if(id==='utilisateurs'){ loadUsers(); loadInvitationCodes(); }
   document.getElementById('page-title').textContent=titles[id]||id;
-  document.getElementById('topbar-new').style.display=['parametres','couts','rapports','fournisseurs'].includes(id)?'none':'';
+  document.getElementById('topbar-new').style.display=['parametres','couts','rapports','fournisseurs','utilisateurs'].includes(id)?'none':'';
   currentPage=id;
   if(SB_PROFILE) applyPageRole(id);
 }
@@ -2862,6 +2961,9 @@ function applyRoles(){
     if(txt.includes('Paramètres')){
       n.style.display = (role==='admin') ? '' : 'none';
     }
+    if(txt.includes('Utilisateurs')){
+      n.style.display = (role==='admin') ? '' : 'none';
+    }
   });
 
   // --- Bouton topbar "+ Nouveau" ---
@@ -2892,9 +2994,9 @@ function applyPageRole(page){
   // Pages où responsable ne peut pas créer
   const readOnlyForResp = ['parametres'];
   // Pages bloquées pour technicien
-  const blockedForTech = ['couts','rapports','parametres'];
+  const blockedForTech = ['couts','rapports','parametres','utilisateurs'];
   // Pages bloquées pour responsable
-  const blockedForResp = ['parametres'];
+  const blockedForResp = ['parametres','utilisateurs'];
 
   if(role==='technicien' && blockedForTech.includes(page)){
     showPage('dashboard', document.querySelector('.nav-item'));
@@ -3027,7 +3129,132 @@ async function loadFromSupabase(){
 }
 
 
-/* ── EXPORT PDF ─────────────────────────────────────────── */
+
+/* ── GESTION UTILISATEURS ───────────────────────────────── */
+function openModalInvitation(){
+  document.getElementById('inv-result').style.display='none';
+  document.getElementById('inv-code').value='';
+  document.getElementById('modal-invitation').classList.add('open');
+}
+
+async function genererCodeInvitation(){
+  if(!SB||SB_MODE!=='online'){ alert('Connexion Supabase requise.'); return; }
+  const role=document.getElementById('inv-role').value;
+  const co=document.getElementById('inv-entreprise').value;
+  let code=document.getElementById('inv-code').value.trim().toUpperCase();
+  if(!code) code=Math.random().toString(36).substring(2,8).toUpperCase();
+  try {
+    const {error}=await SB.from('invitation_codes').insert({code,role,entreprise_id:co,used:false});
+    if(error){ alert('Erreur : '+error.message); return; }
+    document.getElementById('inv-code-display').textContent=code;
+    document.getElementById('inv-result').style.display='block';
+    loadInvitationCodes();
+  } catch(e){ alert('Erreur : '+e.message); }
+}
+
+async function loadUsers(){
+  if(!SB||SB_MODE!=='online'){
+    document.getElementById('users-tbody').innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Connexion Supabase requise</td></tr>';
+    return;
+  }
+  try {
+    const {data,error}=await SB.from('utilisateurs').select('*').order('created_at',{ascending:false});
+    if(error){ console.warn(error.message); return; }
+    const roleColors={admin:'badge-purple',responsable:'badge-info',technicien:'badge-ok'};
+    const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien'};
+    const coNames={A:'Sarl Ocetra',B:'Énergie Île SAS'};
+    let html='';
+    (data||[]).forEach(u=>{
+      const date=u.created_at?new Date(u.created_at).toLocaleDateString('fr-FR'):'—';
+      const isSelf=SB_USER&&u.id===SB_USER.id;
+      html+=`<tr>
+        <td style="font-weight:500">${u.nom||'—'}${isSelf?' <span style="font-size:10px;color:var(--text3)">(moi)</span>':''}</td>
+        <td>${u.email||'—'}</td>
+        <td>${coNames[u.entreprise_id]||u.entreprise_id||'—'}</td>
+        <td><span class="badge ${roleColors[u.role]||'badge-info'}">${roleLabels[u.role]||u.role||'—'}</span></td>
+        <td>${date}</td>
+        <td style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="openModalRole('${u.id}','${u.email}','${u.role||'technicien'}')">✏️ Rôle</button>
+          ${!isSelf?`<button class="btn btn-sm btn-danger" onclick="supprimerUtilisateur('${u.id}','${u.email}')">🗑</button>`:''}
+        </td>
+      </tr>`;
+    });
+    if(!html) html='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Aucun utilisateur trouvé</td></tr>';
+    document.getElementById('users-tbody').innerHTML=html;
+    // KPIs
+    const total=(data||[]).length;
+    const admins=(data||[]).filter(u=>u.role==='admin').length;
+    const resps=(data||[]).filter(u=>u.role==='responsable').length;
+    const techs=(data||[]).filter(u=>u.role==='technicien').length;
+    document.getElementById('user-total-kpi').textContent=total;
+    document.getElementById('user-admin-kpi').textContent=admins;
+    document.getElementById('user-resp-kpi').textContent=resps;
+    document.getElementById('user-tech-kpi').textContent=techs;
+  } catch(e){ console.warn(e.message); }
+}
+
+async function loadInvitationCodes(){
+  if(!SB||SB_MODE!=='online') return;
+  try {
+    const {data,error}=await SB.from('invitation_codes').select('*').order('created_at',{ascending:false}).limit(20);
+    if(error) return;
+    const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien'};
+    const coNames={A:'Sarl Ocetra',B:'Énergie Île SAS'};
+    let html='';
+    (data||[]).forEach(c=>{
+      const statut=c.used?`<span class="badge badge-warn">Utilisé</span>`:`<span class="badge badge-ok">Disponible</span>`;
+      html+=`<tr>
+        <td style="font-weight:700;letter-spacing:1px;color:var(--teal)">${c.code}</td>
+        <td>${roleLabels[c.role]||c.role||'—'}</td>
+        <td>${coNames[c.entreprise_id]||'—'}</td>
+        <td>${statut}</td>
+        <td style="font-size:11px;color:var(--text3)">${c.used_by||'—'}</td>
+        <td>${!c.used?`<button class="btn btn-sm btn-danger" onclick="supprimerCode('${c.id}')">🗑</button>`:''}</td>
+      </tr>`;
+    });
+    if(!html) html='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Aucun code</td></tr>';
+    document.getElementById('codes-tbody').innerHTML=html;
+  } catch(e){}
+}
+
+function openModalRole(id,email,role){
+  document.getElementById('role-user-id').value=id;
+  document.getElementById('role-user-email').textContent=email;
+  document.getElementById('role-select').value=role;
+  document.getElementById('modal-role').classList.add('open');
+}
+
+async function saveUserRole(){
+  if(!SB||SB_MODE!=='online') return;
+  const id=document.getElementById('role-user-id').value;
+  const role=document.getElementById('role-select').value;
+  try {
+    const {error}=await SB.from('utilisateurs').update({role}).eq('id',id);
+    if(error){ alert('Erreur : '+error.message); return; }
+    closeModal('modal-role');
+    loadUsers();
+  } catch(e){ alert('Erreur : '+e.message); }
+}
+
+async function supprimerUtilisateur(id,email){
+  if(!confirm(`Supprimer le compte ${email} ? Cette action est irréversible.`)) return;
+  if(!SB||SB_MODE!=='online') return;
+  try {
+    await SB.from('utilisateurs').delete().eq('id',id);
+    loadUsers();
+  } catch(e){ alert('Erreur : '+e.message); }
+}
+
+async function supprimerCode(id){
+  if(!confirm('Supprimer ce code d\'invitation ?')) return;
+  if(!SB||SB_MODE!=='online') return;
+  try {
+    await SB.from('invitation_codes').delete().eq('id',id);
+    loadInvitationCodes();
+  } catch(e){ alert('Erreur : '+e.message); }
+}
+
+
 function toggleExportMenu(){
   const m=document.getElementById('export-menu');
   m.style.display=m.style.display==='none'?'block':'none';
