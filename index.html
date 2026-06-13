@@ -3205,7 +3205,8 @@ function exportPDF(type){
 }
 
 function buildPDFHeader(co,coInfo,now){
-  const logoHtml=co.logo?`<img src="${co.logo}" style="height:56px;width:56px;object-fit:contain;border-radius:8px" alt="logo">`:`<div style="width:56px;height:56px;background:${coInfo.color};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff">${coInfo.icon}</div>`;
+  const logo = coInfo.logo || co.logo || '';
+  const logoHtml=logo?`<img src="${logo}" style="height:56px;width:56px;object-fit:contain;border-radius:8px" alt="logo">`:`<div style="width:56px;height:56px;background:${coInfo.color};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff">${coInfo.icon}</div>`;
   return `<div style="display:flex;align-items:center;gap:18px;padding:16px 0 16px;border-bottom:3px solid ${coInfo.color};margin-bottom:20px">
     ${logoHtml}
     <div style="flex:1">
