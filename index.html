@@ -1570,7 +1570,7 @@ const PAGE_NEW_FN = {
   maintenance:()=>openOTModal(),
   pieces:     ()=>openPieceModal(),
   stock:      ()=>openPieceModal(),
-  fournisseurs:()=>{},
+  fournisseurs:()=>openFournModal(),
   commandes:  ()=>openBDCModal(),
   transport:  ()=>openBDCModal(),
   couts:      ()=>{},
@@ -1586,7 +1586,7 @@ function showPage(id,el){
   const titles={dashboard:'Tableau de bord',materiels:'Matériels',maintenance:'Maintenance',pieces:'Pièces détachées',stock:'Gestion de stock',fournisseurs:'Fournisseurs',commandes:'Bons de commande',transport:'Transport & Douanes',couts:"Coûts d'entretien",rapports:'Rapports',parametres:'Paramètres',utilisateurs:'Utilisateurs'};
   if(id==='utilisateurs'){ loadUsers(); loadInvitationCodes(); }
   document.getElementById('page-title').textContent=titles[id]||id;
-  document.getElementById('topbar-new').style.display=['parametres','couts','rapports','fournisseurs','utilisateurs'].includes(id)?'none':'';
+  document.getElementById('topbar-new').style.display=['parametres','couts','rapports','utilisateurs'].includes(id)?'none':'';
   currentPage=id;
   if(SB_PROFILE) applyPageRole(id);
 }
@@ -2768,8 +2768,8 @@ function initSupabase(){
     SB_MODE = 'online';
     setSbStatus('online','Connexion Supabase...');
     checkSession();
-    SB.auth.onAuthStateChange(async (ev, session)=>{
-      if(ev==='SIGNED_IN' && session?.user) await afterLogin(session.user);
+    SB.auth.onAuthStateChange((ev, session)=>{
+      if(ev==='SIGNED_IN' && session?.user) setTimeout(()=>afterLogin(session.user),0);
       if(ev==='SIGNED_OUT'){ document.getElementById('login-screen').classList.remove('hidden'); setSbStatus('offline','Déconnecté'); }
     });
   } catch(e){ setSbStatus('error','Erreur : '+e.message); }
@@ -2824,7 +2824,7 @@ async function doLoginSupabase(){
   setLoginMsg('Connexion...','var(--text3)');
   const {data,error}=await SB.auth.signInWithPassword({email,password:pass});
   if(error){ setLoginMsg(error.message,'var(--red)'); return; }
-  await afterLogin(data.user);
+  // afterLogin est déclenché via onAuthStateChange (SIGNED_IN), différé pour éviter un deadlock du client Supabase
 }
 
 async function doRegister(){
