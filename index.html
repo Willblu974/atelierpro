@@ -2921,11 +2921,16 @@ async function checkSession(){
 
 async function afterLogin(user){
   SB_USER=user;
-  const {data:profile}=await SB.from('profiles').select('*').eq('id',user.id).single();
-  SB_PROFILE=profile;
-  const coId=profile?.entreprise_id||'A';
+  let profile=null;
+  try {
+    const {data,error}=await SB.from('utilisateurs').select('*').eq('id',user.id).maybeSingle();
+    if(error) console.warn('Profil:',error.message);
+    profile=data;
+  } catch(e){ console.warn('Profil erreur:',e.message); }
+  SB_PROFILE=profile||{nom:user.email,role:'technicien',entreprise_id:'A'};
+  const coId=SB_PROFILE.entreprise_id||'A';
   currentCompany=coId; selectedLogin=coId;
-  updateUserBadge(user.email,profile);
+  updateUserBadge(user.email,SB_PROFILE);
   await loadFromSupabase();
   enterApp();
 }
