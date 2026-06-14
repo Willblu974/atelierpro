@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AtelierPro — Gestion multi-entreprises</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0efe9;--border:#e2e0d8;--text:#1a1917;--text2:#5c5a54;--text3:#9c9a94;--teal:#0f6e56;--teal-light:#e1f5ee;--teal-mid:#1d9e75;--amber:#854f0b;--amber-light:#faeeda;--amber-mid:#ba7517;--red:#a32d2d;--red-light:#fcebeb;--blue:#185fa5;--blue-light:#e6f1fb;--purple:#534ab7;--purple-light:#eeedfe;--green:#3b6d11;--green-light:#eaf3de;--company-color:#0f6e56;--radius:8px;--radius-lg:12px;--sidebar-w:230px;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -357,6 +358,8 @@ textarea{resize:vertical;min-height:80px;}
       <div style="display:flex;gap:10px;margin-bottom:16px">
         <input type="text" id="pc-search" placeholder="Référence, désignation..." style="max-width:260px" oninput="renderPiecesTable()">
         <select id="pc-st-filter" onchange="renderPiecesTable()" style="max-width:160px"><option value="">Tous niveaux</option><option value="alert">Rupture</option><option value="warn">Stock bas</option><option value="ok">OK</option></select>
+        <div style="flex:1"></div>
+        <button class="btn btn-sm btn-edit" onclick="openImportPiecesModal()">📥 Importer un fichier</button>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilités matériels</th><th>Prix unit.</th><th>Stock</th><th>Seuil min</th><th></th></tr></thead><tbody id="pieces-tbody"></tbody></table></div></div>
     </div>
@@ -726,6 +729,43 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-group full"><label>Notes</label><textarea id="pc-f-notes" placeholder="Fournisseur préféré, délai, substituts..."></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-piece')">Annuler</button><button class="btn btn-primary" onclick="savePiece()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- MODAL IMPORT PIECES -->
+<div class="modal-bg" id="modal-import-pieces">
+  <div class="modal">
+    <div class="modal-header"><strong>Importer des pièces détachées</strong><button class="btn btn-sm" onclick="closeModal('modal-import-pieces')">&#10005;</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div class="alert alert-info" style="margin-bottom:0">
+        Fichier <strong>Excel (.xlsx/.xls)</strong> ou <strong>CSV</strong> (séparateur <code>;</code>), avec en-tête sur la première ligne. Colonnes attendues :<br>
+        <strong>Référence</strong> ; <strong>Désignation</strong> ; Compatibilités ; Prix unitaire ; <strong>Stock</strong> ; Seuil d'alerte ; Notes<br>
+        Seules <strong>Référence</strong>, <strong>Désignation</strong> et <strong>Stock</strong> sont obligatoires.
+      </div>
+      <div>
+        <button class="btn btn-sm" onclick="downloadPiecesTemplate()">⬇️ Télécharger un modèle CSV</button>
+      </div>
+      <div class="form-group">
+        <label>Fichier Excel ou CSV</label>
+        <input type="file" id="import-pieces-file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="handleImportPiecesFile(this)">
+      </div>
+      <div id="import-pieces-preview" style="display:none">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px" id="import-pieces-summary"></div>
+        <div class="card" style="max-height:240px;overflow:auto">
+          <div class="card-body" style="padding:0">
+            <table style="font-size:12px">
+              <thead><tr><th>Référence</th><th>Désignation</th><th>Compat.</th><th>Prix</th><th>Stock</th><th>Seuil</th></tr></thead>
+              <tbody id="import-pieces-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="import-pieces-errors" style="display:none" class="alert alert-danger"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-import-pieces')">Annuler</button>
+      <button class="btn btn-primary" id="import-pieces-confirm" onclick="confirmImportPieces()" disabled>Importer</button>
+    </div>
   </div>
 </div>
 
@@ -1857,6 +1897,195 @@ function deletePiece(id){
   if(!confirm('Supprimer cette pièce ?'))return;
   state[currentCompany].pieces=state[currentCompany].pieces.filter(p=>p.id!==id&&p.ref!==id);
   saveToStorage(); renderPieces(COMPANIES[currentCompany]);
+}
+
+/* ── IMPORT CSV DE PIECES DETACHEES ──────────────────────── */
+let importedPiecesData = [];
+
+function openImportPiecesModal(){
+  importedPiecesData = [];
+  const fileInput = document.getElementById('import-pieces-file');
+  if(fileInput) fileInput.value = '';
+  document.getElementById('import-pieces-preview').style.display = 'none';
+  document.getElementById('import-pieces-errors').style.display = 'none';
+  document.getElementById('import-pieces-confirm').disabled = true;
+  document.getElementById('modal-import-pieces').classList.add('open');
+}
+
+function downloadPiecesTemplate(){
+  downloadCSV('modele_import_pieces.csv',
+    ['Référence','Désignation','Compatibilités','Prix unitaire','Stock','Seuil alerte','Notes'],
+    [
+      ['FH-002','Filtre hydraulique','EN-01, EN-12','24.90','12','5','Référence constructeur XYZ'],
+      ['JT-014','Joint torique 25mm','EN-03','1.20','150','30','']
+    ]
+  );
+}
+
+// Parseur CSV simple : détecte ; ou , comme séparateur, gère les guillemets
+function parseCSVText(text){
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const firstLine = text.split('\n')[0]||'';
+  const delim = (firstLine.split(';').length >= firstLine.split(',').length) ? ';' : ',';
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c==='"'){
+        if(text[i+1]==='"'){ field+='"'; i++; } else { inQuotes=false; }
+      } else field += c;
+    } else {
+      if(c==='"') inQuotes = true;
+      else if(c===delim){ row.push(field); field=''; }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else field += c;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+
+function normalizeHeader(h){
+  return String(h||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // retire les accents
+}
+
+function handleImportPiecesFile(input){
+  const file = input.files && input.files[0];
+  const preview = document.getElementById('import-pieces-preview');
+  const errorsBox = document.getElementById('import-pieces-errors');
+  const confirmBtn = document.getElementById('import-pieces-confirm');
+  preview.style.display='none'; errorsBox.style.display='none'; confirmBtn.disabled=true;
+  importedPiecesData = [];
+  if(!file) return;
+
+  const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+  const reader = new FileReader();
+
+  reader.onload = (e)=>{
+    let rows;
+    try {
+      if(isExcel){
+        if(typeof XLSX==='undefined'){
+          errorsBox.style.display='block';
+          errorsBox.textContent = "La librairie de lecture Excel n'a pas pu être chargée. Vérifiez votre connexion internet ou utilisez un fichier CSV.";
+          return;
+        }
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+        rows = raw.map(r=>r.map(c=>c==null?'':String(c)));
+      } else {
+        rows = parseCSVText(String(e.target.result||''));
+      }
+    } catch(err){
+      errorsBox.style.display='block';
+      errorsBox.textContent = "Impossible de lire le fichier : "+err.message;
+      return;
+    }
+    processImportedRows(rows, preview, errorsBox, confirmBtn);
+  };
+
+  if(isExcel) reader.readAsArrayBuffer(file);
+  else reader.readAsText(file, 'UTF-8');
+}
+
+function processImportedRows(rows, preview, errorsBox, confirmBtn){
+    if(rows.length<2){
+      errorsBox.style.display='block';
+      errorsBox.textContent = "Fichier vide ou illisible (aucune ligne de données trouvée).";
+      return;
+    }
+    const headers = rows[0].map(normalizeHeader);
+    const colIndex = (...names)=>{
+      for(const n of names){ const i = headers.findIndex(h=>h.includes(n)); if(i>=0) return i; }
+      return -1;
+    };
+    const iRef    = colIndex('reference','ref');
+    const iNom    = colIndex('designation','nom');
+    const iCompat = colIndex('compat');
+    const iPrix   = colIndex('prix');
+    const iStock  = colIndex('stock');
+    const iSeuil  = colIndex('seuil');
+    const iNotes  = colIndex('notes');
+
+    if(iRef<0 || iNom<0 || iStock<0){
+      errorsBox.style.display='block';
+      errorsBox.textContent = "Colonnes obligatoires manquantes. Le fichier doit contenir au minimum : Référence, Désignation et Stock.";
+      return;
+    }
+
+    const existingRefs = new Set((state[currentCompany].pieces||[]).map(p=>p.ref));
+    const errors = [];
+    const data = [];
+    rows.slice(1).forEach((r,idx)=>{
+      const ref  = (r[iRef]||'').trim();
+      const nom  = (r[iNom]||'').trim();
+      const stockRaw = (r[iStock]||'').trim();
+      if(!ref || !nom){ errors.push(`Ligne ${idx+2} : Référence ou Désignation manquante — ignorée.`); return; }
+      const stock = parseInt(stockRaw.replace(',','.'))||0;
+      const seuil = iSeuil>=0 ? (parseInt((r[iSeuil]||'').replace(',','.'))||0) : 0;
+      const prixNum = iPrix>=0 ? parseFloat((r[iPrix]||'').replace(',','.')) : NaN;
+      data.push({
+        ref, nom,
+        compat: iCompat>=0 ? (r[iCompat]||'').trim() : '',
+        prix: !isNaN(prixNum) ? prixNum : null,
+        stock, seuil,
+        notes: iNotes>=0 ? (r[iNotes]||'').trim() : '',
+        update: existingRefs.has(ref)
+      });
+    });
+
+    importedPiecesData = data;
+
+    if(errors.length){
+      errorsBox.style.display='block';
+      errorsBox.innerHTML = errors.slice(0,10).map(e=>`<div>${e}</div>`).join('') + (errors.length>10?`<div>… et ${errors.length-10} autre(s).</div>`:'');
+    }
+
+    if(data.length){
+      const nbNew = data.filter(d=>!d.update).length;
+      const nbMaj = data.filter(d=>d.update).length;
+      document.getElementById('import-pieces-summary').textContent =
+        `${data.length} pièce(s) détectée(s) — ${nbNew} nouvelle(s), ${nbMaj} mise(s) à jour (référence existante).`;
+      document.getElementById('import-pieces-tbody').innerHTML = data.map(d=>`<tr>
+          <td><strong>${d.ref}</strong>${d.update?' <span class="badge badge-info" style="font-size:9px">MAJ</span>':''}</td>
+          <td>${d.nom}</td>
+          <td style="font-size:11px">${d.compat||'—'}</td>
+          <td>${d.prix!=null?d.prix.toFixed(2)+' €':'—'}</td>
+          <td>${d.stock}</td>
+          <td>${d.seuil}</td>
+        </tr>`).join('');
+      preview.style.display='block';
+      confirmBtn.disabled=false;
+    }
+}
+
+async function confirmImportPieces(){
+  if(!importedPiecesData.length) return;
+  const pieces = state[currentCompany].pieces;
+  let nbNew=0, nbMaj=0;
+  for(const d of importedPiecesData){
+    const rec = {
+      id: d.ref, ref: d.ref, nom: d.nom, compat: d.compat,
+      prix: d.prix!=null ? d.prix.toFixed(2)+' €' : '—',
+      stock: d.stock, seuil: d.seuil,
+      st: d.stock===0?'alert':d.stock<=d.seuil?'warn':'ok',
+      notes: d.notes
+    };
+    const idx = pieces.findIndex(p=>p.ref===d.ref);
+    if(idx>=0){ pieces[idx]={...pieces[idx],...rec}; nbMaj++; }
+    else { pieces.push(rec); nbNew++; }
+    if(SB&&SB_MODE==='online'){
+      await saveToSupabase('pieces',{id:rec.id,entreprise_id:currentCompany,ref:rec.ref,nom:rec.nom,compat:rec.compat,prix:d.prix,stock:rec.stock,seuil:rec.seuil,notes:rec.notes});
+    }
+  }
+  saveToStorage();
+  closeModal('modal-import-pieces');
+  renderPieces(COMPANIES[currentCompany]);
+  renderStock(COMPANIES[currentCompany], state[currentCompany]);
+  alert(`Import terminé : ${nbNew} pièce(s) ajoutée(s), ${nbMaj} mise(s) à jour.`);
 }
 
 /* ── MOUVEMENTS DE STOCK ─────────────────────────────────── */
