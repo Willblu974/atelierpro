@@ -47,6 +47,11 @@ nav{flex:1;padding:8px 0;overflow-y:auto;}
 .btn-danger{background:var(--red-light);color:var(--red);border-color:#f7c1c1;}
 .btn-danger:hover{background:var(--red);color:#fff;}
 .btn-danger:disabled{opacity:.4;cursor:not-allowed;}
+/* Mode lecture seule (rôle Responsable) : masque toutes les actions de création/édition/suppression,
+   sauf la déconnexion et la suppression de son propre compte */
+body.role-readonly .btn-edit{display:none !important;}
+body.role-readonly .btn-danger:not(#btn-logout):not(#btn-delete-account){display:none !important;}
+.param-edit-control:disabled{background:var(--surface2);color:var(--text3);cursor:not-allowed;}
 .btn-sm{padding:4px 10px;font-size:12px;}
 #content{flex:1;overflow-y:auto;padding:24px;}
 .switch-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:150;align-items:center;justify-content:center;}
@@ -500,19 +505,19 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div class="card" style="margin-bottom:20px">
         <div class="card-header"><strong>Informations de l'entreprise</strong></div>
-        <div class="form-grid">
-          <div class="form-group"><label>Nom de l'entreprise</label><input id="co-name-input" oninput="saveCoInfo()"></div>
-          <div class="form-group"><label>Secteur d'activit&eacute;</label><input id="co-sector-input" oninput="saveCoInfo()"></div>
-          <div class="form-group"><label>T&eacute;l&eacute;phone</label><input id="co-tel-input" placeholder="+262 262 XX XX XX" oninput="saveCoInfo()"></div>
-          <div class="form-group"><label>Responsable atelier</label><input id="co-resp-input" oninput="saveCoInfo()"></div>
-          <div class="form-group full"><label>Adresse postale</label><textarea id="co-adresse-input" placeholder="N&deg; rue&#10;Code postal Ville&#10;Île de la Réunion" oninput="saveCoInfo()" rows="3" style="resize:vertical;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);width:100%;color:var(--text);background:var(--surface)"></textarea></div>
+        <div class="form-grid" id="co-info-form">
+          <div class="form-group"><label>Nom de l'entreprise</label><input id="co-name-input" class="param-edit-control" oninput="saveCoInfo()"></div>
+          <div class="form-group"><label>Secteur d'activité</label><input id="co-sector-input" class="param-edit-control" oninput="saveCoInfo()"></div>
+          <div class="form-group"><label>Téléphone</label><input id="co-tel-input" class="param-edit-control" placeholder="+262 262 XX XX XX" oninput="saveCoInfo()"></div>
+          <div class="form-group"><label>Responsable atelier</label><input id="co-resp-input" class="param-edit-control" oninput="saveCoInfo()"></div>
+          <div class="form-group full"><label>Adresse postale</label><textarea id="co-adresse-input" class="param-edit-control" placeholder="N&deg; rue&#10;Code postal Ville&#10;Île de la Réunion" oninput="saveCoInfo()" rows="3" style="resize:vertical;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:var(--radius);width:100%;color:var(--text);background:var(--surface)"></textarea></div>
           <div class="form-group full" style="padding-bottom:0">
             <label>Logo de l'entreprise (jpg/png)</label>
             <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
               <div id="co-logo-preview" style="width:64px;height:64px;border-radius:10px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--surface2);overflow:hidden;flex-shrink:0"></div>
               <div style="display:flex;flex-direction:column;gap:6px">
                 <input type="file" id="co-logo-input" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
-                <button class="btn btn-sm" onclick="document.getElementById('co-logo-input').click()">&#128193; Choisir une image</button>
+                <button class="btn btn-sm btn-edit" id="co-logo-choose" onclick="document.getElementById('co-logo-input').click()">&#128193; Choisir une image</button>
                 <button class="btn btn-sm btn-danger" onclick="removeLogo()" id="co-logo-remove" style="display:none">&#128465; Supprimer le logo</button>
               </div>
             </div>
@@ -521,11 +526,11 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div class="param-grid">
         <div class="param-card">
-          <div class="param-header"><span class="param-title">Familles de mat&eacute;riels</span><button class="btn btn-primary btn-sm" onclick="openFamilleModal()">+ Ajouter</button></div>
+          <div class="param-header"><span class="param-title">Familles de mat&eacute;riels</span><button class="btn btn-primary btn-sm btn-edit" onclick="openFamilleModal()">+ Ajouter</button></div>
           <div class="param-list" id="famille-list"></div>
         </div>
         <div class="param-card">
-          <div class="param-header"><span class="param-title">Statuts personnalis&eacute;s</span><button class="btn btn-primary btn-sm" onclick="openStatutModal()">+ Ajouter</button></div>
+          <div class="param-header"><span class="param-title">Statuts personnalis&eacute;s</span><button class="btn btn-primary btn-sm btn-edit" onclick="openStatutModal()">+ Ajouter</button></div>
           <div class="param-list" id="statut-list"></div>
         </div>
       </div>
@@ -540,13 +545,13 @@ textarea{resize:vertical;min-height:80px;}
       <div class="card" style="margin-top:20px">
         <div class="card-header"><strong>&#128276; Notifications par email</strong></div>
         <div class="card-body" style="padding:16px 18px">
-          <div class="form-grid">
-            <div class="form-group"><label>Adresse email destinataire</label><input id="notif-email" type="email" placeholder="responsable@entreprise.re" oninput="saveNotifConfig()"></div>
-            <div class="form-group"><label>Cl&eacute; API Resend</label><input id="notif-apikey" type="password" placeholder="re_xxxxxxxxxxxx" oninput="saveNotifConfig()"></div>
-            <div class="form-group"><label>Email exp&eacute;diteur (domaine v&eacute;rifi&eacute; sur Resend)</label><input id="notif-from" placeholder="alertes@votredomaine.com" oninput="saveNotifConfig()"></div>
-            <div class="form-group"><label>V&eacute;rification automatique (heures)</label>
-              <select id="notif-interval" onchange="saveNotifConfig();startNotifTimer()">
-                <option value="0">D&eacute;sactiv&eacute;</option>
+          <div class="form-grid" id="notif-config-form">
+            <div class="form-group"><label>Adresse email destinataire</label><input id="notif-email" class="param-edit-control" type="email" placeholder="responsable@entreprise.re" oninput="saveNotifConfig()"></div>
+            <div class="form-group"><label>Clé API Resend</label><input id="notif-apikey" class="param-edit-control" type="password" placeholder="re_xxxxxxxxxxxx" oninput="saveNotifConfig()"></div>
+            <div class="form-group"><label>Email expéditeur (domaine vérifié sur Resend)</label><input id="notif-from" class="param-edit-control" placeholder="alertes@votredomaine.com" oninput="saveNotifConfig()"></div>
+            <div class="form-group"><label>Vérification automatique (heures)</label>
+              <select id="notif-interval" class="param-edit-control" onchange="saveNotifConfig();startNotifTimer()">
+                <option value="0">Désactivé</option>
                 <option value="1">Toutes les heures</option>
                 <option value="6">Toutes les 6 heures</option>
                 <option value="12">Toutes les 12 heures</option>
@@ -555,8 +560,8 @@ textarea{resize:vertical;min-height:80px;}
             </div>
           </div>
           <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm" onclick="sendAlertEmail(true)">&#9993; Envoyer rapport d'alertes maintenant</button>
-            <button class="btn btn-sm" onclick="previewAlerts()">&#128064; Pr&eacute;visualiser les alertes</button>
+            <button class="btn btn-primary btn-sm btn-edit" onclick="sendAlertEmail(true)">&#9993; Envoyer rapport d'alertes maintenant</button>
+            <button class="btn btn-sm" onclick="previewAlerts()">&#128064; Prévisualiser les alertes</button>
             <span id="notif-status" style="font-size:12px;color:var(--text3)"></span>
           </div>
           <div id="notif-preview" style="display:none;margin-top:14px;background:var(--surface2);border-radius:var(--radius);padding:14px;font-size:13px"></div>
@@ -571,7 +576,7 @@ textarea{resize:vertical;min-height:80px;}
 <div class="page" id="page-utilisateurs">
   <div class="section-header">
     <div class="section-title">👥 Gestion des utilisateurs</div>
-    <button class="btn btn-primary btn-sm" onclick="openModalInvitation()">+ Générer un code d'invitation</button>
+    <button class="btn btn-primary btn-sm btn-edit" onclick="openModalInvitation()">+ Générer un code d'invitation</button>
   </div>
 
   <!-- Stats -->
@@ -701,7 +706,7 @@ textarea{resize:vertical;min-height:80px;}
       <button class="btn btn-danger btn-sm" id="ot-detail-delete-btn">🗑 Supprimer</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-ot-detail')">Fermer</button>
-      <button class="btn btn-primary" id="ot-detail-edit-btn">✏️ Modifier</button>
+      <button class="btn btn-primary btn-edit" id="ot-detail-edit-btn">✏️ Modifier</button>
     </div>
   </div>
 </div>
@@ -781,7 +786,7 @@ textarea{resize:vertical;min-height:80px;}
       <button class="btn btn-danger btn-sm" id="bdc-detail-delete-btn">🗑 Supprimer</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-bdc-detail')">Fermer</button>
-      <button class="btn btn-primary" id="bdc-detail-edit-btn">✏️ Modifier</button>
+      <button class="btn btn-primary btn-edit" id="bdc-detail-edit-btn">✏️ Modifier</button>
     </div>
   </div>
 </div>
@@ -827,8 +832,8 @@ textarea{resize:vertical;min-height:80px;}
       <button class="btn btn-danger btn-sm" id="fourn-detail-delete-btn">🗑 Supprimer</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-fourn-detail')">Fermer</button>
-      <button class="btn btn-sm" onclick="closeModal('modal-fourn-detail');openBDCModal()" style="margin-right:8px">+ BDC</button>
-      <button class="btn btn-primary" id="fourn-detail-edit-btn">✏️ Modifier</button>
+      <button class="btn btn-sm btn-edit" onclick="closeModal('modal-fourn-detail');openBDCModal()" style="margin-right:8px">+ BDC</button>
+      <button class="btn btn-primary btn-edit" id="fourn-detail-edit-btn">✏️ Modifier</button>
     </div>
   </div>
 </div>
@@ -872,7 +877,7 @@ textarea{resize:vertical;min-height:80px;}
       <button class="btn btn-danger btn-sm" id="detail-delete-btn">🗑 Supprimer</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-mat-detail')">Fermer</button>
-      <button class="btn btn-primary" id="detail-edit-btn">✏️ Modifier</button>
+      <button class="btn btn-primary btn-edit" id="detail-edit-btn">✏️ Modifier</button>
     </div>
   </div>
 </div>
@@ -1124,7 +1129,7 @@ function renderMatTable(co, st){
         <td>${m.cout}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
-          <button class="btn btn-sm" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
+          <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
         </td>
       </tr>`).join('')
@@ -1210,12 +1215,12 @@ function removeLogo(){
 function renderFamilleList(st){
   const el=document.getElementById('famille-list');
   if(!st.familles.length){el.innerHTML='<div class="param-empty">Aucune famille &mdash; cliquez sur + Ajouter</div>';return;}
-  el.innerHTML=st.familles.map(f=>`<div class="param-item"><div style="width:32px;height:32px;border-radius:6px;background:${f.color.bg};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${f.icon}</div><div class="param-item-info"><div class="param-item-name">${f.name}</div><div class="param-item-meta">${f.desc||'—'}</div></div><button class="btn btn-sm" onclick="editFamille('${f.id}')" style="margin-right:4px">&#9998;</button><button class="btn btn-sm btn-danger" onclick="deleteFamille('${f.id}')"${f.system?' disabled title="Famille système"':''}>&#128465;</button></div>`).join('');
+  el.innerHTML=st.familles.map(f=>`<div class="param-item"><div style="width:32px;height:32px;border-radius:6px;background:${f.color.bg};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${f.icon}</div><div class="param-item-info"><div class="param-item-name">${f.name}</div><div class="param-item-meta">${f.desc||'—'}</div></div><button class="btn btn-sm btn-edit" onclick="editFamille('${f.id}')" style="margin-right:4px">&#9998;</button><button class="btn btn-sm btn-danger" onclick="deleteFamille('${f.id}')"${f.system?' disabled title="Famille système"':''}>&#128465;</button></div>`).join('');
 }
 function renderStatutList(st){
   const el=document.getElementById('statut-list');
   if(!st.statuts.length){el.innerHTML='<div class="param-empty">Aucun statut &mdash; cliquez sur + Ajouter</div>';return;}
-  el.innerHTML=st.statuts.map(s=>`<div class="param-item"><span class="badge" style="background:${s.color.bg};color:${s.color.text};min-width:90px;justify-content:center">${s.icon||''} ${s.name}</span><div class="param-item-info" style="margin-left:10px"><div class="param-item-meta">${s.desc||'—'}${s.system?' &middot; <em>Syst&egrave;me</em>':''}</div></div><button class="btn btn-sm" onclick="editStatut('${s.id}')" style="margin-right:4px">&#9998;</button><button class="btn btn-sm btn-danger" onclick="deleteStatut('${s.id}')"${s.system?' disabled title="Statut système"':''}>&#128465;</button></div>`).join('');
+  el.innerHTML=st.statuts.map(s=>`<div class="param-item"><span class="badge" style="background:${s.color.bg};color:${s.color.text};min-width:90px;justify-content:center">${s.icon||''} ${s.name}</span><div class="param-item-info" style="margin-left:10px"><div class="param-item-meta">${s.desc||'—'}${s.system?' &middot; <em>Syst&egrave;me</em>':''}</div></div><button class="btn btn-sm btn-edit" onclick="editStatut('${s.id}')" style="margin-right:4px">&#9998;</button><button class="btn btn-sm btn-danger" onclick="deleteStatut('${s.id}')"${s.system?' disabled title="Statut système"':''}>&#128465;</button></div>`).join('');
 }
 function renderPreview(st){
   document.getElementById('preview-familles').innerHTML='<span style="font-size:12px;color:var(--text3);margin-right:6px;line-height:28px">Familles :</span>'+st.familles.map(f=>`<span class="chip"><span class="chip-dot" style="background:${f.color.text}"></span>${f.icon} ${f.name}</span>`).join('');
@@ -1647,7 +1652,7 @@ function renderOTTable(){
           <td>${o.dur||'—'}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm" onclick="openOTDetail('${o.id}')">Voir</button>
-            <button class="btn btn-sm" onclick="openOTEdit('${o.id}')" style="margin-left:4px">✏️</button>
+            <button class="btn btn-sm btn-edit" onclick="openOTEdit('${o.id}')" style="margin-left:4px">✏️</button>
             <button class="btn btn-sm btn-danger" onclick="deleteOT('${o.id}')" style="margin-left:4px">🗑</button>
           </td>
         </tr>`;
@@ -1803,7 +1808,7 @@ function renderPiecesTable(){
           <td>${p.seuil}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm" onclick="openMvtModal('${p.ref}')" title="Mouvement stock">📦</button>
-            <button class="btn btn-sm" onclick="openPieceEdit('${p.ref}')" style="margin-left:4px">✏️</button>
+            <button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref}')" style="margin-left:4px">✏️</button>
             <button class="btn btn-sm btn-danger" onclick="deletePiece('${p.ref}')" style="margin-left:4px">🗑</button>
           </td>
         </tr>`;
@@ -1961,7 +1966,7 @@ function renderBDCTable(){
           <td><span class="badge badge-${sm.css}">${sm.label}</span></td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm" onclick="openBDCDetail('${b.id}')">Voir</button>
-            <button class="btn btn-sm" onclick="openBDCEdit('${b.id}')" style="margin-left:4px">✏️</button>
+            <button class="btn btn-sm btn-edit" onclick="openBDCEdit('${b.id}')" style="margin-left:4px">✏️</button>
             <button class="btn btn-sm btn-danger" onclick="deleteBDC('${b.id}')" style="margin-left:4px">🗑</button>
           </td>
         </tr>`;
@@ -2215,7 +2220,7 @@ function renderFournisseursTable(){
           <td>${f.total||'—'}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm" onclick="openFournDetail('${f.id||f.nom}')">Voir</button>
-            <button class="btn btn-sm" onclick="openFournEdit('${f.id||f.nom}')" style="margin-left:4px">✏️</button>
+            <button class="btn btn-sm btn-edit" onclick="openFournEdit('${f.id||f.nom}')" style="margin-left:4px">✏️</button>
             <button class="btn btn-sm btn-danger" onclick="deleteFourn('${f.id||f.nom}')" style="margin-left:4px">🗑</button>
           </td>
         </tr>`;
@@ -2913,6 +2918,17 @@ async function doResetPassword(){
   else setLoginMsg('Email de réinitialisation envoyé !','var(--teal)');
 }
 
+// Réinitialisation du mot de passe d'un utilisateur par un admin :
+// envoie un email de réinitialisation à cet utilisateur (la clé publique
+// ne permet pas de modifier directement le mot de passe d'un tiers).
+async function adminResetPassword(email){
+  if(!SB||SB_MODE!=='online'){ alert('Connexion Supabase requise.'); return; }
+  if(!confirm(`Envoyer un email de réinitialisation de mot de passe à ${email} ?`)) return;
+  const {error}=await SB.auth.resetPasswordForEmail(email);
+  if(error) alert('Erreur : '+error.message);
+  else alert(`Email de réinitialisation envoyé à ${email}.`);
+}
+
 async function checkSession(){
   if(!SB) return;
   const {data:{session}}=await SB.auth.getSession();
@@ -2955,19 +2971,16 @@ function getUserRole(){
 function applyRoles(){
   const role = getUserRole();
 
+  // --- Mode lecture seule global pour Responsable ---
+  document.body.classList.toggle('role-readonly', role==='responsable');
+
   // --- Nav items ---
-  const nav = document.querySelectorAll('.nav-item');
-  // Coûts & Rapports : technicien n'y a pas accès
-  nav.forEach(n=>{
+  // Paramètres & Utilisateurs : inaccessibles uniquement pour Technicien
+  // (Admin et Responsable y ont accès — Responsable en lecture seule)
+  document.querySelectorAll('.nav-item').forEach(n=>{
     const txt = n.textContent.trim();
-    if(txt.includes("Coûts d'entretien") || txt.includes('Rapports')){
+    if(txt.includes('Paramètres') || txt.includes('Utilisateurs')){
       n.style.display = (role==='technicien') ? 'none' : '';
-    }
-    if(txt.includes('Paramètres')){
-      n.style.display = (role==='admin') ? '' : 'none';
-    }
-    if(txt.includes('Utilisateurs')){
-      n.style.display = (role==='admin') ? '' : 'none';
     }
   });
 
@@ -2994,45 +3007,33 @@ function applyPageRole(page){
   const role = getUserRole();
   const topbarNew = document.getElementById('topbar-new');
 
-  // Pages où technicien ne peut pas créer
-  const readOnlyForTech = ['materiels','fournisseurs','commandes','stock'];
-  // Pages où responsable ne peut pas créer
-  const readOnlyForResp = ['parametres'];
-  // Pages bloquées pour technicien
-  const blockedForTech = ['couts','rapports','parametres','utilisateurs'];
-  // Pages bloquées pour responsable
-  const blockedForResp = ['parametres','utilisateurs'];
-
+  // Pages totalement bloquées pour Technicien
+  const blockedForTech = ['parametres','utilisateurs'];
   if(role==='technicien' && blockedForTech.includes(page)){
     showPage('dashboard', document.querySelector('.nav-item'));
     return;
   }
-  if(role==='responsable' && blockedForResp.includes(page)){
-    showPage('dashboard', document.querySelector('.nav-item'));
-    return;
-  }
+  // Responsable : aucune page bloquée (accès en lecture à tout, y compris Paramètres/Utilisateurs)
+
+  // Pages où la création (+ Nouveau) a un sens et où Technicien peut créer
+  const createPages = ['materiels','maintenance','pieces','stock','fournisseurs','commandes','transport'];
 
   // Bouton + Nouveau
   if(topbarNew){
-    if(role==='technicien' && readOnlyForTech.includes(page)){
+    if(role==='responsable'){
+      // Lecture seule de tout : jamais de création
       topbarNew.style.display='none';
-    } else if(role==='responsable' && readOnlyForResp.includes(page)){
-      topbarNew.style.display='none';
-    } else if(role==='admin'){
-      topbarNew.style.display='';
+    } else if(role==='technicien'){
+      topbarNew.style.display = createPages.includes(page) ? '' : 'none';
     } else {
-      topbarNew.style.display='';
+      // Admin : accès complet (pages sans bouton "+ Nouveau" pertinent)
+      topbarNew.style.display = ['parametres','couts','rapports','utilisateurs'].includes(page)?'none':'';
     }
   }
 
-  // Boutons CRUD dans les tableaux (supprimer/modifier) pour technicien
-  if(role==='technicien'){
-    // Matériels : lecture seule
-    document.querySelectorAll('#mat-table .btn-danger, #mat-table .btn-edit').forEach(b=>b.style.display='none');
-    // Fournisseurs : lecture seule
-    document.querySelectorAll('#fourn-table .btn-danger, #fourn-table .btn-edit').forEach(b=>b.style.display='none');
-    // BDC : lecture seule
-    document.querySelectorAll('#bdc-table .btn-danger, #bdc-table .btn-edit').forEach(b=>b.style.display='none');
+  // Champs de configuration (Paramètres) : verrouillés en lecture seule pour Responsable
+  if(page==='parametres'){
+    document.querySelectorAll('.param-edit-control').forEach(el=>{ el.disabled = (role==='responsable'); });
   }
 }
 
@@ -3179,7 +3180,8 @@ async function loadUsers(){
         <td><span class="badge ${roleColors[u.role]||'badge-info'}">${roleLabels[u.role]||u.role||'—'}</span></td>
         <td>${date}</td>
         <td style="display:flex;gap:6px">
-          <button class="btn btn-sm" onclick="openModalRole('${u.id}','${u.email}','${u.role||'technicien'}')">✏️ Rôle</button>
+          <button class="btn btn-sm btn-edit" onclick="openModalRole('${u.id}','${u.email}','${u.role||'technicien'}')">✏️ Rôle</button>
+          <button class="btn btn-sm btn-edit" onclick="adminResetPassword('${u.email}')">🔑 MdP</button>
           ${!isSelf?`<button class="btn btn-sm btn-danger" onclick="supprimerUtilisateur('${u.id}','${u.email}')">🗑</button>`:''}
         </td>
       </tr>`;
@@ -3571,7 +3573,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" onclick="doLogout()">Se déconnecter</button>
+      <button class="btn btn-danger btn-sm" id="btn-logout" onclick="doLogout()">Se déconnecter</button>
       <div style="flex:1"></div>
       <button class="btn btn-danger btn-sm" onclick="doDeleteAccount()" id="btn-delete-account" style="background:var(--red);color:#fff;border-color:var(--red)">🗑 Supprimer le compte</button>
       <button class="btn" onclick="closeModal('modal-user-menu')">Fermer</button>
