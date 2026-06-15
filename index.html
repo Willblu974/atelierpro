@@ -1036,7 +1036,7 @@ const COMPANIES={
     rapport:[{m:'Déc.',pct:55,val:'15 200 €',color:'var(--teal-mid)'},{m:'Jan.',pct:48,val:'13 100 €',color:'var(--teal-mid)'},{m:'Fév.',pct:63,val:'17 400 €',color:'var(--teal-mid)'},{m:'Mar.',pct:70,val:'19 200 €',color:'var(--amber-mid)'},{m:'Avr.',pct:69,val:'19 100 €',color:'var(--amber-mid)'},{m:'Mai',pct:78,val:'21 470 €',color:'var(--red)',bold:true}],
     rapportTendance:'+41% sur 6 mois · Pic EN-12 en mai',badgeMaint:3,badgeStock:5
   },
-  B:{id:'B',name:'Énergie Île SAS',icon:'⚡',color:'#185fa5',sector:'Énergie & équipements électriques',adresse:'',tel:'',resp:'',logo:'',
+  B:{id:'B',name:'TSMOI',icon:'⚡',color:'#185fa5',sector:'Énergie & équipements électriques',adresse:'22 Rue Pierre Brossolette\nZAC Mascareignes Numéro 2\nLocal D20\n97420 LE PORT',tel:'',resp:'',logo:'',
     kpis:[{label:'Matériels actifs',val:'23',sub:'1 en maintenance',cls:'teal'},{label:'Valeur stock pièces',val:'142 K€',sub:'284 références',cls:'amber'},{label:'Alertes stock bas',val:'2',sub:'Réapprovisionnement requis',cls:'red'},{label:'BDC en cours',val:'4',sub:'1 en transit',cls:'blue'}],
     timeline:[{dot:'#185fa5',title:'Groupe élec. GE-120 — remplacement alternateur',meta:"Aujourd'hui · Karim D. · 4h"},{dot:'#185fa5',title:'Pompe PM-08 — révision annuelle',meta:'Hier · Sylvie M. · 3h30'},{dot:'#ba7517',title:'Onduleur ON-02 — batterie faible signalée',meta:'23/05 · Karim D.'},{dot:'#185fa5',title:'GE-45 — vidange + filtres 500h',meta:'21/05 · Eric T. · 2h'}],
     alerts:[{type:'warn',text:'<strong>Stock bas :</strong> Batterie 12V 150Ah (1 u. restante, seuil = 4)'},{type:'warn',text:'<strong>Maintenance due :</strong> GE-120 — révision 1000h dans 5 jours'},{type:'info',text:'<strong>Livraison attendue :</strong> BDC-2025-012 — arrivée prévue 30/05'}],
@@ -3406,7 +3406,7 @@ async function loadUsers(){
     if(error){ console.warn(error.message); return; }
     const roleColors={admin:'badge-purple',responsable:'badge-info',technicien:'badge-ok'};
     const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien'};
-    const coNames={A:'Sarl Ocetra',B:'Énergie Île SAS'};
+    const coNames={A:'Sarl Ocetra',B:'TSMOI'};
     let html='';
     (data||[]).forEach(u=>{
       const date=u.created_at?new Date(u.created_at).toLocaleDateString('fr-FR'):'—';
@@ -3444,7 +3444,7 @@ async function loadInvitationCodes(){
     const {data,error}=await SB.from('invitation_codes').select('*').order('created_at',{ascending:false}).limit(20);
     if(error) return;
     const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien'};
-    const coNames={A:'Sarl Ocetra',B:'Énergie Île SAS'};
+    const coNames={A:'Sarl Ocetra',B:'TSMOI'};
     let html='';
     (data||[]).forEach(c=>{
       const statut=c.used?`<span class="badge badge-warn">Utilisé</span>`:`<span class="badge badge-ok">Disponible</span>`;
