@@ -1015,10 +1015,10 @@ const ICONS=['🏗️','⚡','🚛','🔧','🔩','⚙️','🏭','🚜','🔋',
 const state={
   A:{
     familles:[
-      {id:'f1',name:'Engins BTP',desc:'Pelles, bulldozers, chargeuses',icon:'🏗️',color:COLOR_PRESETS[0],system:false},
-      {id:'f2',name:'Compresseurs',desc:'Compresseurs air & gaz',icon:'⚙️',color:COLOR_PRESETS[1],system:false},
-      {id:'f3',name:'Véhicules',desc:'Camions, fourgons, VL',icon:'🚛',color:COLOR_PRESETS[2],system:false},
-      {id:'f4',name:'Pompes',desc:'Pompes eau & fluides',icon:'💧',color:COLOR_PRESETS[5],system:false},
+      {id:'A-f1',name:'Engins BTP',desc:'Pelles, bulldozers, chargeuses',icon:'🏗️',color:COLOR_PRESETS[0],system:false},
+      {id:'A-f2',name:'Compresseurs',desc:'Compresseurs air & gaz',icon:'⚙️',color:COLOR_PRESETS[1],system:false},
+      {id:'A-f3',name:'Véhicules',desc:'Camions, fourgons, VL',icon:'🚛',color:COLOR_PRESETS[2],system:false},
+      {id:'A-f4',name:'Pompes',desc:'Pompes eau & fluides',icon:'💧',color:COLOR_PRESETS[5],system:false},
     ],
     statuts:[
       {id:'ok',name:'Actif',desc:'En service',color:COLOR_PRESETS[0],icon:'✅',system:true},
@@ -1029,10 +1029,10 @@ const state={
   },
   B:{
     familles:[
-      {id:'f1',name:'Groupes électrogènes',desc:'GE diesel et gaz',icon:'⚡',color:COLOR_PRESETS[1],system:false},
-      {id:'f2',name:'Pompes industrielles',desc:'Pompes haute capacité',icon:'💧',color:COLOR_PRESETS[5],system:false},
-      {id:'f3',name:'Onduleurs',desc:'UPS et onduleurs',icon:'🔋',color:COLOR_PRESETS[4],system:false},
-      {id:'f4',name:'Transformateurs',desc:'HTA/HTB',icon:'🔌',color:COLOR_PRESETS[0],system:false},
+      {id:'B-f1',name:'Groupes électrogènes',desc:'GE diesel et gaz',icon:'⚡',color:COLOR_PRESETS[1],system:false},
+      {id:'B-f2',name:'Pompes industrielles',desc:'Pompes haute capacité',icon:'💧',color:COLOR_PRESETS[5],system:false},
+      {id:'B-f3',name:'Onduleurs',desc:'UPS et onduleurs',icon:'🔋',color:COLOR_PRESETS[4],system:false},
+      {id:'B-f4',name:'Transformateurs',desc:'HTA/HTB',icon:'🔌',color:COLOR_PRESETS[0],system:false},
     ],
     statuts:[
       {id:'ok',name:'Actif',desc:'En service',color:COLOR_PRESETS[0],icon:'✅',system:true},
@@ -1049,7 +1049,7 @@ const COMPANIES={
     timeline:[{dot:'#0f6e56',title:'Chargeuse CAT EN-12 — filtre hydraulique',meta:"Aujourd'hui · Pierre T. · 1h15"},{dot:'#ba7517',title:'Groupe élec. GE-04 — vidange moteur',meta:'Hier · Jean-Marc R. · 2h30'},{dot:'#a32d2d',title:'Compresseur CP-02 — courroie — EN ATTENTE PIÈCE',meta:'22/05 · Marc B.'},{dot:'#0f6e56',title:'Camion VH-07 — révision 50 000 km',meta:'20/05 · Fabrice L. · 3h'}],
     alerts:[{type:'danger',text:'<strong>Stock critique :</strong> Filtre à huile 15W-40 (2 u. restantes, seuil = 10)'},{type:'warn',text:'<strong>Douane :</strong> BDC-2025-031 bloqué depuis 5 jours'},{type:'warn',text:'<strong>Maintenance due :</strong> Engin EN-08 — révision 500h dans 3 jours'},{type:'info',text:'<strong>Livraison attendue :</strong> BDC-2025-035 — arrivée prévue 28/05'}],
     couts:[{label:"Main d'œuvre",val:'4 820 €'},{label:'Pièces consommées',val:'12 350 €'},{label:'Transport & douanes',val:'3 100 €'},{label:'Prestataires ext.',val:'1 200 €'},{label:'Total mai 2025',val:'21 470 €',total:true}],
-    materiels:[{code:'EN-01',nom:'Pelle hydraulique Komatsu PC210',famille:'f1',serie:'KPC210-84521',statut:'ok',maint:'500h — dans 45h',cout:'18 420 €'},{code:'EN-12',nom:'Chargeuse CAT 966M',famille:'f1',serie:'CAT966-10234',statut:'warn',maint:'En cours',cout:'22 100 €'},{code:'CP-02',nom:'Compresseur Atlas Copco GA55',famille:'f2',serie:'AC-GA55-7821',statut:'alert',maint:'Panne — attente pièce',cout:'4 200 €'},{code:'VH-07',nom:'Camion benne Iveco 16T',famille:'f3',serie:'IVE-16T-5543',statut:'ok',maint:'60 000 km — dans 8 000',cout:'13 670 €'},{code:'PM-03',nom:'Pompe centrifuge KSB 50m³/h',famille:'f4',serie:'KSB-50-1109',statut:'ok',maint:'1000h — dans 320h',cout:'3 110 €'}],
+    materiels:[{code:'EN-01',nom:'Pelle hydraulique Komatsu PC210',famille:'A-f1',serie:'KPC210-84521',statut:'ok',maint:'500h — dans 45h',cout:'18 420 €'},{code:'EN-12',nom:'Chargeuse CAT 966M',famille:'A-f1',serie:'CAT966-10234',statut:'warn',maint:'En cours',cout:'22 100 €'},{code:'CP-02',nom:'Compresseur Atlas Copco GA55',famille:'A-f2',serie:'AC-GA55-7821',statut:'alert',maint:'Panne — attente pièce',cout:'4 200 €'},{code:'VH-07',nom:'Camion benne Iveco 16T',famille:'A-f3',serie:'IVE-16T-5543',statut:'ok',maint:'60 000 km — dans 8 000',cout:'13 670 €'},{code:'PM-03',nom:'Pompe centrifuge KSB 50m³/h',famille:'A-f4',serie:'KSB-50-1109',statut:'ok',maint:'1000h — dans 320h',cout:'3 110 €'}],
     matStats:[{val:'47',lbl:'Matériels actifs',color:'var(--teal)'},{val:'3',lbl:'En maintenance',color:'var(--amber)'},{val:'1',lbl:'Hors service',color:'var(--red)'},{val:'4',lbl:'Familles',color:'var(--blue)'}],
     ots:[{num:'OT-0251',mat:'EN-12 — Chargeuse CAT',type:'Correctif',prio:'alert',tech:'Pierre T.',statut:'warn',statTxt:'En cours',dur:'3h'},{num:'OT-0252',mat:'CP-02 — Compresseur',type:'Correctif',prio:'alert',tech:'Non assigné',statut:'alert',statTxt:'Bloqué pièce',dur:'2h'},{num:'OT-0253',mat:'GE-04 — Groupe élec.',type:'Préventif',prio:'info',tech:'Jean-Marc R.',statut:'ok',statTxt:'Terminé',dur:'2h30'}],
     plans:[{mat:'EN-01 Komatsu',op:'Vidange moteur + filtres',period:'Toutes les 500h',pieces:'Filtre huile, huile 15W-40',last:'455h (il y a 45h)',proch:'warn',prochTxt:'Dans 45h'},{mat:'VH-07 Iveco',op:'Révision complète',period:'Tous les 10 000 km',pieces:'Filtres, plaquettes, huile',last:'52 000 km',proch:'ok',prochTxt:'Dans 8 000 km'}],
@@ -1072,7 +1072,7 @@ const COMPANIES={
     timeline:[{dot:'#185fa5',title:'Groupe élec. GE-120 — remplacement alternateur',meta:"Aujourd'hui · Karim D. · 4h"},{dot:'#185fa5',title:'Pompe PM-08 — révision annuelle',meta:'Hier · Sylvie M. · 3h30'},{dot:'#ba7517',title:'Onduleur ON-02 — batterie faible signalée',meta:'23/05 · Karim D.'},{dot:'#185fa5',title:'GE-45 — vidange + filtres 500h',meta:'21/05 · Eric T. · 2h'}],
     alerts:[{type:'warn',text:'<strong>Stock bas :</strong> Batterie 12V 150Ah (1 u. restante, seuil = 4)'},{type:'warn',text:'<strong>Maintenance due :</strong> GE-120 — révision 1000h dans 5 jours'},{type:'info',text:'<strong>Livraison attendue :</strong> BDC-2025-012 — arrivée prévue 30/05'}],
     couts:[{label:"Main d'œuvre",val:'3 200 €'},{label:'Pièces consommées',val:'7 800 €'},{label:'Transport & douanes',val:'2 100 €'},{label:'Prestataires ext.',val:'500 €'},{label:'Total mai 2025',val:'13 600 €',total:true}],
-    materiels:[{code:'GE-45',nom:'Groupe élec. Kohler 45 kVA',famille:'f1',serie:'KOH-45-11230',statut:'ok',maint:'500h — dans 20h',cout:'7 200 €'},{code:'GE-120',nom:'Groupe élec. Caterpillar 120 kVA',famille:'f1',serie:'CAT120-55210',statut:'warn',maint:'Révision en cours',cout:'18 500 €'},{code:'PM-08',nom:'Pompe industrielle Grundfos 200m³',famille:'f2',serie:'GRF-200-7841',statut:'ok',maint:'1000h — dans 180h',cout:'4 100 €'},{code:'ON-02',nom:'Onduleur APC 40 kVA',famille:'f3',serie:'APC-40-2291',statut:'ok',maint:'Batterie à surveiller',cout:'2 800 €'},{code:'TR-01',nom:'Transformateur HTA 1000 kVA',famille:'f4',serie:'ABB-1000-1021',statut:'ok',maint:'Annuelle — dans 8 mois',cout:'1 200 €'}],
+    materiels:[{code:'GE-45',nom:'Groupe élec. Kohler 45 kVA',famille:'B-f1',serie:'KOH-45-11230',statut:'ok',maint:'500h — dans 20h',cout:'7 200 €'},{code:'GE-120',nom:'Groupe élec. Caterpillar 120 kVA',famille:'B-f1',serie:'CAT120-55210',statut:'warn',maint:'Révision en cours',cout:'18 500 €'},{code:'PM-08',nom:'Pompe industrielle Grundfos 200m³',famille:'B-f2',serie:'GRF-200-7841',statut:'ok',maint:'1000h — dans 180h',cout:'4 100 €'},{code:'ON-02',nom:'Onduleur APC 40 kVA',famille:'B-f3',serie:'APC-40-2291',statut:'ok',maint:'Batterie à surveiller',cout:'2 800 €'},{code:'TR-01',nom:'Transformateur HTA 1000 kVA',famille:'B-f4',serie:'ABB-1000-1021',statut:'ok',maint:'Annuelle — dans 8 mois',cout:'1 200 €'}],
     matStats:[{val:'23',lbl:'Matériels actifs',color:'var(--blue)'},{val:'1',lbl:'En maintenance',color:'var(--amber)'},{val:'0',lbl:'Hors service',color:'var(--teal)'},{val:'4',lbl:'Familles',color:'var(--blue)'}],
     ots:[{num:'OT-0101',mat:'GE-120 — Caterpillar',type:'Correctif',prio:'alert',tech:'Karim D.',statut:'warn',statTxt:'En cours',dur:'4h'},{num:'OT-0102',mat:'ON-02 — Onduleur APC',type:'Préventif',prio:'warn',tech:'Sylvie M.',statut:'info',statTxt:'Planifié',dur:'2h'},{num:'OT-0103',mat:'GE-45 — Kohler',type:'Préventif',prio:'info',tech:'Eric T.',statut:'ok',statTxt:'Terminé',dur:'2h'}],
     plans:[{mat:'GE-45 Kohler 45kVA',op:'Vidange + filtres moteur',period:'Toutes les 500h',pieces:'Filtre huile, huile 10W-40',last:'480h (il y a 20h)',proch:'warn',prochTxt:'Dans 20h'},{mat:'GE-120 Caterpillar',op:'Révision complète 1000h',period:'Toutes les 1000h',pieces:'Filtres, injecteurs, courroies',last:'995h',proch:'alert',prochTxt:'Dans 5h'},{mat:'PM-08 Grundfos',op:'Contrôle garniture',period:'Toutes les 1000h',pieces:'Joint mécanique',last:'820h',proch:'ok',prochTxt:'Dans 180h'}],
@@ -1342,21 +1342,30 @@ function saveFamille(){
   const customIcon=document.getElementById('famille-icon-custom').value.trim();
   const icon=customIcon||selFamilleIcon;
   const st=state[currentCompany];
+  let famille;
   if(editingFamilleId){
-    const f=st.familles.find(x=>x.id===editingFamilleId);
-    if(f){f.name=name;f.desc=document.getElementById('famille-desc').value.trim();f.icon=icon;f.color=selFamilleColor;}
+    famille=st.familles.find(x=>x.id===editingFamilleId);
+    if(famille){famille.name=name;famille.desc=document.getElementById('famille-desc').value.trim();famille.icon=icon;famille.color=selFamilleColor;}
   } else {
-    st.familles.push({id:'f'+Date.now(),name,desc:document.getElementById('famille-desc').value.trim(),icon,color:selFamilleColor,system:false});
+    famille={id:'f'+Date.now(),name,desc:document.getElementById('famille-desc').value.trim(),icon,color:selFamilleColor,system:false};
+    st.familles.push(famille);
   }
   saveToStorage();
   closeModal('modal-famille');
   renderFamilleList(st);renderPreview(st);renderMateriels(COMPANIES[currentCompany],st);
+  if(famille) syncFamilleToSupabase(famille);
+}
+async function syncFamilleToSupabase(f){
+  if(typeof SB_MODE==='undefined'||SB_MODE!=='online') return;
+  await saveToSupabase('familles',{id:f.id,entreprise_id:currentCompany,name:f.name,desc_:f.desc,icon:f.icon,color_bg:f.color.bg,color_text:f.color.text,system:!!f.system});
 }
 function deleteFamille(id){
   if(!confirm('Supprimer cette famille ?'))return;
   const st=state[currentCompany];
   st.familles=st.familles.filter(f=>f.id!==id);
+  saveToStorage();
   renderFamilleList(st);renderPreview(st);renderMateriels(COMPANIES[currentCompany],st);
+  if(typeof SB_MODE!=='undefined'&&SB_MODE==='online') deleteFromSupabase('familles',id);
 }
 
 /* ── STATUT CRUD ────────────────────────────────────────── */
@@ -1386,21 +1395,30 @@ function saveStatut(){
   const name=document.getElementById('statut-name').value.trim();
   if(!name){alert('Le libellé du statut est requis.');return;}
   const st=state[currentCompany];
+  let statut;
   if(editingStatutId){
-    const s=st.statuts.find(x=>x.id===editingStatutId);
-    if(s){s.name=name;s.desc=document.getElementById('statut-desc').value.trim();s.color=selStatutColor;s.icon=selStatutIcon;}
+    statut=st.statuts.find(x=>x.id===editingStatutId);
+    if(statut){statut.name=name;statut.desc=document.getElementById('statut-desc').value.trim();statut.color=selStatutColor;statut.icon=selStatutIcon;}
   } else {
-    st.statuts.push({id:'s'+Date.now(),name,desc:document.getElementById('statut-desc').value.trim(),color:selStatutColor,icon:selStatutIcon,system:false});
+    statut={id:'s'+Date.now(),name,desc:document.getElementById('statut-desc').value.trim(),color:selStatutColor,icon:selStatutIcon,system:false};
+    st.statuts.push(statut);
   }
   saveToStorage();
   closeModal('modal-statut');
   renderStatutList(st);renderPreview(st);renderMateriels(COMPANIES[currentCompany],st);
+  if(statut) syncStatutToSupabase(statut);
+}
+async function syncStatutToSupabase(s){
+  if(typeof SB_MODE==='undefined'||SB_MODE!=='online') return;
+  await saveToSupabase('statuts',{id:s.id,entreprise_id:currentCompany,name:s.name,desc_:s.desc,icon:s.icon,color_bg:s.color.bg,color_text:s.color.text,system:!!s.system});
 }
 function deleteStatut(id){
   if(!confirm('Supprimer ce statut ?'))return;
   const st=state[currentCompany];
   st.statuts=st.statuts.filter(s=>s.id!==id);
+  saveToStorage();
   renderStatutList(st);renderPreview(st);renderMateriels(COMPANIES[currentCompany],st);
+  if(typeof SB_MODE!=='undefined'&&SB_MODE==='online') deleteFromSupabase('statuts',id);
 }
 
 /* ── COMPANY ICON ───────────────────────────────────────── */
