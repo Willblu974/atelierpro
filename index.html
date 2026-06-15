@@ -310,10 +310,11 @@ textarea{resize:vertical;min-height:80px;}
         <div class="stat-mini"><div class="stat-mini-val" id="mat-maint-kpi" style="color:var(--amber)">—</div><div class="stat-mini-lbl">En maintenance</div></div>
         <div class="stat-mini"><div class="stat-mini-val" id="mat-hs-kpi" style="color:var(--red)">—</div><div class="stat-mini-lbl">Hors service</div></div>
       </div>
-      <div style="display:flex;gap:10px;margin-bottom:16px">
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <input type="text" id="mat-search" placeholder="Rechercher code ou nom..." style="max-width:260px" oninput="applyMatFilters()">
         <select style="max-width:200px" id="mat-famille-filter" onchange="applyMatFilters()"></select>
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
+        <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()" style="margin-left:auto">📥 Importer un fichier</button>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>Famille</th><th>N&deg; S&eacute;rie</th><th>Statut</th><th>Proch. maintenance</th><th>Co&ucirc;t total</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
     </div>
@@ -739,6 +740,36 @@ textarea{resize:vertical;min-height:80px;}
 </div>
 
 <!-- MODAL IMPORT PIECES -->
+<div class="modal-bg" id="modal-import-materiels">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-header"><strong>Importer des matériels</strong><button class="btn btn-sm" onclick="closeModal('modal-import-materiels')">&#10005;</button></div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div style="background:var(--blue-light);border-radius:var(--radius);padding:12px;font-size:12px;color:var(--blue)">
+        Formats acceptés : <strong>CSV</strong> ou <strong>Excel (.xlsx)</strong><br>
+        Colonnes obligatoires : <strong>Code</strong>, <strong>Désignation</strong>, <strong>N° Série</strong> ou <strong>Trans-Safe</strong><br>
+        Colonnes optionnelles : Famille, Statut, Mise en service (AAAA-MM-JJ), Prochaine maintenance, Coût, Notes
+        <br><button class="btn btn-sm" onclick="downloadMaterielsTemplate()" style="margin-top:8px">⬇️ Télécharger le modèle CSV</button>
+      </div>
+      <div class="form-group">
+        <label>Fichier à importer</label>
+        <input type="file" id="import-mat-file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="handleImportMaterielsFile(this)">
+      </div>
+      <div id="import-mat-preview" style="display:none">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:8px" id="import-mat-summary"></div>
+        <div style="max-height:260px;overflow:auto">
+          <table><thead><tr><th>Code</th><th>Désignation</th><th>Famille</th><th>N° Série / Trans-Safe</th><th>Statut</th><th>Coût</th></tr></thead>
+          <tbody id="import-mat-tbody"></tbody></table>
+        </div>
+      </div>
+      <div id="import-mat-errors" style="display:none" class="alert alert-danger"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-import-materiels')">Annuler</button>
+      <button class="btn btn-primary" id="import-mat-confirm" onclick="confirmImportMateriels()" disabled>Importer</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-import-pieces">
   <div class="modal">
     <div class="modal-header"><strong>Importer des pièces détachées</strong><button class="btn btn-sm" onclick="closeModal('modal-import-pieces')">&#10005;</button></div>
@@ -1906,6 +1937,178 @@ function deletePiece(id){
 }
 
 /* ── IMPORT CSV DE PIECES DETACHEES ──────────────────────── */
+/* ── IMPORT MATÉRIELS ────────────────────────────────────── */
+let importedMaterielsData = [];
+
+function openImportMaterielsModal(){
+  importedMaterielsData = [];
+  const fi = document.getElementById('import-mat-file');
+  if(fi) fi.value = '';
+  document.getElementById('import-mat-preview').style.display = 'none';
+  document.getElementById('import-mat-errors').style.display = 'none';
+  document.getElementById('import-mat-confirm').disabled = true;
+  document.getElementById('modal-import-materiels').classList.add('open');
+}
+
+function downloadMaterielsTemplate(){
+  downloadCSV('modele_import_materiels.csv',
+    ['Code','Désignation','Famille','N° Série','Trans-Safe','Statut','Mise en service','Prochaine maintenance','Coût','Notes'],
+    [
+      ['EN-01','Groupe électrogène 50kVA','Énergie','SN-2021-001','','Actif','2021-03-15','2025-09-15','12500',''],
+      ['HY-02','Centrale hydraulique','Hydraulique','','TS-2019-088','En maintenance','2019-06-01','','8200','Révision en cours']
+    ]
+  );
+}
+
+function handleImportMaterielsFile(input){
+  const file = input.files && input.files[0];
+  const preview  = document.getElementById('import-mat-preview');
+  const errBox   = document.getElementById('import-mat-errors');
+  const confirmBtn = document.getElementById('import-mat-confirm');
+  preview.style.display='none'; errBox.style.display='none'; confirmBtn.disabled=true;
+  importedMaterielsData = [];
+  if(!file) return;
+
+  const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    let rows;
+    try {
+      if(isExcel){
+        if(typeof XLSX==='undefined'){
+          errBox.style.display='block';
+          errBox.textContent = "Librairie Excel non chargée. Utilisez un fichier CSV.";
+          return;
+        }
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''}).map(r=>r.map(c=>c==null?'':String(c)));
+      } else {
+        rows = parseCSVText(String(e.target.result||''));
+      }
+    } catch(err){ errBox.style.display='block'; errBox.textContent="Impossible de lire le fichier : "+err.message; return; }
+    processImportedMaterielsRows(rows, preview, errBox, confirmBtn);
+  };
+  if(isExcel) reader.readAsArrayBuffer(file); else reader.readAsText(file,'UTF-8');
+}
+
+function processImportedMaterielsRows(rows, preview, errBox, confirmBtn){
+  if(rows.length<2){ errBox.style.display='block'; errBox.textContent="Fichier vide (aucune ligne de données)."; return; }
+  const headers = rows[0].map(normalizeHeader);
+  const col = (...names)=>{ for(const n of names){ const i=headers.findIndex(h=>h.includes(n)); if(i>=0) return i; } return -1; };
+  const iCode      = col('code');
+  const iNom       = col('designation','nom','libelle');
+  const iFam       = col('famille','family');
+  const iSerie     = col('serie','n° serie','numero serie','numero de serie');
+  const iTranssafe = col('trans-safe','transsafe','trans safe','transafe');
+  const iStatut    = col('statut','etat','status');
+  const iDate      = col('mise en service','mise','service','date');
+  const iMaint     = col('maintenance','prochaine');
+  const iCout      = col('cout','cost','montant','prix');
+  const iNotes     = col('notes','remarque','commentaire');
+
+  if(iCode<0 || iNom<0){
+    errBox.style.display='block';
+    errBox.textContent = "Colonnes obligatoires manquantes : Code et Désignation requis.";
+    return;
+  }
+  if(iSerie<0 && iTranssafe<0){
+    errBox.style.display='block';
+    errBox.textContent = "Colonne obligatoire manquante : N° Série ou Trans-Safe requis.";
+    return;
+  }
+
+  const st = state[currentCompany];
+  const existingCodes = new Set((st.materiels||[]).map(m=>m.code));
+  const errors = [], data = [];
+
+  rows.slice(1).forEach((r,idx)=>{
+    const code = (r[iCode]||'').trim();
+    const nom  = (r[iNom]||'').trim();
+    if(!code||!nom){ errors.push(`Ligne ${idx+2} : Code ou Désignation manquant — ignorée.`); return; }
+
+    // Résolution famille par nom
+    let familleId = '';
+    if(iFam>=0 && r[iFam]){
+      const fn = (r[iFam]||'').trim().toLowerCase();
+      const f = (st.familles||[]).find(x=>x.name.toLowerCase()===fn);
+      if(f) familleId = f.id;
+    }
+    // Résolution statut par nom
+    let statutId = '';
+    if(iStatut>=0 && r[iStatut]){
+      const sn = (r[iStatut]||'').trim().toLowerCase();
+      const s = (st.statuts||[]).find(x=>x.name.toLowerCase()===sn);
+      if(s) statutId = s.id;
+    }
+
+    const serie     = iSerie>=0     ? (r[iSerie]||'').trim()     : '';
+    const transsafe = iTranssafe>=0 ? (r[iTranssafe]||'').trim() : '';
+    if(!serie && !transsafe){ errors.push(`Ligne ${idx+2} : N° Série et Trans-Safe absents — ignorée.`); return; }
+    data.push({
+      code, nom,
+      famille: familleId,
+      famLabel: iFam>=0?(r[iFam]||'').trim():'',
+      serie,
+      transsafe,
+      statut:  statutId,
+      statLabel: iStatut>=0?(r[iStatut]||'').trim():'',
+      dateMS:  iDate>=0?(r[iDate]||'').trim():'',
+      maint:   iMaint>=0?(r[iMaint]||'').trim():'',
+      cout:    iCout>=0?(r[iCout]||'').trim():'',
+      notes:   iNotes>=0?(r[iNotes]||'').trim():'',
+      update:  existingCodes.has(code)
+    });
+  });
+
+  importedMaterielsData = data;
+  if(errors.length){
+    errBox.style.display='block';
+    errBox.innerHTML = errors.slice(0,10).map(e=>`<div>${e}</div>`).join('')+(errors.length>10?`<div>…et ${errors.length-10} autre(s).</div>`:'');
+  }
+  if(data.length){
+    const nbNew = data.filter(d=>!d.update).length;
+    const nbMaj = data.filter(d=>d.update).length;
+    document.getElementById('import-mat-summary').textContent =
+      `${data.length} matériel(s) détecté(s) — ${nbNew} nouveau(x), ${nbMaj} mise(s) à jour.`;
+    document.getElementById('import-mat-tbody').innerHTML = data.map(d=>`<tr>
+      <td><strong>${d.code}</strong>${d.update?' <span class="badge badge-info" style="font-size:9px">MAJ</span>':''}</td>
+      <td>${d.nom}</td>
+      <td style="font-size:11px">${d.famLabel||'—'}</td>
+      <td style="font-size:11px">${d.serie||d.transsafe||'—'}</td>
+      <td style="font-size:11px">${d.statLabel||'—'}</td>
+      <td style="font-size:11px">${d.cout||'—'}</td>
+    </tr>`).join('');
+    preview.style.display='block';
+    confirmBtn.disabled=false;
+  }
+}
+
+async function confirmImportMateriels(){
+  if(!importedMaterielsData.length) return;
+  ensureMatState(COMPANIES[currentCompany]);
+  const mats = state[currentCompany].materiels;
+  let nbNew=0, nbMaj=0;
+  for(const d of importedMaterielsData){
+    const serieVal = d.serie || (d.transsafe ? 'Trans-Safe: '+d.transsafe : '');
+    const rec = { id:d.code, code:d.code, nom:d.nom, famille:d.famille, statut:d.statut,
+      serie:serieVal, maint:d.maint, cout:d.cout, dateMS:d.dateMS, notes:d.notes };
+    const idx = mats.findIndex(m=>m.code===d.code);
+    if(idx>=0){ mats[idx]={...mats[idx],...rec}; nbMaj++; }
+    else { mats.push(rec); nbNew++; }
+    if(SB&&SB_MODE==='online'){
+      await saveToSupabase('materiels',{id:rec.id,entreprise_id:currentCompany,code:rec.code,nom:rec.nom,
+        famille_id:rec.famille,serie:rec.serie,statut_id:rec.statut,maint:rec.maint,
+        cout:rec.cout,date_ms:rec.dateMS||null,notes:rec.notes});
+    }
+  }
+  saveToStorage();
+  closeModal('modal-import-materiels');
+  renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
+  alert(`Import terminé : ${nbNew} matériel(s) ajouté(s), ${nbMaj} mis à jour.`);
+}
+
+/* ── IMPORT PIÈCES ───────────────────────────────────────── */
 let importedPiecesData = [];
 
 function openImportPiecesModal(){
@@ -3087,36 +3290,24 @@ async function doRegister(){
 
   setLoginMsg('Vérification du code...','var(--text3)');
 
-  // Vérifier le code d'invitation
+  // Vérifier le code via Edge Function (sans exposer les codes côté client)
   let codeValide = false;
   let codeRole = 'technicien';
   try {
-    const {data, error} = await SB
-      .schema('public')
-      .from('invitation_codes')
-      .select('id, code, used, role')
-      .eq('code', code)
-      .maybeSingle();
-
-    if(error){
-      // La table n'existe peut-être pas encore
-      if(error.code === '42P01'){
-        setLoginMsg("Table invitation_codes manquante. Exécutez supabase_invitation_codes.sql d'abord.",'var(--red)');
-      } else {
-        setLoginMsg('Erreur vérification code : '+error.message,'var(--red)');
-      }
+    const sbUrl = localStorage.getItem('sb_url') || '';
+    const validateUrl = sbUrl.replace(/\/+$/, '') + '/functions/v1/validate-code';
+    const resp = await fetch(validateUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': localStorage.getItem('sb_key') || '' },
+      body: JSON.stringify({ code: code.trim().toUpperCase() })
+    });
+    const result = await resp.json();
+    if(!result.valid){
+      setLoginMsg(result.error || 'Code invalide.','var(--red)');
       return;
     }
-    if(!data){
-      setLoginMsg("Code invalide.",'var(--red)');
-      return;
-    }
-    if(data.used === true || data.used === 'true' || data.used === 1){
-      setLoginMsg("Code déjà utilisé.",'var(--red)');
-      return;
-    }
-    codeValide = data.id;
-    codeRole = data.role || 'technicien';
+    codeValide = result.id;
+    codeRole = result.role || 'technicien';
   } catch(e){
     setLoginMsg('Erreur réseau : '+e.message,'var(--red)');
     return;
