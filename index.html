@@ -48,7 +48,7 @@ nav{flex:1;padding:8px 0;overflow-y:auto;}
 .btn-danger{background:var(--red-light);color:var(--red);border-color:#f7c1c1;}
 .btn-danger:hover{background:var(--red);color:#fff;}
 .btn-danger:disabled{opacity:.4;cursor:not-allowed;}
-/* Mode lecture seule (rôle Responsable) : masque toutes les actions de création/édition/suppression,
+/* Mode lecture seule (rôles Responsable et Visiteur) : masque toutes les actions de création/édition/suppression,
    sauf la déconnexion et la suppression de son propre compte */
 body.role-readonly .btn-edit{display:none !important;}
 body.role-readonly .btn-danger:not(#btn-logout):not(#btn-delete-account){display:none !important;}
@@ -3192,7 +3192,7 @@ function doLocalLogin(){
   loadFromStorage();
   currentCompany=selectedLogin;
   SB_USER={email:'local@atelierpro.re'};
-  SB_PROFILE={nom:'Visiteur (mode local)',role:'technicien',entreprise_id:selectedLogin}; // Sécurité : mode local = lecture seule uniquement
+  SB_PROFILE={nom:'Visiteur (mode local)',role:'visiteur',entreprise_id:selectedLogin};
   updateUserBadge('local@atelierpro.re',SB_PROFILE);
   enterApp();
 }
@@ -3206,16 +3206,15 @@ function getUserRole(){
 function applyRoles(){
   const role = getUserRole();
 
-  // --- Mode lecture seule global pour Responsable ---
-  document.body.classList.toggle('role-readonly', role==='responsable');
+  // --- Mode lecture seule global pour Responsable et Visiteur ---
+  document.body.classList.toggle('role-readonly', role==='responsable' || role==='visiteur');
 
   // --- Nav items ---
-  // Paramètres & Utilisateurs : inaccessibles uniquement pour Technicien
-  // (Admin et Responsable y ont accès — Responsable en lecture seule)
+  // Paramètres & Utilisateurs : inaccessibles pour Technicien et Visiteur
   document.querySelectorAll('.nav-item').forEach(n=>{
     const txt = n.textContent.trim();
     if(txt.includes('Paramètres') || txt.includes('Utilisateurs')){
-      n.style.display = (role==='technicien') ? 'none' : '';
+      n.style.display = (role==='technicien' || role==='visiteur') ? 'none' : '';
     }
   });
 
@@ -3232,8 +3231,8 @@ function applyRoles(){
     roleFooter.style.cssText = 'margin-left:8px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;';
     footer.appendChild(roleFooter);
   }
-  const roleColors = {admin:'background:#534ab7;color:#fff', responsable:'background:#185fa5;color:#fff', technicien:'background:#3b6d11;color:#fff'};
-  const roleLabels = {admin:'Admin', responsable:'Responsable', technicien:'Technicien'};
+  const roleColors = {admin:'background:#534ab7;color:#fff', responsable:'background:#185fa5;color:#fff', technicien:'background:#3b6d11;color:#fff', visiteur:'background:#9c9a94;color:#fff'};
+  const roleLabels = {admin:'Admin', responsable:'Responsable', technicien:'Technicien', visiteur:'Visiteur'};
   roleFooter.style.cssText += ';' + (roleColors[role]||roleColors.technicien);
   roleFooter.textContent = roleLabels[role]||role;
 }
@@ -3242,26 +3241,25 @@ function applyPageRole(page){
   const role = getUserRole();
   const topbarNew = document.getElementById('topbar-new');
 
-  // Pages totalement bloquées pour Technicien
+  // Pages bloquées pour Technicien et Visiteur
   const blockedForTech = ['parametres','utilisateurs'];
-  if(role==='technicien' && blockedForTech.includes(page)){
+  if((role==='technicien' || role==='visiteur') && blockedForTech.includes(page)){
     showPage('dashboard', document.querySelector('.nav-item'));
     return;
   }
-  // Responsable : aucune page bloquée (accès en lecture à tout, y compris Paramètres/Utilisateurs)
 
   // Pages où la création (+ Nouveau) a un sens et où Technicien peut créer
   const createPages = ['materiels','maintenance','pieces','stock','fournisseurs','commandes','transport'];
 
   // Bouton + Nouveau
   if(topbarNew){
-    if(role==='responsable'){
-      // Lecture seule de tout : jamais de création
+    if(role==='responsable' || role==='visiteur'){
+      // Lecture seule totale : jamais de création
       topbarNew.style.display='none';
     } else if(role==='technicien'){
       topbarNew.style.display = createPages.includes(page) ? '' : 'none';
     } else {
-      // Admin : accès complet (pages sans bouton "+ Nouveau" pertinent)
+      // Admin : accès complet
       topbarNew.style.display = ['parametres','couts','rapports','utilisateurs'].includes(page)?'none':'';
     }
   }
