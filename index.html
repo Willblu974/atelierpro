@@ -3454,7 +3454,10 @@ async function loadInvitationCodes(){
         <td>${coNames[c.entreprise_id]||'—'}</td>
         <td>${statut}</td>
         <td style="font-size:11px;color:var(--text3)">${c.used_by||'—'}</td>
-        <td>${!c.used?`<button class="btn btn-sm btn-danger" onclick="supprimerCode('${c.id}')">🗑</button>`:''}</td>
+        <td style="white-space:nowrap;display:flex;gap:4px">
+          ${c.used?`<button class="btn btn-sm" onclick="reinitialiserCode('${c.id}')" title="Remettre disponible">♻️ Réinitialiser</button>`:''}
+          <button class="btn btn-sm btn-danger" onclick="supprimerCode('${c.id}')" title="Supprimer">🗑</button>
+        </td>
       </tr>`;
     });
     if(!html) html='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Aucun code</td></tr>';
@@ -3482,10 +3485,12 @@ async function saveUserRole(){
 }
 
 async function supprimerUtilisateur(id,email){
-  if(!confirm(`Supprimer le compte ${email} ? Cette action est irréversible.`)) return;
+  if(!confirm(`Supprimer le compte ${email} ?\n\nL'utilisateur sera retiré de la liste et ne pourra plus accéder à l'application.`)) return;
   if(!SB||SB_MODE!=='online') return;
   try {
-    await SB.from('utilisateurs').delete().eq('id',id);
+    const {error}=await SB.from('utilisateurs').delete().eq('id',id);
+    if(error){ alert('Erreur : '+error.message); return; }
+    alert(`Compte ${email} supprimé avec succès.`);
     loadUsers();
   } catch(e){ alert('Erreur : '+e.message); }
 }
@@ -3495,6 +3500,16 @@ async function supprimerCode(id){
   if(!SB||SB_MODE!=='online') return;
   try {
     await SB.from('invitation_codes').delete().eq('id',id);
+    loadInvitationCodes();
+  } catch(e){ alert('Erreur : '+e.message); }
+}
+
+async function reinitialiserCode(id){
+  if(!confirm('Remettre ce code disponible ? L\'utilisateur qui l\'a utilisé gardera son compte.')) return;
+  if(!SB||SB_MODE!=='online') return;
+  try {
+    const {error}=await SB.from('invitation_codes').update({used:false,used_by:null,used_at:null}).eq('id',id);
+    if(error){ alert('Erreur : '+error.message); return; }
     loadInvitationCodes();
   } catch(e){ alert('Erreur : '+e.message); }
 }
