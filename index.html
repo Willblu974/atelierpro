@@ -550,7 +550,13 @@ textarea{resize:vertical;min-height:80px;}
         <div class="card-body" style="padding:16px 18px">
           <div class="form-grid" id="notif-config-form">
             <div class="form-group"><label>Adresse email destinataire</label><input id="notif-email" class="param-edit-control" type="email" placeholder="responsable@entreprise.re" oninput="saveNotifConfig()"></div>
-            <div class="form-group"><label>Clé API Resend</label><input id="notif-apikey" class="param-edit-control" type="password" placeholder="re_xxxxxxxxxxxx" oninput="saveNotifConfig()"></div>
+            <div class="form-group">
+              <label>Clé API Resend</label>
+              <input id="notif-apikey" class="param-edit-control" type="password" placeholder="re_xxxxxxxxxxxx" oninput="saveNotifConfig()">
+              <div style="margin-top:5px;padding:8px 10px;background:#faeeda;border-left:3px solid #ba7517;border-radius:4px;font-size:11px;color:#854f0b">
+                ⚠️ <strong>Attention :</strong> Cette clé est stockée dans votre navigateur. N'utilisez pas une clé de production avec des droits étendus — créez une clé Resend dédiée avec uniquement la permission d'envoi d'emails.
+              </div>
+            </div>
             <div class="form-group"><label>Email expéditeur (domaine vérifié sur Resend)</label><input id="notif-from" class="param-edit-control" placeholder="alertes@votredomaine.com" oninput="saveNotifConfig()"></div>
             <div class="form-group"><label>Vérification automatique (heures)</label>
               <select id="notif-interval" class="param-edit-control" onchange="saveNotifConfig();startNotifTimer()">
@@ -3182,11 +3188,11 @@ async function afterLogin(user){
 
 function doLocalLogin(){
   SB_MODE='local';
-  setSbStatus('offline','Mode local — données non synchronisées');
+  setSbStatus('offline','Mode local — lecture seule, données non synchronisées');
   loadFromStorage();
   currentCompany=selectedLogin;
   SB_USER={email:'local@atelierpro.re'};
-  SB_PROFILE={nom:'Utilisateur local',role:'admin',entreprise_id:selectedLogin};
+  SB_PROFILE={nom:'Visiteur (mode local)',role:'technicien',entreprise_id:selectedLogin}; // Sécurité : mode local = lecture seule uniquement
   updateUserBadge('local@atelierpro.re',SB_PROFILE);
   enterApp();
 }
@@ -3377,7 +3383,12 @@ async function genererCodeInvitation(){
   const role=document.getElementById('inv-role').value;
   const co=document.getElementById('inv-entreprise').value;
   let code=document.getElementById('inv-code').value.trim().toUpperCase();
-  if(!code) code=Math.random().toString(36).substring(2,8).toUpperCase();
+  if(!code){
+    // Sécurité : génération cryptographiquement sécurisée
+    const arr = new Uint8Array(6);
+    crypto.getRandomValues(arr);
+    code = Array.from(arr).map(b => b.toString(36).toUpperCase().padStart(1,'0')).join('').substring(0,8);
+  }
   try {
     const {error}=await SB.from('invitation_codes').insert({code,role,entreprise_id:co,used:false});
     if(error){ alert('Erreur : '+error.message); return; }
