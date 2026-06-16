@@ -4142,7 +4142,7 @@ async function extractPDFBDC(input){
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
   if(typeof pdfjsLib==='undefined'){
-    document.getElementById('pdf-bdc-status').textContent='❌ PDF.js non chargé — vérifiez votre connexion internet.';
+    document.getElementById('pdf-bdc-status').textContent='\u274c PDF.js non charg\u00e9 \u2014 v\u00e9rifiez votre connexion internet.';
     return;
   }
   try {
@@ -4159,79 +4159,115 @@ async function extractPDFBDC(input){
     document.getElementById('pdf-bdc-raw-text').textContent=fullText;
     parsePDFText(fullText);
   } catch(e){
-    document.getElementById('pdf-bdc-status').textContent='❌ Erreur lecture PDF : '+e.message;
+    document.getElementById('pdf-bdc-status').textContent='\u274c Erreur lecture PDF : '+e.message;
   }
 }
 
 function parsePDFText(text){
   var LF=String.fromCharCode(10);
-  var t=text.replace(/\s+/g,' ');
+  // Version une seule ligne + lignes séparées
+  var t1=text.replace(/\s+/g,' ').trim();
+  var lines=text.split(LF);
 
+  // ── Fournisseur ──────────────────────────────────────────────
   var fourn='';
-  var fPatterns=[
-    /(?:fournisseur|vendeur|\u00e9metteur|soci\u00e9t\u00e9|de\s*:)\s*:?\s*([A-Z\u00C0-\u0178a-z\u00e0-\u00ff0-9 &.\-]{3,50})/i,
-    /^([A-Z][A-Z\u00C0-\u0178a-z\u00e0-\u00ff0-9 &.\-]{2,40})\s*(?:SAS|SARL|SA|SNC|EURL|SCP)/m
-  ];
-  for(var i=0;i<fPatterns.length;i++){
-    var m=t.match(fPatterns[i]);
-    if(m){fourn=m[1].trim();break;}
+
+  // 1) Champ explicite "fournisseur" / "vendeur" / "de :"
+  var m=t1.match(/(?:fournisseur|vendeur|supplier|de\s*)\s*:+\s*([\w&. '-]{3,50})/i);
+  if(m) fourn=m[1].trim();
+
+  // 2) Nom de domaine email → nom entreprise (belgium@u2p.group → U2P)
+  if(!fourn){
+    var em=t1.match(/[\w.+-]+@([\w-]+)\.(?:com|fr|be|nl|de|eu|re|group|net|org|co)/i);
+    if(em){
+      // Prendre la partie avant le TLD, mettre en majuscules
+      var domain=em[1].replace(/[\-_]/g,' ');
+      fourn=domain.toUpperCase();
+    }
   }
 
+  // 3) Formes juridiques courantes (SAS, SARL, SA, BV, NV, GmbH...)
+  if(!fourn){
+    var fl=t1.match(/([A-Z\u00C0-\u00D6\u00D8-\u00DE][\w &'.\u00C0-\u00FF-]{2,40})\s+(?:SAS|SARL|SA|SNC|EURL|BV|NV|GmbH|Ltd|LLC|BVBA)/);
+    if(fl) fourn=fl[1].trim();
+  }
+
+  // 4) Première ligne non vide qui ressemble à un nom d'entreprise
+  if(!fourn){
+    for(var li=0;li<Math.min(lines.length,6);li++){
+      var ln=lines[li].trim();
+      if(ln.length>3&&ln.length<60&&/[A-Z]/.test(ln)&&!/^(date|bon|n\u00b0|r\u00e9f|page|total|devis|commande)/i.test(ln)){
+        fourn=ln; break;
+      }
+    }
+  }
+
+  // ── Date ─────────────────────────────────────────────────────
   var dateVal='';
+  // Format JJ/MM/AAAA ou JJ-MM-AAAA, précédé optionnellement d'un mot-clé
   var dPatterns=[
-    /(?:date\s*(?:de\s*)?(?:commande|bon|bdc|facture|\u00e9mission)\s*:?\s*)(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+    /(?:date\s*(?:bon|commande|devis|facture|\u00e9mission|du)?\s*:?\s*)(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
     /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/
   ];
   for(var j=0;j<dPatterns.length;j++){
-    var dm=t.match(dPatterns[j]);
+    var dm=t1.match(dPatterns[j]);
     if(dm){
       var parts=dm[1].split(/[\/\-]/);
       if(parts.length===3){
-        var y=parts[2].length===2?'20'+parts[2]:parts[2];
+        var yr=parts[2].length===2?'20'+parts[2]:parts[2];
         var mo=parts[1].padStart(2,'0');
-        var dd=parts[0].padStart(2,'0');
-        dateVal=y+'-'+mo+'-'+dd;
+        var dy=parts[0].padStart(2,'0');
+        dateVal=yr+'-'+mo+'-'+dy;
       }
       break;
     }
   }
 
+  // ── Montant HT ───────────────────────────────────────────────
   var mont='';
-  var mPatterns=[
-    /(?:total\s*h\.?t\.?|montant\s*h\.?t\.?|sous.total|net\s*h\.?t\.)\s*:?\s*([\d\s.,]+)\s*(?:\u20ac|EUR|eur)?/i,
-    /(?:\u20ac|EUR)\s*([\d\s.,]+)/i,
-    /([\d\s.,]+)\s*(?:\u20ac|EUR)/i
+  // Cherche : Total HT / Montant HT / Net HT / sous-total, puis le premier nombre
+  var monPat=[
+    /(?:total\s*h\.?t\.?|montant\s*h\.?t\.?|net\s*h\.?t\.?|sous.total|total\s*ht|amount)\s*:?\s*([\d\s.,]+)/i,
+    /([\d\s.,]+)\s*\u20ac/,          // nombre suivi de €
+    /\u20ac\s*([\d\s.,]+)/           // € suivi d'un nombre
   ];
-  for(var k=0;k<mPatterns.length;k++){
-    var mm=t.match(mPatterns[k]);
+  for(var k=0;k<monPat.length;k++){
+    var mm=t1.match(monPat[k]);
     if(mm){
-      mont=mm[1].replace(/\s/g,'').replace(',','.');
-      var montNum=parseFloat(mont);
-      if(montNum>0&&montNum<10000000){break;}
-      else mont='';
+      var raw=mm[1].replace(/\s/g,'').replace(',','.');
+      var num=parseFloat(raw);
+      if(num>0&&num<10000000){mont=String(num);break;}
     }
   }
+  // Si toujours rien, cherche le PLUS GRAND nombre dans le doc (souvent le total)
+  if(!mont){
+    var nums=t1.match(/\b\d{1,6}[.,]\d{2}\b/g)||[];
+    var parsed=nums.map(function(n){return parseFloat(n.replace(',','.'));}).filter(function(n){return n>0&&n<10000000;});
+    if(parsed.length) mont=String(Math.max.apply(null,parsed));
+  }
 
-  var articles='';
-  var lines=text.split(LF);
+  // ── Articles ─────────────────────────────────────────────────
   var artLines=[];
   lines.forEach(function(line){
     var l=line.trim();
     if(l.length<5) return;
-    if(/^\d+\s+.{5,}/.test(l)||/(?:r\u00e9f|ref|art\.|d\u00e9signation|description|produit)/i.test(l)){
+    // Lignes qui ressemblent à des articles : commencent par un nombre ou contiennent ref/désignation
+    if(/^\d+[.,]?\d*\s+.{5,}/.test(l)||
+       /(?:r\u00e9f\.?|ref\.?|art\.?|d\u00e9signation|description|produit|qty|quantit\u00e9)/i.test(l)||
+       /\d+\s*(?:pcs?|piec|unit\u00e9s?|u\b)/i.test(l)){
       artLines.push(l);
     }
   });
+  var articles='';
   if(artLines.length){
-    articles=artLines.slice(0,30).join(LF);
+    articles=artLines.slice(0,40).join(LF);
   } else {
-    lines.forEach(function(line){
-      if(/\d+\s*x\s*.{5,}/i.test(line)||/x\s*\d+\s*.{5,}/i.test(line)) artLines.push(line.trim());
-    });
-    articles=artLines.slice(0,20).join(LF)||t.substring(0,800);
+    // Fallback : texte brut tronqué
+    articles=t1.substring(0,1200);
   }
-
   var nbArt=artLines.length||1;
+
+  // ── Remplissage ──────────────────────────────────────────────
   document.getElementById('pdf-f-fourn').value=fourn;
   document.getElementById('pdf-f-date').value=dateVal;
   document.getElementById('pdf-f-mont').value=mont;
@@ -4239,7 +4275,7 @@ function parsePDFText(text){
   document.getElementById('pdf-f-articles').value=articles;
   document.getElementById('pdf-bdc-fields').style.display='';
   document.getElementById('pdf-bdc-confirm').style.display='';
-  document.getElementById('pdf-bdc-status').textContent='✅ Extraction terminée — '+pdf_numPages_last+' page(s) lue(s).';
+  document.getElementById('pdf-bdc-status').textContent='\u2705 Extraction termin\u00e9e \u2014 '+pdf_numPages_last+' page(s) lue(s).';
 }
 
 function createBDCFromPDF(){
