@@ -6,6 +6,8 @@
 <title>AtelierPro — Gestion multi-entreprises</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(typeof pdfjsLib!=='undefined') pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 <style>
 :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0efe9;--border:#e2e0d8;--text:#1a1917;--text2:#5c5a54;--text3:#9c9a94;--teal:#0f6e56;--teal-light:#e1f5ee;--teal-mid:#1d9e75;--amber:#854f0b;--amber-light:#faeeda;--amber-mid:#ba7517;--red:#a32d2d;--red-light:#fcebeb;--blue:#185fa5;--blue-light:#e6f1fb;--purple:#534ab7;--purple-light:#eeedfe;--green:#3b6d11;--green-light:#eaf3de;--company-color:#0f6e56;--radius:8px;--radius-lg:12px;--sidebar-w:230px;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -394,6 +396,7 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div style="display:flex;gap:10px;margin-bottom:16px">
         <input type="text" id="bdc-search" placeholder="N° BDC, fournisseur..." style="max-width:260px" oninput="renderBDCTable()">
+        <button class="btn btn-sm btn-edit" onclick="openImportBDCPDF()" style="margin-left:auto">📄 Importer PDF</button>
         <select id="bdc-st-filter" onchange="renderBDCTable()" style="max-width:180px"><option value="">Tous statuts</option><option value="encours">En cours</option><option value="transit">En transit</option><option value="bloque">Douane bloquée</option><option value="livre">Livré</option></select>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>N° BDC</th><th>Fournisseur</th><th>Date</th><th>Articles</th><th>Montant HT</th><th>Mode</th><th>Statut</th><th></th></tr></thead><tbody id="cmd-tbody"></tbody></table></div></div>
@@ -824,6 +827,46 @@ textarea{resize:vertical;min-height:80px;}
 </div>
 
 <!-- MODAL BDC -->
+<!-- MODAL IMPORT PDF BDC -->
+<div class="modal-bg" id="modal-import-pdf-bdc">
+  <div class="modal" style="width:620px;display:flex;flex-direction:column;max-height:90vh">
+    <div class="modal-header">
+      <strong>📄 Importer un bon de commande PDF</strong>
+      <button class="btn btn-sm" onclick="closeModal('modal-import-pdf-bdc')">✕</button>
+    </div>
+    <div style="padding:20px;overflow-y:auto;flex:1">
+      <div class="form-group" style="margin-bottom:16px">
+        <label>Sélectionner le fichier PDF</label>
+        <input type="file" id="pdf-bdc-file" accept=".pdf" onchange="extractPDFBDC(this)" style="margin-top:6px">
+      </div>
+      <div id="pdf-bdc-status" style="font-size:12px;color:var(--text3);margin-bottom:12px"></div>
+      <div id="pdf-bdc-fields" style="display:none">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--teal)">✅ Données détectées — vérifiez avant d'importer</div>
+        <div class="form-grid" style="padding:0">
+          <div class="form-group"><label>Fournisseur</label><input id="pdf-f-fourn" placeholder="Non détecté"></div>
+          <div class="form-group"><label>Date commande</label><input type="date" id="pdf-f-date"></div>
+          <div class="form-group"><label>Montant HT (€)</label><input type="number" id="pdf-f-mont" placeholder="0"></div>
+          <div class="form-group"><label>Nb articles</label><input type="number" id="pdf-f-art" placeholder="1" min="1"></div>
+          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="6" style="font-size:12px;font-family:monospace"></textarea></div>
+        </div>
+        <div style="background:var(--amber-light);border-left:3px solid var(--amber-mid);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--amber);margin-top:8px">
+          ⚠️ Vérifiez et corrigez les données avant de cliquer sur "Créer le BDC".
+        </div>
+      </div>
+      <div id="pdf-bdc-raw" style="display:none;margin-top:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Texte brut extrait</div>
+        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--surface2);padding:12px;border-radius:var(--radius);max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-sm" onclick="togglePDFRaw()">🔍 Texte brut</button>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="closeModal('modal-import-pdf-bdc')">Annuler</button>
+      <button class="btn btn-primary" id="pdf-bdc-confirm" style="display:none" onclick="createBDCFromPDF()">+ Créer le BDC</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-bdc">
   <div class="modal">
     <div class="modal-header"><strong id="bdc-modal-title">Nouveau bon de commande</strong><button class="btn btn-sm" onclick="closeModal('modal-bdc')">&#10005;</button></div>
@@ -4074,6 +4117,188 @@ document.addEventListener('DOMContentLoaded', ()=>{
     await saveToSupabase('bons_commande',{id:b.id,entreprise_id:currentCompany,num:b.num,fourn_nom:b.fourn,date_cmd:b.date||null,mode:b.mode,montant:b.mont,nb_articles:parseInt(b.art)||1,statut:b.statut,date_livraison:b.livraison||null,articles:b.articles});
   };
 });
+
+
+/* ── IMPORT PDF BDC ─────────────────────────────────────── */
+function openImportBDCPDF(){
+  document.getElementById('pdf-bdc-file').value='';
+  document.getElementById('pdf-bdc-status').textContent='';
+  document.getElementById('pdf-bdc-fields').style.display='none';
+  document.getElementById('pdf-bdc-raw').style.display='none';
+  document.getElementById('pdf-bdc-confirm').style.display='none';
+  document.getElementById('modal-import-pdf-bdc').classList.add('open');
+}
+
+function togglePDFRaw(){
+  var el=document.getElementById('pdf-bdc-raw');
+  el.style.display=el.style.display==='none'?'':'none';
+}
+
+async function extractPDFBDC(input){
+  const file=input.files[0]; if(!file) return;
+  document.getElementById('pdf-bdc-status').textContent='Lecture du PDF en cours...';
+  document.getElementById('pdf-bdc-fields').style.display='none';
+  document.getElementById('pdf-bdc-confirm').style.display='none';
+
+  if(typeof pdfjsLib==='undefined'){
+    document.getElementById('pdf-bdc-status').textContent='❌ PDF.js non chargé — vérifiez votre connexion internet.';
+    return;
+  }
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    let fullText='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      fullText+=content.items.map(function(s){return s.str;}).join(' ')+'
+';
+    }
+    document.getElementById('pdf-bdc-raw-text').textContent=fullText;
+    parsePDFText(fullText);
+  } catch(e){
+    document.getElementById('pdf-bdc-status').textContent='❌ Erreur lecture PDF : '+e.message;
+  }
+}
+
+function parsePDFText(text){
+  // Nettoyage
+  var t=text.replace(/\s+/g,' ');
+
+  // ── Fournisseur
+  var fourn='';
+  var fPatterns=[
+    /(?:fournisseur|vendeur|émetteur|société|de\s*:)\s*:?\s*([A-ZÀ-Ÿa-zà-ÿ0-9 &'.\-]{3,50})/i,
+    /^([A-ZÀÂÉÈÊËÎÏÔÙÛÜ][A-ZÀ-Ÿa-zà-ÿ0-9 &'.\-]{2,40})\s*(?:SAS|SARL|SA|SNC|EURL|SCP)/m
+  ];
+  for(var i=0;i<fPatterns.length;i++){
+    var m=t.match(fPatterns[i]);
+    if(m){fourn=m[1].trim();break;}
+  }
+
+  // ── Date
+  var dateVal='';
+  var dPatterns=[
+    /(?:date\s*(?:de\s*)?(?:commande|bon|bdc|facture|émission)\s*:?\s*)(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+    /(\d{1,2}[\/-]\d{1,2}[\/-]\d{4})/
+  ];
+  for(var j=0;j<dPatterns.length;j++){
+    var dm=t.match(dPatterns[j]);
+    if(dm){
+      var parts=dm[1].split(/[\/-]/);
+      if(parts.length===3){
+        var y=parts[2].length===2?'20'+parts[2]:parts[2];
+        var mo=parts[1].padStart(2,'0');
+        var d=parts[0].padStart(2,'0');
+        dateVal=y+'-'+mo+'-'+d;
+      }
+      break;
+    }
+  }
+
+  // ── Montant HT
+  var mont='';
+  var mPatterns=[
+    /(?:total\s*h\.?t\.?|montant\s*h\.?t\.?|sous.total|net\s*h\.?t\.?)\s*:?\s*([\d\s.,]+)\s*(?:€|EUR|eur)?/i,
+    /(?:€|EUR)\s*([\d\s.,]+)/i,
+    /([\d\s.,]+)\s*(?:€|EUR)/i
+  ];
+  for(var k=0;k<mPatterns.length;k++){
+    var mm=t.match(mPatterns[k]);
+    if(mm){
+      mont=mm[1].replace(/\s/g,'').replace(',','.');
+      var montNum=parseFloat(mont);
+      if(montNum>0&&montNum<10000000){break;}
+      else mont='';
+    }
+  }
+
+  // ── Articles : lignes avec quantité + désignation
+  var articles='';
+  var lines=text.split('
+');
+  var artLines=[];
+  lines.forEach(function(line){
+    var l=line.trim();
+    if(l.length<5) return;
+    if(/^\d+\s+.{5,}/.test(l)||/(?:réf|ref|art\.|désignation|description|produit)/i.test(l)){
+      artLines.push(l);
+    }
+  });
+  if(artLines.length) articles=artLines.slice(0,30).join('
+');
+  else {
+    // Fallback : prendre les lignes avec des chiffres qui ressemblent à des qté
+    lines.forEach(function(line){
+      if(/\d+\s*x\s*.{5,}/i.test(line)||/x\s*\d+\s*.{5,}/i.test(line)) artLines.push(line.trim());
+    });
+    articles=artLines.slice(0,20).join('
+')||t.substring(0,800);
+  }
+
+  // ── Nb articles
+  var nbArt=artLines.length||1;
+
+  // Remplir les champs
+  document.getElementById('pdf-f-fourn').value=fourn;
+  document.getElementById('pdf-f-date').value=dateVal;
+  document.getElementById('pdf-f-mont').value=mont;
+  document.getElementById('pdf-f-art').value=nbArt>0?nbArt:1;
+  document.getElementById('pdf-f-articles').value=articles;
+  document.getElementById('pdf-bdc-fields').style.display='';
+  document.getElementById('pdf-bdc-confirm').style.display='';
+  document.getElementById('pdf-bdc-status').textContent='✅ Extraction terminée — '+pdf_numPages_last+' page(s) lue(s).';
+}
+
+var pdf_numPages_last=1;
+// Patch pour stocker le nb de pages
+(function(){
+  var _orig=extractPDFBDC;
+  window.extractPDFBDC=async function(input){
+    const file=input.files[0]; if(!file) return;
+    document.getElementById('pdf-bdc-status').textContent='Lecture du PDF en cours...';
+    document.getElementById('pdf-bdc-fields').style.display='none';
+    document.getElementById('pdf-bdc-confirm').style.display='none';
+    if(typeof pdfjsLib==='undefined'){
+      document.getElementById('pdf-bdc-status').textContent='❌ PDF.js non chargé.';
+      return;
+    }
+    try {
+      const arrayBuffer=await file.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+      pdf_numPages_last=pdf.numPages;
+      let fullText='';
+      for(let i=1;i<=pdf.numPages;i++){
+        const page=await pdf.getPage(i);
+        const content=await page.getTextContent();
+        fullText+=content.items.map(function(s){return s.str;}).join(' ')+'
+';
+      }
+      document.getElementById('pdf-bdc-raw-text').textContent=fullText;
+      parsePDFText(fullText);
+    } catch(e){
+      document.getElementById('pdf-bdc-status').textContent='❌ Erreur : '+e.message;
+    }
+  };
+})();
+
+function createBDCFromPDF(){
+  var fourn=document.getElementById('pdf-f-fourn').value.trim();
+  var date=document.getElementById('pdf-f-date').value;
+  var mont=document.getElementById('pdf-f-mont').value;
+  var art=document.getElementById('pdf-f-art').value;
+  var articles=document.getElementById('pdf-f-articles').value;
+  closeModal('modal-import-pdf-bdc');
+  openBDCModal();
+  setTimeout(function(){
+    if(fourn) document.getElementById('bdc-f-fourn').value=fourn;
+    if(date)  document.getElementById('bdc-f-date').value=date;
+    if(mont)  document.getElementById('bdc-f-mont').value=mont;
+    if(art)   document.getElementById('bdc-f-art').value=art;
+    if(articles) document.getElementById('bdc-f-articles').value=articles;
+  },100);
+}
 
 </script>
 
