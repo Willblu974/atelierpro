@@ -4134,26 +4134,27 @@ function togglePDFRaw(){
   el.style.display=el.style.display==='none'?'':'none';
 }
 
+var pdf_numPages_last=1;
+
 async function extractPDFBDC(input){
-  const file=input.files[0]; if(!file) return;
+  var file=input.files[0]; if(!file) return;
   document.getElementById('pdf-bdc-status').textContent='Lecture du PDF en cours...';
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
-
   if(typeof pdfjsLib==='undefined'){
     document.getElementById('pdf-bdc-status').textContent='❌ PDF.js non chargé — vérifiez votre connexion internet.';
     return;
   }
-
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data:arrayBuffer}).promise;
-    let fullText='';
-    for(let i=1;i<=pdf.numPages;i++){
-      const page=await pdf.getPage(i);
-      const content=await page.getTextContent();
-      fullText+=content.items.map(function(s){return s.str;}).join(' ')+'
-';
+    var arrayBuffer=await file.arrayBuffer();
+    var pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    pdf_numPages_last=pdf.numPages;
+    var LF=String.fromCharCode(10);
+    var fullText='';
+    for(var i=1;i<=pdf.numPages;i++){
+      var page=await pdf.getPage(i);
+      var content=await page.getTextContent();
+      fullText+=content.items.map(function(s){return s.str;}).join(' ')+LF;
     }
     document.getElementById('pdf-bdc-raw-text').textContent=fullText;
     parsePDFText(fullText);
@@ -4163,46 +4164,43 @@ async function extractPDFBDC(input){
 }
 
 function parsePDFText(text){
-  // Nettoyage
+  var LF=String.fromCharCode(10);
   var t=text.replace(/\s+/g,' ');
 
-  // ── Fournisseur
   var fourn='';
   var fPatterns=[
-    /(?:fournisseur|vendeur|émetteur|société|de\s*:)\s*:?\s*([A-ZÀ-Ÿa-zà-ÿ0-9 &'.\-]{3,50})/i,
-    /^([A-ZÀÂÉÈÊËÎÏÔÙÛÜ][A-ZÀ-Ÿa-zà-ÿ0-9 &'.\-]{2,40})\s*(?:SAS|SARL|SA|SNC|EURL|SCP)/m
+    /(?:fournisseur|vendeur|\u00e9metteur|soci\u00e9t\u00e9|de\s*:)\s*:?\s*([A-Z\u00C0-\u0178a-z\u00e0-\u00ff0-9 &.\-]{3,50})/i,
+    /^([A-Z][A-Z\u00C0-\u0178a-z\u00e0-\u00ff0-9 &.\-]{2,40})\s*(?:SAS|SARL|SA|SNC|EURL|SCP)/m
   ];
   for(var i=0;i<fPatterns.length;i++){
     var m=t.match(fPatterns[i]);
     if(m){fourn=m[1].trim();break;}
   }
 
-  // ── Date
   var dateVal='';
   var dPatterns=[
-    /(?:date\s*(?:de\s*)?(?:commande|bon|bdc|facture|émission)\s*:?\s*)(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
-    /(\d{1,2}[\/-]\d{1,2}[\/-]\d{4})/
+    /(?:date\s*(?:de\s*)?(?:commande|bon|bdc|facture|\u00e9mission)\s*:?\s*)(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/
   ];
   for(var j=0;j<dPatterns.length;j++){
     var dm=t.match(dPatterns[j]);
     if(dm){
-      var parts=dm[1].split(/[\/-]/);
+      var parts=dm[1].split(/[\/\-]/);
       if(parts.length===3){
         var y=parts[2].length===2?'20'+parts[2]:parts[2];
         var mo=parts[1].padStart(2,'0');
-        var d=parts[0].padStart(2,'0');
-        dateVal=y+'-'+mo+'-'+d;
+        var dd=parts[0].padStart(2,'0');
+        dateVal=y+'-'+mo+'-'+dd;
       }
       break;
     }
   }
 
-  // ── Montant HT
   var mont='';
   var mPatterns=[
-    /(?:total\s*h\.?t\.?|montant\s*h\.?t\.?|sous.total|net\s*h\.?t\.?)\s*:?\s*([\d\s.,]+)\s*(?:€|EUR|eur)?/i,
-    /(?:€|EUR)\s*([\d\s.,]+)/i,
-    /([\d\s.,]+)\s*(?:€|EUR)/i
+    /(?:total\s*h\.?t\.?|montant\s*h\.?t\.?|sous.total|net\s*h\.?t\.)\s*:?\s*([\d\s.,]+)\s*(?:\u20ac|EUR|eur)?/i,
+    /(?:\u20ac|EUR)\s*([\d\s.,]+)/i,
+    /([\d\s.,]+)\s*(?:\u20ac|EUR)/i
   ];
   for(var k=0;k<mPatterns.length;k++){
     var mm=t.match(mPatterns[k]);
@@ -4214,33 +4212,26 @@ function parsePDFText(text){
     }
   }
 
-  // ── Articles : lignes avec quantité + désignation
   var articles='';
-  var lines=text.split('
-');
+  var lines=text.split(LF);
   var artLines=[];
   lines.forEach(function(line){
     var l=line.trim();
     if(l.length<5) return;
-    if(/^\d+\s+.{5,}/.test(l)||/(?:réf|ref|art\.|désignation|description|produit)/i.test(l)){
+    if(/^\d+\s+.{5,}/.test(l)||/(?:r\u00e9f|ref|art\.|d\u00e9signation|description|produit)/i.test(l)){
       artLines.push(l);
     }
   });
-  if(artLines.length) articles=artLines.slice(0,30).join('
-');
-  else {
-    // Fallback : prendre les lignes avec des chiffres qui ressemblent à des qté
+  if(artLines.length){
+    articles=artLines.slice(0,30).join(LF);
+  } else {
     lines.forEach(function(line){
       if(/\d+\s*x\s*.{5,}/i.test(line)||/x\s*\d+\s*.{5,}/i.test(line)) artLines.push(line.trim());
     });
-    articles=artLines.slice(0,20).join('
-')||t.substring(0,800);
+    articles=artLines.slice(0,20).join(LF)||t.substring(0,800);
   }
 
-  // ── Nb articles
   var nbArt=artLines.length||1;
-
-  // Remplir les champs
   document.getElementById('pdf-f-fourn').value=fourn;
   document.getElementById('pdf-f-date').value=dateVal;
   document.getElementById('pdf-f-mont').value=mont;
@@ -4250,38 +4241,6 @@ function parsePDFText(text){
   document.getElementById('pdf-bdc-confirm').style.display='';
   document.getElementById('pdf-bdc-status').textContent='✅ Extraction terminée — '+pdf_numPages_last+' page(s) lue(s).';
 }
-
-var pdf_numPages_last=1;
-// Patch pour stocker le nb de pages
-(function(){
-  var _orig=extractPDFBDC;
-  window.extractPDFBDC=async function(input){
-    const file=input.files[0]; if(!file) return;
-    document.getElementById('pdf-bdc-status').textContent='Lecture du PDF en cours...';
-    document.getElementById('pdf-bdc-fields').style.display='none';
-    document.getElementById('pdf-bdc-confirm').style.display='none';
-    if(typeof pdfjsLib==='undefined'){
-      document.getElementById('pdf-bdc-status').textContent='❌ PDF.js non chargé.';
-      return;
-    }
-    try {
-      const arrayBuffer=await file.arrayBuffer();
-      const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
-      pdf_numPages_last=pdf.numPages;
-      let fullText='';
-      for(let i=1;i<=pdf.numPages;i++){
-        const page=await pdf.getPage(i);
-        const content=await page.getTextContent();
-        fullText+=content.items.map(function(s){return s.str;}).join(' ')+'
-';
-      }
-      document.getElementById('pdf-bdc-raw-text').textContent=fullText;
-      parsePDFText(fullText);
-    } catch(e){
-      document.getElementById('pdf-bdc-status').textContent='❌ Erreur : '+e.message;
-    }
-  };
-})();
 
 function createBDCFromPDF(){
   var fourn=document.getElementById('pdf-f-fourn').value.trim();
@@ -4297,7 +4256,7 @@ function createBDCFromPDF(){
     if(mont)  document.getElementById('bdc-f-mont').value=mont;
     if(art)   document.getElementById('bdc-f-art').value=art;
     if(articles) document.getElementById('bdc-f-articles').value=articles;
-  },100);
+  },150);
 }
 
 </script>
