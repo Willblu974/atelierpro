@@ -4246,26 +4246,67 @@ function parsePDFText(text){
     if(parsed.length) mont=String(Math.max.apply(null,parsed));
   }
 
-  // ── Articles ─────────────────────────────────────────────────
-  var artLines=[];
-  lines.forEach(function(line){
-    var l=line.trim();
-    if(l.length<5) return;
-    // Lignes qui ressemblent à des articles : commencent par un nombre ou contiennent ref/désignation
-    if(/^\d+[.,]?\d*\s+.{5,}/.test(l)||
-       /(?:r\u00e9f\.?|ref\.?|art\.?|d\u00e9signation|description|produit|qty|quantit\u00e9)/i.test(l)||
-       /\d+\s*(?:pcs?|piec|unit\u00e9s?|u\b)/i.test(l)){
-      artLines.push(l);
-    }
-  });
+  // ── Articles : détection et mise en forme lisible ──────────
+  // 1) Cherche les codes références articles (ex: FPBSF/M/06-01C, REF-123, ART.456)
+  var REF_PAT=/\b([A-Z]{2,}[\/\-][A-Z0-9\/\-\.]{3,30})\b/g;
+  var fullFlat=text.replace(/[ \t]+/g,' ');
+  var refMatches=[];
+  var rm;
+  while((rm=REF_PAT.exec(fullFlat))!==null) refMatches.push({ref:rm[1],idx:rm.index});
+
   var articles='';
-  if(artLines.length){
-    articles=artLines.slice(0,40).join(LF);
+  var nbArt=1;
+
+  if(refMatches.length>=1){
+    // Découpe le texte en blocs par référence article
+    var blocks=[];
+    for(var ri=0;ri<refMatches.length;ri++){
+      var from=refMatches[ri].idx;
+      var to=ri+1<refMatches.length?refMatches[ri+1].idx:fullFlat.length;
+      var chunk=fullFlat.substring(from,to).trim();
+      if(chunk.length>5) blocks.push(chunk);
+    }
+    // Pour chaque bloc, tente d'extraire qté, prix, description
+    var formatted=blocks.slice(0,30).map(function(blk,idx){
+      var ref=refMatches[idx].ref;
+      // Description = texte entre la ref et le premier nombre de prix
+      var desc=blk.replace(ref,'').replace(/\s*[\d.,]+\s*(?:pcs?|u\b|unit[\u00e9e]s?)?\s*[\d.,]+\s*[\d.,]*\s*$/i,'').trim();
+      // Quantité
+      var qm=blk.match(/(\d+[.,]?\d*)\s*(?:pcs?|pi\u00e8ces?|unit[\u00e9e]s?|u\b)/i);
+      var qty=qm?qm[1]+' pcs':'';
+      // Prix unitaire et total (deux derniers nombres du bloc)
+      var prices=blk.match(/\b(\d{1,6}[.,]\d{2})\b/g)||[];
+      var prixStr='';
+      if(prices.length>=2) prixStr='Pu: '+prices[prices.length-2]+' \u20ac  Total: '+prices[prices.length-1]+' \u20ac';
+      else if(prices.length===1) prixStr='Prix: '+prices[0]+' \u20ac';
+      // Ligne formatée
+      var line='\u2022 R\u00e9f: '+ref;
+      if(qty) line+=' | Qt\u00e9: '+qty;
+      if(prixStr) line+=' | '+prixStr;
+      if(desc&&desc.length>3&&desc.length<200) line+=LF+'  '+desc.substring(0,180);
+      return line;
+    });
+    articles=formatted.join(LF+LF);
+    nbArt=blocks.length;
   } else {
-    // Fallback : texte brut tronqué
-    articles=t1.substring(0,1200);
+    // Fallback : lignes filtrées comme avant
+    var artLines=[];
+    lines.forEach(function(line){
+      var l=line.trim();
+      if(l.length<5) return;
+      if(/^\d+[.,]?\d*\s+.{5,}/.test(l)||
+         /(?:r\u00e9f\.?|ref\.?|art\.?|d\u00e9signation|description|produit|qty|quantit\u00e9)/i.test(l)||
+         /\d+\s*(?:pcs?|piec|unit\u00e9s?|u\b)/i.test(l)){
+        artLines.push('\u2022 '+l);
+      }
+    });
+    if(artLines.length){
+      articles=artLines.slice(0,40).join(LF);
+      nbArt=artLines.length;
+    } else {
+      articles=t1.substring(0,1200);
+    }
   }
-  var nbArt=artLines.length||1;
 
   // ── Remplissage ──────────────────────────────────────────────
   document.getElementById('pdf-f-fourn').value=fourn;
