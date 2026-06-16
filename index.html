@@ -316,7 +316,7 @@ textarea{resize:vertical;min-height:80px;}
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()" style="margin-left:auto">📥 Importer un fichier</button>
       </div>
-      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>Famille</th><th>N&deg; S&eacute;rie</th><th>Statut</th><th>Proch. maintenance</th><th>Co&ucirc;t total</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>Famille</th><th>N&deg; S&eacute;rie</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Co&ucirc;t total</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-maintenance">
@@ -1183,6 +1183,16 @@ function renderMateriels(co,st){
   renderMatTable(co, st);
   updateMatKpis();
 }
+function revisionStatus(mat){
+  if(!mat.revision) return null;
+  var today=new Date(); today.setHours(0,0,0,0);
+  var rev=new Date(mat.revision);
+  var diff=Math.round((rev-today)/86400000);
+  if(diff<0)   return {cls:'alert',label:'Révision dépassée de '+(-diff)+' jour(s)',diff:diff};
+  if(diff<=30) return {cls:'warn', label:'Révision dans '+diff+' jour(s)',diff:diff};
+  return {cls:'ok',label:'Révision OK — dans '+diff+' j',diff:diff};
+}
+
 function renderMatTable(co, st){
   const filt = document.getElementById('mat-famille-filter')?.value || '';
   const sfilt = document.getElementById('mat-statut-filter')?.value || '';
@@ -1203,6 +1213,7 @@ function renderMatTable(co, st){
         <td style="font-size:12px">${m.serie}</td>
         <td>${statutBadge(m.statut,st)}</td>
         <td style="font-size:12px">${m.maint}</td>
+        <td>${(function(){var rs=revisionStatus(m);if(!rs)return '<span style="color:var(--text3);font-size:11px">—</span>';var d=new Date(m.revision).toLocaleDateString('fr-FR');return '<span class="badge badge-'+rs.cls+'" title="'+rs.label+'">\uD83D\uDCC5 '+d+'</span>';})()}</td>
         <td>${m.cout}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
@@ -1512,21 +1523,23 @@ function saveMat(){
     const idx = mats.findIndex(m=>m.id===editingMatId||m.code===editingMatId);
     if(idx>=0){
       mats[idx] = { ...mats[idx], code, nom, famille, statut,
-        serie:  document.getElementById('mat-f-serie').value.trim(),
-        maint:  document.getElementById('mat-f-maint').value.trim(),
-        cout:   document.getElementById('mat-f-cout').value.trim(),
-        notes:  document.getElementById('mat-f-notes').value.trim(),
-        dateMS: document.getElementById('mat-f-date').value,
+        serie:    document.getElementById('mat-f-serie').value.trim(),
+        maint:    document.getElementById('mat-f-maint').value.trim(),
+        revision: document.getElementById('mat-f-revision').value||null,
+        cout:     document.getElementById('mat-f-cout').value.trim(),
+        notes:    document.getElementById('mat-f-notes').value.trim(),
+        dateMS:   document.getElementById('mat-f-date').value,
         id: editingMatId };
     }
   } else {
     if(mats.some(m=>m.code===code)){ alert('Ce code matériel existe déjà.'); return; }
     mats.push({ id:code, code, nom, famille, statut,
-      serie:  document.getElementById('mat-f-serie').value.trim(),
-      maint:  document.getElementById('mat-f-maint').value.trim(),
-      cout:   document.getElementById('mat-f-cout').value.trim(),
-      notes:  document.getElementById('mat-f-notes').value.trim(),
-      dateMS: document.getElementById('mat-f-date').value,
+      serie:    document.getElementById('mat-f-serie').value.trim(),
+      maint:    document.getElementById('mat-f-maint').value.trim(),
+      revision: document.getElementById('mat-f-revision').value||null,
+      cout:     document.getElementById('mat-f-cout').value.trim(),
+      notes:    document.getElementById('mat-f-notes').value.trim(),
+      dateMS:   document.getElementById('mat-f-date').value,
     });
   }
   saveToStorage();
@@ -1561,6 +1574,7 @@ function openMatDetail(id){
     {l:'Mise en service', v: mat.dateMS ? new Date(mat.dateMS).toLocaleDateString('fr-FR') : '—'},
     {l:'Statut', v: s?`<span class="badge" style="background:${s.color.bg};color:${s.color.text}">${s.icon||''} ${s.name}</span>`:'—'},
     {l:'Prochaine maintenance', v: mat.maint||'—'},
+    {l:'Date de révision', v: (function(){if(!mat.revision)return '—';var rs=revisionStatus(mat);return '<span class="badge badge-'+rs.cls+'">\uD83D\uDCC5 '+new Date(mat.revision).toLocaleDateString('fr-FR')+'</span> <span style="font-size:11px;color:var(--text3)">'+rs.label+'</span>';})()},
     {l:'Coût total', v: mat.cout||'—'},
     {l:'Entreprise', v: COMPANIES[currentCompany].name},
   ];
@@ -2587,6 +2601,12 @@ function renderDashboard(co){
   if(bdcBloque>0)  alerts.push({type:'warn',   text:`<strong>Douane :</strong> ${bdcs.filter(b=>b.statut==='bloque').map(b=>b.num+' ('+b.fourn+')').join(', ')}`});
   const bdcTransit = bdcs.filter(b=>b.statut==='transit');
   if(bdcTransit.length) alerts.push({type:'info', text:`<strong>En transit :</strong> ${bdcTransit.map(b=>b.num).join(', ')}`});
+  // Révisions matériels
+  var mats2=st.materiels||[];
+  var revExp=mats2.filter(function(m){var rs=revisionStatus(m);return rs&&rs.cls==='alert';});
+  var revImm=mats2.filter(function(m){var rs=revisionStatus(m);return rs&&rs.cls==='warn';});
+  if(revExp.length) alerts.push({type:'danger',text:'<strong>Révisions dépassées :</strong> '+revExp.map(function(m){return m.code+' — '+new Date(m.revision).toLocaleDateString('fr-FR');}).join(', ')});
+  if(revImm.length) alerts.push({type:'warn',text:'<strong>Révisions imminentes (&le;30 j) :</strong> '+revImm.map(function(m){return m.code+' — '+new Date(m.revision).toLocaleDateString('fr-FR');}).join(', ')});
   if(!alerts.length) alerts.push({type:'info', text:'✅ Aucune alerte — situation nominale'});
   document.getElementById('dash-alerts').innerHTML = alerts.map(a=>
     `<div class="alert alert-${a.type}">→ <div>${a.text}</div></div>`).join('');
@@ -3116,6 +3136,15 @@ function collectAlerts(){
       }
     });
 
+    // Révisions matériels
+    var matsRev=st.materiels||co.materiels||[];
+    matsRev.forEach(function(m){
+      var rs=revisionStatus(m);
+      if(!rs) return;
+      if(rs.cls==='alert') alerts.push({type:'danger',co:co.name,cat:'Révision',msg:m.code+' — '+m.nom+' : révision dépassée de '+(-rs.diff)+' jour(s) (était prévue le '+new Date(m.revision).toLocaleDateString('fr-FR')+')'});
+      else if(rs.cls==='warn') alerts.push({type:'warn',co:co.name,cat:'Révision',msg:m.code+' — '+m.nom+' : révision dans '+rs.diff+' jour(s) (le '+new Date(m.revision).toLocaleDateString('fr-FR')+')'});
+    });
+
     // BDC bloqués en douane
     const bdcs = st.bdcs || co.commandes || [];
     bdcs.forEach(b => {
@@ -3565,7 +3594,7 @@ async function loadFromSupabase(){
     ]);
     if(familles?.length) state[co].familles=familles.map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
     if(statuts?.length)  state[co].statuts=statuts.map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
-    if(materiels?.length) state[co].materiels=materiels.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes}));
+    if(materiels?.length) state[co].materiels=materiels.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null}));
     if(ots?.length) state[co].ots=ots.map(o=>({id:o.id,num:o.num,mat:o.mat_label,type:o.type_ot,prio:o.prio,tech:o.tech,dur:o.dur,statut:o.statut,date:o.date_prevue,desc:o.desc_}));
     if(pieces?.length) state[co].pieces=pieces.map(p=>({id:p.id,ref:p.ref,nom:p.nom,compat:p.compat,prix:p.prix,stock:p.stock,seuil:p.seuil,notes:p.notes,st:p.stock===0?'alert':p.stock<=p.seuil?'warn':'ok'}));
     if(mvts?.length) state[co].mouvements=mvts.map(m=>({date:new Date(m.created_at).toLocaleDateString('fr-FR'),ref:m.ref_piece,nom:m.nom_piece,type:m.type_mvt,qte:(m.type_mvt==='in'?'+':m.type_mvt==='out'?'-':'=')+m.qte,motif:m.motif||'',apres:String(m.stock_apres||0)}));
@@ -4009,7 +4038,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const mats=state[currentCompany].materiels;
     const code=document.getElementById('mat-f-code')?.value?.trim();
     const mat=mats.find(m=>m.code===code); if(!mat) return;
-    await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,code:mat.code,nom:mat.nom,famille_id:mat.famille,serie:mat.serie,statut_id:mat.statut,maint:mat.maint,cout:mat.cout,date_ms:mat.dateMS||null,notes:mat.notes});
+    await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,code:mat.code,nom:mat.nom,famille_id:mat.famille,serie:mat.serie,statut_id:mat.statut,maint:mat.maint,cout:mat.cout,date_ms:mat.dateMS||null,notes:mat.notes,revision_date:mat.revision||null});
   };
   // Patch saveOT
   const _so=window.saveOT; window.saveOT=async function(){
