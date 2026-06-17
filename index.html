@@ -396,7 +396,7 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div style="display:flex;gap:10px;margin-bottom:16px">
         <input type="text" id="bdc-search" placeholder="N° BDC, fournisseur..." style="max-width:260px" oninput="renderBDCTable()">
-        <button class="btn btn-sm btn-edit" onclick="openImportBDCPDF()" style="margin-left:auto">📄 Importer PDF</button>
+        <button class="btn btn-sm btn-edit" id="btn-import-pdf-bdc" onclick="openImportBDCPDF()" style="margin-left:auto">📄 Importer PDF</button>
         <select id="bdc-st-filter" onchange="renderBDCTable()" style="max-width:180px"><option value="">Tous statuts</option><option value="encours">En cours</option><option value="transit">En transit</option><option value="bloque">Douane bloquée</option><option value="livre">Livré</option></select>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>N° BDC</th><th>Fournisseur</th><th>Date</th><th>Articles</th><th>Montant HT</th><th>Mode</th><th>Statut</th><th></th></tr></thead><tbody id="cmd-tbody"></tbody></table></div></div>
@@ -2494,6 +2494,11 @@ function bdcNextNum(){
   return 'BDC-'+new Date().getFullYear()+'-'+(String(Math.max(0,...nums)+1)).padStart(3,'0');
 }
 function openBDCModal(id=null){
+  // Sécurité : visiteur et responsable ne peuvent pas créer/modifier un BDC
+  if(!id){
+    const r=getUserRole();
+    if(r==='visiteur'||r==='responsable'){ alert('Acc\u00e8s refus\u00e9 \u2014 cr\u00e9ation de BDC r\u00e9serv\u00e9e aux Techniciens et Administrateurs.'); return; }
+  }
   editingBDCId=id;
   ensureBDCState(COMPANIES[currentCompany]);
   const b=id?(state[currentCompany].bdcs||[]).find(x=>x.id===id):null;
@@ -3546,6 +3551,10 @@ function applyPageRole(page){
     }
   }
 
+  // Bouton Import PDF BDC : masqué pour les rôles lecture seule
+  var btnImportPdf=document.getElementById('btn-import-pdf-bdc');
+  if(btnImportPdf) btnImportPdf.style.display=(role==='visiteur'||role==='responsable')?'none':'';
+
   // Champs de configuration (Paramètres) : verrouillés en lecture seule pour Responsable
   if(page==='parametres'){
     document.querySelectorAll('.param-edit-control').forEach(el=>{ el.disabled = (role==='responsable'); });
@@ -4121,6 +4130,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 /* ── IMPORT PDF BDC ─────────────────────────────────────── */
 function openImportBDCPDF(){
+  const r=getUserRole();
+  if(r==='visiteur'||r==='responsable'){ alert('Acc\u00e8s refus\u00e9 \u2014 import PDF r\u00e9serv\u00e9 aux Techniciens et Administrateurs.'); return; }
   document.getElementById('pdf-bdc-file').value='';
   document.getElementById('pdf-bdc-status').textContent='';
   document.getElementById('pdf-bdc-fields').style.display='none';
