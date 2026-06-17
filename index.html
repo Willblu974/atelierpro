@@ -3250,14 +3250,15 @@ async function sendAlertEmail(manual=false){
 </div>`;
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/dynamic-handler', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+cfg.apikey },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: cfg.from,
-        to: [cfg.email],
+        to: cfg.email,
         subject: `⚠️ AtelierPro — ${alerts.length} alerte(s) : ${dangers.length} critique(s), ${warns.length} avertissement(s)`,
-        html: htmlBody
+        html: htmlBody,
+        apikey: cfg.apikey
       })
     });
     const data = await res.json();
