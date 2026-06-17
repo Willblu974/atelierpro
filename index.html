@@ -1248,7 +1248,7 @@ function renderMatTable(co, st){
     if(sfilt && m.statut !== sfilt) return false;
     if(search && !m.nom.toLowerCase().includes(search) && !m.code.toLowerCase().includes(search)) return false;
     return true;
-  });
+  }).sort((a,b) => a.nom.localeCompare(b.nom, 'fr'));
   document.getElementById('mat-tbody').innerHTML = rows.length
     ? rows.map(m=>`<tr>
         <td><strong>${m.code}</strong></td>
