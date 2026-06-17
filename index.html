@@ -3145,12 +3145,11 @@ function saveNotifConfig(){
 function loadNotifConfig(){
   try {
     const saved = localStorage.getItem('atelierPro_notif');
-    if(!saved) return;
-    const cfg = JSON.parse(saved);
+    const cfg = saved ? JSON.parse(saved) : {};
     const el = id => document.getElementById(id);
-    if(el('notif-email'))    el('notif-email').value    = cfg.email||'';
+    if(el('notif-email'))    el('notif-email').value    = cfg.email||'wilfrid.beaulieu@ocetra.io';
     if(el('notif-apikey'))   el('notif-apikey').value   = cfg.apikey||'';
-    if(el('notif-from'))     el('notif-from').value     = cfg.from||'';
+    if(el('notif-from'))     el('notif-from').value     = cfg.from||'wilfrid.beaulieu@ocetra.io';
     if(el('notif-interval')) el('notif-interval').value = cfg.interval||'0';
   } catch(e){}
 }
