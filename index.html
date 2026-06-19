@@ -340,7 +340,22 @@ textarea{resize:vertical;min-height:80px;}
           <select id="ot-statut-filter" onchange="renderOTTable()" style="max-width:160px"><option value="">Tous statuts</option><option value="encours">En cours</option><option value="planifie">Planifié</option><option value="termine">Terminé</option><option value="bloque">Bloqué</option></select>
         </div>
         <div id="maint-alerts"></div>
-        <div class="card"><div class="card-body"><table><thead><tr><th>N° OT</th><th>Matériel</th><th>Type</th><th>Priorité</th><th>Technicien</th><th>Statut</th><th>Durée est.</th><th></th></tr></thead><tbody id="ot-tbody"></tbody></table></div></div>
+        <div class="card">
+          <div class="card-header" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <strong>Ordres de travail</strong>
+            <span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="journal-ot-mois" style="font-size:13px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+                <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
+                <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
+                <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
+                <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+              </select>
+              <input type="number" id="journal-ot-annee" value="" min="2020" max="2099" style="width:72px;font-size:13px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+              <button class="btn btn-sm btn-edit" onclick="exportJournalOT()">&#128196; Journal OT PDF</button>
+            </span>
+          </div>
+          <div class="card-body"><table><thead><tr><th>N° OT</th><th>Matériel</th><th>Type</th><th>Priorité</th><th>Technicien</th><th>Statut</th><th>Durée est.</th><th></th></tr></thead><tbody id="ot-tbody"></tbody></table></div>
+        </div>
       </div>
       <div id="maint-plan" style="display:none">
         <div class="card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>Opération</th><th>Périodicité</th><th>Pièces liées</th><th>Dernière fois</th><th>Prochaine</th></tr></thead><tbody id="plan-tbody"></tbody></table></div></div>
@@ -1220,6 +1235,8 @@ function renderAll(){
   renderPieces(co); renderStock(co); renderFournisseurs(co);
   const jA=document.getElementById('journal-annee');if(jA&&!jA.value)jA.value=new Date().getFullYear();
   const jM=document.getElementById('journal-mois');if(jM)jM.value=new Date().getMonth()+1;
+  const jOA=document.getElementById('journal-ot-annee');if(jOA&&!jOA.value)jOA.value=new Date().getFullYear();
+  const jOM=document.getElementById('journal-ot-mois');if(jOM)jOM.value=new Date().getMonth()+1;
   renderCommandes(co); renderTransport(co); renderCouts(co); renderRapport(co);
   renderParametres(co,st);
 }
@@ -4021,6 +4038,117 @@ function exportPDF(type){
   <div style="margin-top:32px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:10px;color:#999;display:flex;justify-content:space-between">
     <span>AtelierPro — Document généré le ${now}</span>
     <span>${coInfo.name}</span>
+  </div>
+  <script>window.onload=()=>window.print();<\/script>
+  </body></html>`;
+
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+function exportJournalOT(){
+  const moisSel=parseInt(document.getElementById('journal-ot-mois').value);
+  const anneeSel=parseInt(document.getElementById('journal-ot-annee').value);
+  if(!anneeSel||isNaN(anneeSel)){alert('Veuillez saisir une année.');return;}
+  const co=state[currentCompany];
+  const coInfo=COMPANIES[currentCompany];
+  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const moisNom=moisNoms[moisSel-1];
+  const stMap={planifie:'Planifié',encours:'En cours',bloque:'Bloqué',termine:'Terminé'};
+  const prioMap={alert:{l:'Urgent',bg:'#fee2e2',c:'#991b1b'},warn:{l:'Élevé',bg:'#fef3c7',c:'#92400e'},info:{l:'Normal',bg:'#e0f2fe',c:'#075985'}};
+
+  const allOTs=[...(co.ots||[]),...(coInfo.ots||[])];
+  const filtered=allOTs.filter(o=>{
+    if(!o.date)return false;
+    const d=new Date(o.date);
+    return d.getMonth()+1===moisSel && d.getFullYear()===anneeSel;
+  });
+
+  const nbTotal=filtered.length;
+  const nbEncours=filtered.filter(o=>o.statut==='encours').length;
+  const nbTermine=filtered.filter(o=>o.statut==='termine').length;
+  const nbBloque=filtered.filter(o=>o.statut==='bloque').length;
+  const nbPlanifie=filtered.filter(o=>o.statut==='planifie').length;
+  const nbUrgent=filtered.filter(o=>o.prio==='alert').length;
+
+  const header=buildPDFHeader(co,coInfo,now);
+
+  let rows='';
+  if(filtered.length){
+    filtered.forEach((o,i)=>{
+      const bg=i%2===0?'#f9f9f7':'#fff';
+      const prio=prioMap[o.prio]||{l:o.prio||'—',bg:'#f3f4f6',c:'#374151'};
+      const statLbl=stMap[o.statut]||o.statut||'—';
+      const statBg=o.statut==='termine'?'#d1fae5':o.statut==='bloque'?'#fee2e2':o.statut==='encours'?'#fef3c7':'#f3f4f6';
+      const statC=o.statut==='termine'?'#065f46':o.statut==='bloque'?'#991b1b':o.statut==='encours'?'#92400e':'#374151';
+      const dateStr=o.date?new Date(o.date).toLocaleDateString('fr-FR'):'—';
+      rows+=`<tr style="background:${bg}">
+        <td style="padding:7px 10px;font-weight:600;color:${coInfo.color}">${o.num||'—'}</td>
+        <td style="padding:7px 10px;font-size:11px">${o.mat||'—'}</td>
+        <td style="padding:7px 10px">${o.type||'—'}</td>
+        <td style="padding:7px 10px"><span style="background:${prio.bg};color:${prio.c};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">${prio.l}</span></td>
+        <td style="padding:7px 10px;color:#555">${o.tech||'—'}</td>
+        <td style="padding:7px 10px"><span style="background:${statBg};color:${statC};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">${statLbl}</span></td>
+        <td style="padding:7px 10px;text-align:center">${o.dur||'—'}</td>
+        <td style="padding:7px 10px;font-size:11px;color:#555;max-width:200px">${o.desc||'—'}</td>
+      </tr>`;
+    });
+  } else {
+    rows=`<tr><td colspan="8" style="padding:24px;text-align:center;color:#999">Aucun OT enregistré pour ${moisNom} ${anneeSel}</td></tr>`;
+  }
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Journal OT ${moisNom} ${anneeSel}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:12px}
+    table{width:100%;border-collapse:collapse}
+    th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
+    @media print{body{padding:10px}}
+  </style></head><body>
+  ${header}
+  <div style="margin-bottom:18px">
+    <h2 style="font-size:16px;font-weight:700;color:${coInfo.color};margin:0 0 4px">
+      📋 Journal des Ordres de Travail
+    </h2>
+    <div style="font-size:13px;color:#555">Période : <strong>${moisNom} ${anneeSel}</strong></div>
+  </div>
+  <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+    <div style="background:#f3f4f6;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px">
+      <div style="font-size:22px;font-weight:700;color:#374151">${nbTotal}</div>
+      <div style="font-size:11px;color:#374151">Total OT</div>
+    </div>
+    <div style="background:#fef3c7;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px">
+      <div style="font-size:22px;font-weight:700;color:#92400e">${nbEncours}</div>
+      <div style="font-size:11px;color:#92400e">En cours</div>
+    </div>
+    <div style="background:#d1fae5;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px">
+      <div style="font-size:22px;font-weight:700;color:#065f46">${nbTermine}</div>
+      <div style="font-size:11px;color:#065f46">Terminés</div>
+    </div>
+    <div style="background:#fee2e2;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px">
+      <div style="font-size:22px;font-weight:700;color:#991b1b">${nbBloque}</div>
+      <div style="font-size:11px;color:#991b1b">Bloqués</div>
+    </div>
+    <div style="background:#e0f2fe;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px">
+      <div style="font-size:22px;font-weight:700;color:#075985">${nbPlanifie}</div>
+      <div style="font-size:11px;color:#075985">Planifiés</div>
+    </div>
+    <div style="background:#fee2e2;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px">
+      <div style="font-size:22px;font-weight:700;color:#991b1b">${nbUrgent}</div>
+      <div style="font-size:11px;color:#991b1b">Urgents</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr style="background:${coInfo.color};color:#fff">
+      <th>N° OT</th><th>Matériel</th><th>Type</th><th>Priorité</th><th>Technicien</th><th>Statut</th><th style="text-align:center">Durée est.</th><th>Description</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999">
+    <span>AtelierPro — Journal généré le ${now}</span>
+    <span>${coInfo.name} — ${moisNom} ${anneeSel}</span>
   </div>
   <script>window.onload=()=>window.print();<\/script>
   </body></html>`;
