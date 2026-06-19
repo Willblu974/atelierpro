@@ -370,7 +370,22 @@ textarea{resize:vertical;min-height:80px;}
     <div class="page" id="page-stock">
       <div class="stat-row" id="stock-stats"></div>
       <div id="stock-alerts"></div>
-      <div class="card" style="margin-top:16px"><div class="card-header"><strong>Mouvements r&eacute;cents</strong></div><div class="card-body"><table><thead><tr><th>Date</th><th>R&eacute;f&eacute;rence</th><th>D&eacute;signation</th><th>Mouvement</th><th>Qt&eacute;</th><th>Motif</th><th>Stock apr&egrave;s</th></tr></thead><tbody id="stock-tbody"></tbody></table></div></div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-header" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <strong>Mouvements r&eacute;cents</strong>
+          <span style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="journal-mois" style="font-size:13px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+              <option value="1">Janvier</option><option value="2">F&eacute;vrier</option><option value="3">Mars</option>
+              <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
+              <option value="7">Juillet</option><option value="8">Ao&ucirc;t</option><option value="9">Septembre</option>
+              <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">D&eacute;cembre</option>
+            </select>
+            <input type="number" id="journal-annee" value="" min="2020" max="2099" style="width:72px;font-size:13px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+            <button class="btn btn-sm btn-edit" onclick="exportJournalMvt()">&#128196; Journal PDF</button>
+          </span>
+        </div>
+        <div class="card-body"><table><thead><tr><th>Date</th><th>R&eacute;f&eacute;rence</th><th>D&eacute;signation</th><th>Mouvement</th><th>Qt&eacute;</th><th>Motif</th><th>Stock apr&egrave;s</th></tr></thead><tbody id="stock-tbody"></tbody></table></div>
+      </div>
     </div>
 
     <div class="page" id="page-fournisseurs">
@@ -1203,6 +1218,8 @@ function renderAll(){
   document.documentElement.style.setProperty('--company-color',co.color);
   renderDashboard(co); renderMateriels(co,st); renderMaintenance(co,st);
   renderPieces(co); renderStock(co); renderFournisseurs(co);
+  const jA=document.getElementById('journal-annee');if(jA&&!jA.value)jA.value=new Date().getFullYear();
+  const jM=document.getElementById('journal-mois');if(jM)jM.value=new Date().getMonth()+1;
   renderCommandes(co); renderTransport(co); renderCouts(co); renderRapport(co);
   renderParametres(co,st);
 }
@@ -2406,7 +2423,7 @@ function saveMvt(){
   if(!state[currentCompany].mouvements) state[currentCompany].mouvements=[];
   const d=new Date();
   state[currentCompany].mouvements.unshift({
-    date:d.toLocaleDateString('fr-FR'),ref:p.ref,nom:p.nom,
+    date:d.toLocaleDateString('fr-FR'),isoDate:d.toISOString().slice(0,10),ref:p.ref,nom:p.nom,
     type,qte:type==='in'?'+'+qte:type==='out'?'-'+qte:'='+qte,
     motif,apres:String(newStock)
   });
@@ -4004,6 +4021,113 @@ function exportPDF(type){
   <div style="margin-top:32px;padding-top:12px;border-top:1px solid #e0e0e0;font-size:10px;color:#999;display:flex;justify-content:space-between">
     <span>AtelierPro — Document généré le ${now}</span>
     <span>${coInfo.name}</span>
+  </div>
+  <script>window.onload=()=>window.print();<\/script>
+  </body></html>`;
+
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+function exportJournalMvt(){
+  const moisSel=parseInt(document.getElementById('journal-mois').value);
+  const anneeSel=parseInt(document.getElementById('journal-annee').value);
+  if(!anneeSel||isNaN(anneeSel)){alert('Veuillez saisir une année.');return;}
+  const co=state[currentCompany];
+  const coInfo=COMPANIES[currentCompany];
+  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const moisNom=moisNoms[moisSel-1];
+
+  // Filtrer les mouvements du mois/année sélectionnés
+  const allMvts=[...(co.mouvements||[]),...(coInfo.mouvements||[])];
+  const filtered=allMvts.filter(m=>{
+    if(m.isoDate){
+      const d=new Date(m.isoDate);
+      return d.getMonth()+1===moisSel && d.getFullYear()===anneeSel;
+    }
+    // Fallback : date au format DD/MM/YYYY
+    const parts=(m.date||'').split('/');
+    if(parts.length===3) return parseInt(parts[1])===moisSel && parseInt(parts[2])===anneeSel;
+    return false;
+  });
+
+  // Statistiques
+  const nbEntrees=filtered.filter(m=>m.type==='in').length;
+  const nbSorties=filtered.filter(m=>m.type==='out').length;
+  const nbAjust=filtered.filter(m=>m.type==='adjust'||m.type==='adj').length;
+  const qteTotaleEntree=filtered.filter(m=>m.type==='in').reduce((s,m)=>s+Math.abs(parseInt(m.qte)||0),0);
+  const qteTotaleSortie=filtered.filter(m=>m.type==='out').reduce((s,m)=>s+Math.abs(parseInt(m.qte)||0),0);
+
+  const header=buildPDFHeader(co,coInfo,now);
+
+  let rows='';
+  if(filtered.length){
+    filtered.forEach((m,i)=>{
+      const bg=i%2===0?'#f9f9f7':'#fff';
+      const typeLabel=m.type==='in'?'<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Entrée</span>':
+                      m.type==='out'?'<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Sortie</span>':
+                      '<span style="background:#e0f2fe;color:#075985;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Ajust.</span>';
+      const qteColor=m.type==='in'?'#065f46':m.type==='out'?'#991b1b':'#075985';
+      rows+=`<tr style="background:${bg}">
+        <td style="padding:7px 10px;color:#555">${m.date||'—'}</td>
+        <td style="padding:7px 10px;font-weight:600;color:${coInfo.color}">${m.ref||'—'}</td>
+        <td style="padding:7px 10px">${m.nom||'—'}</td>
+        <td style="padding:7px 10px">${typeLabel}</td>
+        <td style="padding:7px 10px;font-weight:700;color:${qteColor};text-align:center">${m.qte||'—'}</td>
+        <td style="padding:7px 10px;color:#555">${m.motif||'—'}</td>
+        <td style="padding:7px 10px;text-align:center;font-weight:600">${m.apres||'—'}</td>
+      </tr>`;
+    });
+  } else {
+    rows=`<tr><td colspan="7" style="padding:24px;text-align:center;color:#999">Aucun mouvement enregistré pour ${moisNom} ${anneeSel}</td></tr>`;
+  }
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Journal mouvements ${moisNom} ${anneeSel}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:12px}
+    table{width:100%;border-collapse:collapse}
+    th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
+    @media print{body{padding:10px}}
+  </style></head><body>
+  ${header}
+  <div style="margin-bottom:18px">
+    <h2 style="font-size:16px;font-weight:700;color:${coInfo.color};margin:0 0 4px">
+      📋 Journal des mouvements de pièces détachées
+    </h2>
+    <div style="font-size:13px;color:#555">Période : <strong>${moisNom} ${anneeSel}</strong></div>
+  </div>
+  <div style="display:flex;gap:16px;margin-bottom:18px">
+    <div style="background:#d1fae5;border-radius:8px;padding:10px 18px;text-align:center;min-width:100px">
+      <div style="font-size:22px;font-weight:700;color:#065f46">${nbEntrees}</div>
+      <div style="font-size:11px;color:#065f46">Entrée(s)</div>
+      <div style="font-size:11px;color:#065f46">+${qteTotaleEntree} unité(s)</div>
+    </div>
+    <div style="background:#fee2e2;border-radius:8px;padding:10px 18px;text-align:center;min-width:100px">
+      <div style="font-size:22px;font-weight:700;color:#991b1b">${nbSorties}</div>
+      <div style="font-size:11px;color:#991b1b">Sortie(s)</div>
+      <div style="font-size:11px;color:#991b1b">-${qteTotaleSortie} unité(s)</div>
+    </div>
+    <div style="background:#e0f2fe;border-radius:8px;padding:10px 18px;text-align:center;min-width:100px">
+      <div style="font-size:22px;font-weight:700;color:#075985">${nbAjust}</div>
+      <div style="font-size:11px;color:#075985">Ajustement(s)</div>
+    </div>
+    <div style="background:#f3f4f6;border-radius:8px;padding:10px 18px;text-align:center;min-width:100px">
+      <div style="font-size:22px;font-weight:700;color:#374151">${filtered.length}</div>
+      <div style="font-size:11px;color:#374151">Total mouvements</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr style="background:${coInfo.color};color:#fff">
+      <th>Date</th><th>Référence</th><th>Désignation</th><th>Type</th><th style="text-align:center">Qté</th><th>Motif / OT</th><th style="text-align:center">Stock après</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999">
+    <span>AtelierPro — Journal généré le ${now}</span>
+    <span>${coInfo.name} — ${moisNom} ${anneeSel}</span>
   </div>
   <script>window.onload=()=>window.print();<\/script>
   </body></html>`;
