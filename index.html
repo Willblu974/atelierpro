@@ -4122,6 +4122,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const b=state[currentCompany].bdcs.find(x=>x.num===num); if(!b) return;
     await saveToSupabase('bons_commande',{id:b.id,entreprise_id:currentCompany,num:b.num,fourn_nom:b.fourn,date_cmd:b.date||null,mode:b.mode,montant:b.mont,nb_articles:parseInt(b.art)||1,statut:b.statut,date_livraison:b.livraison||null,articles:b.articles});
   };
+  // Patch deleteMat → Supabase
+  const _dm=window.deleteMat; window.deleteMat=async function(id){
+    const mat=state[currentCompany].materiels.find(m=>m.id===id||m.code===id);
+    const sbId=mat?.id;
+    _dm(id);
+    const stillExists=state[currentCompany].materiels.find(m=>m.id===id||m.code===id);
+    if(!stillExists && sbId && SB_MODE==='online'){
+      const {error}=await SB.from('materiels').delete().eq('id',sbId);
+      if(error) console.error('Erreur suppression matériel Supabase:',error.message);
+    }
+  };
+  // Patch deletePiece → Supabase
+  const _dp=window.deletePiece; window.deletePiece=async function(id){
+    const piece=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
+    const sbId=piece?.id;
+    _dp(id);
+    const stillExists=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
+    if(!stillExists && sbId && SB_MODE==='online'){
+      const {error}=await SB.from('pieces').delete().eq('id',sbId);
+      if(error) console.error('Erreur suppression pièce Supabase:',error.message);
+    }
+  };
 });
 
 
