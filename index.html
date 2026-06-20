@@ -4026,15 +4026,15 @@ async function loadFromSupabase(){
       SB.from('bons_commande').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}),
       SB.from('prets_materiels').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}),
     ]);
-    if(familles?.length) state[co].familles=familles.map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
-    if(statuts?.length)  state[co].statuts=statuts.map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
-    if(materiels?.length) state[co].materiels=materiels.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));
-    if(ots?.length) state[co].ots=ots.map(o=>({id:o.id,num:o.num,mat:o.mat_label,type:o.type_ot,prio:o.prio,tech:o.tech,dur:o.dur,statut:o.statut,date:o.date_prevue,desc:o.desc_}));
-    if(pieces?.length) state[co].pieces=pieces.map(p=>({id:p.id,ref:p.ref,nom:p.nom,compat:p.compat,prix:p.prix,stock:p.stock,seuil:p.seuil,notes:p.notes,fourn:p.fournisseur||'',st:p.stock===0?'alert':p.stock<=p.seuil?'warn':'ok'}));
-    if(mvts?.length) state[co].mouvements=mvts.map(m=>({date:new Date(m.created_at).toLocaleDateString('fr-FR'),ref:m.ref_piece,nom:m.nom_piece,type:m.type_mvt,qte:(m.type_mvt==='in'?'+':m.type_mvt==='out'?'-':'=')+m.qte,motif:m.motif||'',apres:String(m.stock_apres||0)}));
-    if(fourns?.length) state[co].fournisseurs=fourns.map(f=>({id:f.id,nom:f.nom,pays:f.pays,spec:f.spec,delai:f.delai,contact:f.contact,tel:f.tel,fret:f.fret,mode:f.mode,total:f.total_achats,notes:f.notes}));
-    if(bdcs?.length) state[co].bdcs=bdcs.map(b=>({id:b.id,num:b.num,fourn:b.fourn_nom,date:b.date_cmd,mode:b.mode,mont:b.montant,art:b.nb_articles,statut:b.statut,livraison:b.date_livraison,articles:b.articles}));
-    if(prets?.length) state[co].prets=prets.map(p=>({id:p.id,matCode:p.materiel_code,matLabel:p.materiel_label,datePret:p.date_pret,dateRetour:p.date_retour_prevue,entreprise:p.entreprise_emprunteuse,convoyeur:p.convoyeur,tel:p.telephone,notes:p.notes,statut:p.statut||'encours'}));
+    state[co].familles=(familles||[]).map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
+    state[co].statuts=(statuts||[]).map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
+    state[co].materiels=(materiels||[]).map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));
+    state[co].ots=(ots||[]).map(o=>({id:o.id,num:o.num,mat:o.mat_label,type:o.type_ot,prio:o.prio,tech:o.tech,dur:o.dur,statut:o.statut,date:o.date_prevue,desc:o.desc_}));
+    state[co].pieces=(pieces||[]).map(p=>({id:p.id,ref:p.ref,nom:p.nom,compat:p.compat,prix:p.prix,stock:p.stock,seuil:p.seuil,notes:p.notes,fourn:p.fournisseur||'',st:p.stock===0?'alert':p.stock<=p.seuil?'warn':'ok'}));
+    state[co].mouvements=(mvts||[]).map(m=>({date:new Date(m.created_at).toLocaleDateString('fr-FR'),ref:m.ref_piece,nom:m.nom_piece,type:m.type_mvt,qte:(m.type_mvt==='in'?'+':m.type_mvt==='out'?'-':'=')+m.qte,motif:m.motif||'',apres:String(m.stock_apres||0)}));
+    state[co].fournisseurs=(fourns||[]).map(f=>({id:f.id,nom:f.nom,pays:f.pays,spec:f.spec,delai:f.delai,contact:f.contact,tel:f.tel,fret:f.fret,mode:f.mode,total:f.total_achats,notes:f.notes}));
+    state[co].bdcs=(bdcs||[]).map(b=>({id:b.id,num:b.num,fourn:b.fourn_nom,date:b.date_cmd,mode:b.mode,mont:b.montant,art:b.nb_articles,statut:b.statut,livraison:b.date_livraison,articles:b.articles}));
+    state[co].prets=(prets||[]).map(p=>({id:p.id,matCode:p.materiel_code,matLabel:p.materiel_label,datePret:p.date_pret,dateRetour:p.date_retour_prevue,entreprise:p.entreprise_emprunteuse,convoyeur:p.convoyeur,tel:p.telephone,notes:p.notes,statut:p.statut||'encours'}));
     setSbStatus('online','🟢 '+SB_USER?.email+' · Synchronisé');
     saveToStorage();
     subscribeRealtime(co);
