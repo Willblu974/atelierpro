@@ -3653,7 +3653,18 @@ function initSupabase(){
     setSbStatus('online','Connexion Supabase...');
     checkSession();
     SB.auth.onAuthStateChange((ev, session)=>{
-      if(ev==='SIGNED_IN' && session?.user) setTimeout(()=>afterLogin(session.user),0);
+      if(ev==='SIGNED_IN' && session?.user){
+        if(SB_USER && SB_USER.id===session.user.id){
+          // Supabase peut ré-émettre "SIGNED_IN" lors d'un simple changement
+          // de focus de fenêtre (ex: fermeture d'un PDF ouvert dans un nouvel
+          // onglet) sans qu'il s'agisse d'une nouvelle connexion. On évite ici
+          // de relancer afterLogin(), qui réinitialiserait l'entreprise
+          // actuellement sélectionnée et rechargerait toutes les données.
+          SB_USER = session.user;
+          return;
+        }
+        setTimeout(()=>afterLogin(session.user),0);
+      }
       if(ev==='SIGNED_OUT'){ document.getElementById('login-screen').classList.remove('hidden'); setSbStatus('offline','Déconnecté'); }
     });
   } catch(e){ setSbStatus('error','Erreur : '+e.message); }
