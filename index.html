@@ -1780,9 +1780,12 @@ async function savePret(){
     prets.push(rec);
   }
   // Bascule le matériel sur le statut "Prêté" tant que le prêt est en cours
-  if(mat && rec.statut!=='retourne' && mat.statut!=='pret'){
-    mat.statut = 'pret';
+  const pretStatutId = findPretStatutId();
+  if(mat && rec.statut!=='retourne' && pretStatutId && mat.statut!==pretStatutId){
+    mat.statut = pretStatutId;
     await syncMaterielToSupabase(mat);
+  } else if(mat && !pretStatutId){
+    alert('⚠️ Le prêt a été enregistré, mais aucun statut nommé "Prêté" n\'a été trouvé dans Paramètres → Statuts personnalisés. Le statut du matériel n\'a donc pas été changé automatiquement.');
   }
   saveToStorage();
   if(SB && SB_MODE==='online'){
@@ -1803,7 +1806,8 @@ async function marquerRetourPret(id){
   // Restaure le statut du matériel d'avant le prêt (ou "Actif" par défaut)
   const mats = state[currentCompany].materiels||[];
   const mat = mats.find(m=>(m.id||m.code)===prets[idx].matCode);
-  if(mat && mat.statut==='pret'){
+  const pretStatutId = findPretStatutId();
+  if(mat && pretStatutId && mat.statut===pretStatutId){
     mat.statut = prets[idx].matStatutAvant || 'ok';
     await syncMaterielToSupabase(mat);
   }
@@ -4626,6 +4630,16 @@ async function deleteFromSupabase(table, id){
 async function syncMaterielToSupabase(mat){
   if(!SB||SB_MODE!=='online'||!mat) return;
   await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,code:mat.code,nom:mat.nom,famille_id:mat.famille,serie:mat.serie,statut_id:mat.statut,maint:mat.maint,cout:mat.cout,date_ms:mat.dateMS||null,notes:mat.notes,revision_date:mat.revision||null,fournisseur:mat.fourn||null,prix_achat:mat.prixAchat||null,date_achat:mat.dateAchat||null});
+}
+// Retrouve l'id du statut "Prêté" quel que soit son id réel (statut système
+// par défaut 'pret', ou statut créé manuellement dans Paramètres → Statuts)
+function findPretStatutId(){
+  const st = state[currentCompany];
+  if(!st || !st.statuts) return null;
+  const norm = s => (s||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  let s = st.statuts.find(x=>x.id==='pret');
+  if(!s) s = st.statuts.find(x=>norm(x.name).includes('prete'));
+  return s ? s.id : null;
 }
 
 /* ── Hooks CRUD → Supabase (double-write) ────────────────── */
