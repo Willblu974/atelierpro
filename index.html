@@ -318,7 +318,7 @@ textarea{resize:vertical;min-height:80px;}
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()" style="margin-left:auto">📥 Importer un fichier</button>
       </div>
-      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>Fournisseur</th><th>Famille</th><th>N&deg; S&eacute;rie</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat</th><th>Valeur marchande</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>Fournisseur</th><th>Famille</th><th>N&deg; S&eacute;rie</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-maintenance">
@@ -1003,8 +1003,8 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-group"><label>Statut</label><select id="mat-form-statut"></select></div>
       <div class="form-group"><label>Prochaine maintenance</label><input id="mat-f-maint" placeholder="ex: 500h — dans 45h"></div>
       <div class="form-group"><label>&#128197; Date de révision</label><input type="date" id="mat-f-revision"></div>
-      <div class="form-group"><label>Prix d'achat</label><input id="mat-f-prixachat" placeholder="ex: 15 000 €"></div>
-      <div class="form-group"><label>Valeur marchande</label><input id="mat-f-cout" placeholder="ex: 18 420 €"></div>
+      <div class="form-group"><label>Prix d'achat (€)</label><input id="mat-f-prixachat" placeholder="ex: 15 000 €"></div>
+      <div class="form-group"><label>Valeur marchande (€)</label><input id="mat-f-cout" placeholder="ex: 18 420 €"></div>
       <div class="form-group full"><label>Notes / Observations</label><textarea id="mat-f-notes" placeholder="Spécifications, historique, remarques..."></textarea></div>
     </div>
     <div class="modal-footer">
@@ -1297,8 +1297,8 @@ function renderMatTable(co, st){
         <td>${statutBadge(m.statut,st)}</td>
         <td style="font-size:12px">${m.maint}</td>
         <td>${(function(){var rs=revisionStatus(m);if(!rs)return '<span style="color:var(--text3);font-size:11px">—</span>';var d=new Date(m.revision).toLocaleDateString('fr-FR');return '<span class="badge badge-'+rs.cls+'" title="'+rs.label+'">\uD83D\uDCC5 '+d+'</span>';})()}</td>
-        <td>${m.prixAchat||'—'}</td>
-        <td>${m.cout}</td>
+        <td>${m.prixAchat ? (/€/.test(m.prixAchat) ? m.prixAchat : m.prixAchat+' €') : '—'}</td>
+        <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
@@ -1668,8 +1668,8 @@ function openMatDetail(id){
     {l:'Statut', v: s?`<span class="badge" style="background:${s.color.bg};color:${s.color.text}">${s.icon||''} ${s.name}</span>`:'—'},
     {l:'Prochaine maintenance', v: mat.maint||'—'},
     {l:'Date de révision', v: (function(){if(!mat.revision)return '—';var rs=revisionStatus(mat);return '<span class="badge badge-'+rs.cls+'">\uD83D\uDCC5 '+new Date(mat.revision).toLocaleDateString('fr-FR')+'</span> <span style="font-size:11px;color:var(--text3)">'+rs.label+'</span>';})()},
-    {l:'Prix d\'achat', v: mat.prixAchat||'—'},
-    {l:'Valeur marchande', v: mat.cout||'—'},
+    {l:'Prix d\'achat (€)', v: mat.prixAchat ? (/€/.test(mat.prixAchat) ? mat.prixAchat : mat.prixAchat+' €') : '—'},
+    {l:'Valeur marchande (€)', v: mat.cout ? (/€/.test(mat.cout) ? mat.cout : mat.cout+' €') : '—'},
     {l:'Entreprise', v: COMPANIES[currentCompany].name},
   ];
   document.getElementById('detail-grid').innerHTML = fields.map(fi=>
