@@ -316,9 +316,13 @@ textarea{resize:vertical;min-height:80px;}
         <input type="text" id="mat-search" placeholder="Rechercher code ou nom..." style="max-width:260px" oninput="applyMatFilters()">
         <select style="max-width:200px" id="mat-famille-filter" onchange="applyMatFilters()"></select>
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
-        <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()" style="margin-left:auto">📥 Importer un fichier</button>
+        <button class="btn btn-sm btn-edit" onclick="openPretModal()" style="margin-left:auto">🔄 Prêt matériel</button>
+        <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()">📥 Importer un fichier</button>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+
+      <div class="section-header" style="margin-top:24px"><div class="section-title">🔄 Prêts de matériels</div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>Téléphone</th><th>Date prêt</th><th>Retour prévu</th><th>Statut</th><th></th></tr></thead><tbody id="pret-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-maintenance">
@@ -1016,6 +1020,27 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- MODAL PRET MATERIEL -->
+<div class="modal-bg" id="modal-pret">
+  <div class="modal">
+    <div class="modal-header"><strong id="pret-modal-title">Prêt de matériel</strong><button class="btn btn-sm" onclick="closeModal('modal-pret')">&#10005;</button></div>
+    <div class="form-grid">
+      <input type="hidden" id="pret-edit-id">
+      <div class="form-group full"><label>Matériel *</label><select id="pret-f-mat"></select></div>
+      <div class="form-group"><label>Date du prêt *</label><input type="date" id="pret-f-date"></div>
+      <div class="form-group"><label>Date de retour prévue</label><input type="date" id="pret-f-retour"></div>
+      <div class="form-group"><label>Entreprise emprunteuse *</label><input id="pret-f-entreprise" placeholder="Nom de l'entreprise"></div>
+      <div class="form-group"><label>Nom du convoyeur *</label><input id="pret-f-convoyeur" placeholder="Prénom Nom"></div>
+      <div class="form-group full"><label>Téléphone du convoyeur</label><input type="tel" id="pret-f-tel" placeholder="+262 6 92 XX XX XX"></div>
+      <div class="form-group full"><label>Notes</label><textarea id="pret-f-notes" placeholder="État du matériel, accessoires fournis, remarques..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-pret')">Annuler</button>
+      <button class="btn btn-primary" onclick="savePret()">Enregistrer &amp; générer le PDF</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL DETAIL MATERIEL -->
 <div class="modal-bg" id="modal-mat-detail">
   <div class="modal" style="width:620px">
@@ -1266,6 +1291,8 @@ function renderMateriels(co,st){
   document.getElementById('mat-form-fourn').innerHTML='<option value="">— Aucun —</option>'+(state[currentCompany].fournisseurs||[]).map(f=>`<option value="${f.nom}">${f.nom}</option>`).join('');
   renderMatTable(co, st);
   updateMatKpis();
+  ensurePretState(co);
+  renderPretsTable();
 }
 function revisionStatus(mat){
   if(!mat.revision) return null;
@@ -1654,6 +1681,158 @@ function deleteMat(id){
   saveToStorage();
   closeModal('modal-mat-detail');
   renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
+}
+
+/* ── PRÊTS DE MATÉRIELS ──────────────────────────────────── */
+function ensurePretState(co){
+  if(!state[currentCompany].prets) state[currentCompany].prets = [];
+}
+
+function renderPretsTable(){
+  ensurePretState(COMPANIES[currentCompany]);
+  const prets = state[currentCompany].prets || [];
+  const tbody = document.getElementById('pret-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = prets.length
+    ? prets.slice().sort((a,b)=> (b.datePret||'').localeCompare(a.datePret||'')).map(p=>{
+        const enCours = p.statut!=='retourne';
+        return `<tr>
+          <td><strong>${p.matLabel||p.matCode||'—'}</strong></td>
+          <td>${p.entreprise||'—'}</td>
+          <td>${p.convoyeur||'—'}</td>
+          <td style="font-size:12px">${p.tel||'—'}</td>
+          <td>${p.datePret?new Date(p.datePret).toLocaleDateString('fr-FR'):'—'}</td>
+          <td>${p.dateRetour?new Date(p.dateRetour).toLocaleDateString('fr-FR'):'—'}</td>
+          <td>${enCours?'<span class="badge badge-warn">En cours</span>':'<span class="badge badge-ok">Retourné</span>'}</td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm" onclick="reimprimerPretPDF('${p.id}')" title="Réimprimer le PDF">📄</button>
+            ${enCours?`<button class="btn btn-sm btn-edit" onclick="marquerRetourPret('${p.id}')" style="margin-left:4px">✅ Retour</button>`:''}
+            <button class="btn btn-sm btn-danger" onclick="deletePret('${p.id}')" style="margin-left:4px">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">Aucun prêt enregistré</td></tr>`;
+}
+
+let editingPretId = null;
+function openPretModal(id=null){
+  ensureMatState(COMPANIES[currentCompany]);
+  ensurePretState(COMPANIES[currentCompany]);
+  editingPretId = id;
+  const p = id ? (state[currentCompany].prets||[]).find(x=>x.id===id) : null;
+  const mats = state[currentCompany].materiels||[];
+  document.getElementById('pret-modal-title').textContent = id ? 'Modifier le prêt' : 'Prêt de matériel';
+  document.getElementById('pret-edit-id').value = id||'';
+  document.getElementById('pret-f-mat').innerHTML = mats.map(m=>`<option value="${m.id||m.code}">${m.code} — ${m.nom}</option>`).join('');
+  if(p) document.getElementById('pret-f-mat').value = p.matCode;
+  document.getElementById('pret-f-date').value = p?.datePret || new Date().toISOString().split('T')[0];
+  document.getElementById('pret-f-retour').value = p?.dateRetour || '';
+  document.getElementById('pret-f-entreprise').value = p?.entreprise || '';
+  document.getElementById('pret-f-convoyeur').value = p?.convoyeur || '';
+  document.getElementById('pret-f-tel').value = p?.tel || '';
+  document.getElementById('pret-f-notes').value = p?.notes || '';
+  document.getElementById('modal-pret').classList.add('open');
+}
+
+async function savePret(){
+  const matCode = document.getElementById('pret-f-mat').value;
+  const datePret = document.getElementById('pret-f-date').value;
+  const entreprise = document.getElementById('pret-f-entreprise').value.trim();
+  const convoyeur = document.getElementById('pret-f-convoyeur').value.trim();
+  if(!matCode || !datePret || !entreprise || !convoyeur){ alert('Matériel, date du prêt, entreprise emprunteuse et nom du convoyeur sont obligatoires.'); return; }
+  ensurePretState(COMPANIES[currentCompany]);
+  const mats = state[currentCompany].materiels||[];
+  const mat = mats.find(m=>(m.id||m.code)===matCode);
+  const prets = state[currentCompany].prets;
+  const rec = {
+    id: editingPretId || ('PRET-'+Date.now()),
+    matCode, matLabel: mat ? (mat.code+' — '+mat.nom) : matCode,
+    datePret, dateRetour: document.getElementById('pret-f-retour').value||null,
+    entreprise, convoyeur,
+    tel: document.getElementById('pret-f-tel').value.trim(),
+    notes: document.getElementById('pret-f-notes').value.trim(),
+    statut: editingPretId ? (prets.find(x=>x.id===editingPretId)?.statut || 'encours') : 'encours'
+  };
+  if(editingPretId){
+    const idx = prets.findIndex(x=>x.id===editingPretId);
+    if(idx>=0) prets[idx] = {...prets[idx], ...rec};
+  } else {
+    prets.push(rec);
+  }
+  saveToStorage();
+  if(SB && SB_MODE==='online'){
+    await saveToSupabase('prets_materiels',{id:rec.id,entreprise_id:currentCompany,materiel_code:rec.matCode,materiel_label:rec.matLabel,date_pret:rec.datePret,date_retour_prevue:rec.dateRetour,entreprise_emprunteuse:rec.entreprise,convoyeur:rec.convoyeur,telephone:rec.tel,notes:rec.notes,statut:rec.statut});
+  }
+  closeModal('modal-pret');
+  renderPretsTable();
+  generatePretPDF(rec);
+}
+
+async function marquerRetourPret(id){
+  const prets = state[currentCompany].prets||[];
+  const idx = prets.findIndex(p=>p.id===id);
+  if(idx<0) return;
+  prets[idx].statut = 'retourne';
+  saveToStorage();
+  if(SB && SB_MODE==='online'){
+    await saveToSupabase('prets_materiels',{id:prets[idx].id,entreprise_id:currentCompany,statut:'retourne'});
+  }
+  renderPretsTable();
+}
+
+async function deletePret(id){
+  if(!confirm('Supprimer ce prêt ?')) return;
+  state[currentCompany].prets = (state[currentCompany].prets||[]).filter(p=>p.id!==id);
+  saveToStorage();
+  if(SB && SB_MODE==='online') await deleteFromSupabase('prets_materiels', id);
+  renderPretsTable();
+}
+
+function reimprimerPretPDF(id){
+  const p = (state[currentCompany].prets||[]).find(x=>x.id===id);
+  if(p) generatePretPDF(p);
+}
+
+function generatePretPDF(rec){
+  const co=state[currentCompany];
+  const coInfo=COMPANIES[currentCompany];
+  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const header=buildPDFHeader(co,coInfo,now);
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Fiche de prêt — ${rec.matLabel}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:13px}
+    .field{margin-bottom:14px}
+    .field-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+    .field-value{font-size:15px;font-weight:600;border-bottom:1px solid #ddd;padding-bottom:6px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}
+    .sign-row{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:60px}
+    .sign-box{border-top:1px solid #999;padding-top:8px;font-size:11px;color:#666}
+    @media print{body{padding:10px}}
+  </style></head><body>
+  ${header}
+  <h2 style="font-size:18px;font-weight:700;color:${coInfo.color};margin:0 0 20px">📤 Fiche de prêt de matériel</h2>
+  <div class="grid">
+    <div class="field"><div class="field-label">Matériel</div><div class="field-value">${rec.matLabel||'—'}</div></div>
+    <div class="field"><div class="field-label">Entreprise emprunteuse</div><div class="field-value">${rec.entreprise||'—'}</div></div>
+    <div class="field"><div class="field-label">Date du prêt</div><div class="field-value">${rec.datePret?new Date(rec.datePret).toLocaleDateString('fr-FR'):'—'}</div></div>
+    <div class="field"><div class="field-label">Date de retour prévue</div><div class="field-value">${rec.dateRetour?new Date(rec.dateRetour).toLocaleDateString('fr-FR'):'—'}</div></div>
+    <div class="field"><div class="field-label">Nom du convoyeur</div><div class="field-value">${rec.convoyeur||'—'}</div></div>
+    <div class="field"><div class="field-label">Téléphone du convoyeur</div><div class="field-value">${rec.tel||'—'}</div></div>
+  </div>
+  ${rec.notes?`<div class="field" style="margin-top:14px"><div class="field-label">Notes</div><div style="font-size:13px;white-space:pre-wrap">${rec.notes}</div></div>`:''}
+  <div class="sign-row">
+    <div class="sign-box">Signature du responsable atelier</div>
+    <div class="sign-box">Signature du convoyeur / emprunteur</div>
+  </div>
+  <div style="margin-top:40px;padding-top:12px;border-top:1px solid #ddd;font-size:10px;color:#999">
+    AtelierPro — Fiche générée le ${now}
+  </div>
+  <script>window.onload=()=>window.print();<\/script>
+  </body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 function openMatDetail(id){
@@ -3691,7 +3870,7 @@ async function loadFromSupabase(){
     const [
       {data:familles},{data:statuts},{data:materiels},
       {data:ots},{data:pieces},{data:mvts},
-      {data:fourns},{data:bdcs}
+      {data:fourns},{data:bdcs},{data:prets}
     ]=await Promise.all([
       SB.from('familles').select('*').eq('entreprise_id',co),
       SB.from('statuts').select('*').eq('entreprise_id',co),
@@ -3701,6 +3880,7 @@ async function loadFromSupabase(){
       SB.from('mouvements_stock').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}).limit(100),
       SB.from('fournisseurs').select('*').eq('entreprise_id',co),
       SB.from('bons_commande').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}),
+      SB.from('prets_materiels').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}),
     ]);
     if(familles?.length) state[co].familles=familles.map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
     if(statuts?.length)  state[co].statuts=statuts.map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
@@ -3710,6 +3890,7 @@ async function loadFromSupabase(){
     if(mvts?.length) state[co].mouvements=mvts.map(m=>({date:new Date(m.created_at).toLocaleDateString('fr-FR'),ref:m.ref_piece,nom:m.nom_piece,type:m.type_mvt,qte:(m.type_mvt==='in'?'+':m.type_mvt==='out'?'-':'=')+m.qte,motif:m.motif||'',apres:String(m.stock_apres||0)}));
     if(fourns?.length) state[co].fournisseurs=fourns.map(f=>({id:f.id,nom:f.nom,pays:f.pays,spec:f.spec,delai:f.delai,contact:f.contact,tel:f.tel,fret:f.fret,mode:f.mode,total:f.total_achats,notes:f.notes}));
     if(bdcs?.length) state[co].bdcs=bdcs.map(b=>({id:b.id,num:b.num,fourn:b.fourn_nom,date:b.date_cmd,mode:b.mode,mont:b.montant,art:b.nb_articles,statut:b.statut,livraison:b.date_livraison,articles:b.articles}));
+    if(prets?.length) state[co].prets=prets.map(p=>({id:p.id,matCode:p.materiel_code,matLabel:p.materiel_label,datePret:p.date_pret,dateRetour:p.date_retour_prevue,entreprise:p.entreprise_emprunteuse,convoyeur:p.convoyeur,tel:p.telephone,notes:p.notes,statut:p.statut||'encours'}));
     setSbStatus('online','🟢 '+SB_USER?.email+' · Synchronisé');
     saveToStorage();
     subscribeRealtime(co);
@@ -3720,7 +3901,7 @@ async function loadFromSupabase(){
 /* ── SUPABASE REALTIME ──────────────────────────────────── */
 function subscribeRealtime(co){
   if(window._realtimeChannel) SB.removeChannel(window._realtimeChannel);
-  var tables=['materiels','ordres_travail','pieces','fournisseurs','bons_commande','mouvements_stock','familles','statuts'];
+  var tables=['materiels','ordres_travail','pieces','fournisseurs','bons_commande','mouvements_stock','familles','statuts','prets_materiels'];
   var ch=SB.channel('atelierpro-'+co);
   tables.forEach(function(t){
     ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'entreprise_id=eq.'+co},function(){
