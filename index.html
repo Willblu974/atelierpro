@@ -1771,11 +1771,12 @@ function saveMat(){
   renderMateriels(co, st);
 }
 
-function deleteMat(id){
+async function deleteMat(id){
   if(!confirm('Supprimer ce matériel ? Cette action est irréversible.')) return;
   ensureMatState(COMPANIES[currentCompany]);
   state[currentCompany].materiels = state[currentCompany].materiels.filter(m=>m.id!==id&&m.code!==id);
   saveToStorage();
+  if(SB && SB_MODE==='online') await deleteFromSupabase('materiels', id);
   closeModal('modal-mat-detail');
   renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
 }
@@ -2246,10 +2247,12 @@ function saveOT(){
   renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
   renderMateriels(COMPANIES[currentCompany],state[currentCompany]);
 }
-function deleteOT(id){
+async function deleteOT(id){
   if(!confirm('Supprimer cet OT ?'))return;
   state[currentCompany].ots=state[currentCompany].ots.filter(o=>o.id!==id);
-  saveToStorage(); closeModal('modal-ot-detail');
+  saveToStorage();
+  if(SB && SB_MODE==='online') await deleteFromSupabase('ordres_travail', id);
+  closeModal('modal-ot-detail');
   renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
 }
 function openOTDetail(id){
@@ -2384,10 +2387,12 @@ function savePiece(){
   }
   saveToStorage(); closeModal('modal-piece'); renderPieces(COMPANIES[currentCompany]);
 }
-function deletePiece(id){
+async function deletePiece(id){
   if(!confirm('Supprimer cette pièce ?'))return;
   state[currentCompany].pieces=state[currentCompany].pieces.filter(p=>p.id!==id&&p.ref!==id);
-  saveToStorage(); renderPieces(COMPANIES[currentCompany]);
+  saveToStorage();
+  if(SB && SB_MODE==='online') await deleteFromSupabase('pieces', id);
+  renderPieces(COMPANIES[currentCompany]);
 }
 
 /* ── IMPORT CSV DE PIECES DETACHEES ──────────────────────── */
@@ -2914,10 +2919,12 @@ function saveBDC(){
   }
   saveToStorage(); closeModal('modal-bdc'); renderCommandes(COMPANIES[currentCompany]);
 }
-function deleteBDC(id){
+async function deleteBDC(id){
   if(!confirm('Supprimer ce bon de commande ?'))return;
   state[currentCompany].bdcs=state[currentCompany].bdcs.filter(b=>b.id!==id);
-  saveToStorage(); closeModal('modal-bdc-detail'); renderCommandes(COMPANIES[currentCompany]);
+  saveToStorage();
+  if(SB && SB_MODE==='online') await deleteFromSupabase('bons_commande', id);
+  closeModal('modal-bdc-detail'); renderCommandes(COMPANIES[currentCompany]);
 }
 function openBDCDetail(id){
   const b=(state[currentCompany].bdcs||[]).find(x=>x.id===id);
@@ -3192,10 +3199,12 @@ function saveFourn(){
   }
   saveToStorage(); closeModal('modal-fourn'); renderFournisseurs(COMPANIES[currentCompany]);
 }
-function deleteFourn(id){
+async function deleteFourn(id){
   if(!confirm('Supprimer ce fournisseur ?'))return;
   state[currentCompany].fournisseurs = state[currentCompany].fournisseurs.filter(f=>f.id!==id&&f.nom!==id);
-  saveToStorage(); closeModal('modal-fourn-detail'); renderFournisseurs(COMPANIES[currentCompany]);
+  saveToStorage();
+  if(SB && SB_MODE==='online') await deleteFromSupabase('fournisseurs', id);
+  closeModal('modal-fourn-detail'); renderFournisseurs(COMPANIES[currentCompany]);
 }
 function openFournDetail(id){
   const f = (state[currentCompany].fournisseurs||[]).find(x=>x.id===id||x.nom===id);
