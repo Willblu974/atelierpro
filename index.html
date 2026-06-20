@@ -317,6 +317,7 @@ textarea{resize:vertical;min-height:80px;}
         <select style="max-width:200px" id="mat-famille-filter" onchange="applyMatFilters()"></select>
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
         <button class="btn btn-sm btn-edit" onclick="openPretModal()" style="margin-left:auto">🔄 Prêt matériel</button>
+        <button class="btn btn-sm" onclick="openPretsListModal()">📄 Fiches de prêt (PDF)</button>
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()">📥 Importer un fichier</button>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
@@ -1041,6 +1042,19 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- MODAL LISTE DES FICHES DE PRET (PDF) -->
+<div class="modal-bg" id="modal-prets-list">
+  <div class="modal" style="width:680px">
+    <div class="modal-header"><strong>📄 Fiches de prêt enregistrées</strong><button class="btn btn-sm" onclick="closeModal('modal-prets-list')">&#10005;</button></div>
+    <div style="padding:16px 20px;max-height:60vh;overflow-y:auto">
+      <table style="font-size:13px"><thead><tr><th>Matériel</th><th>Entreprise</th><th>Date prêt</th><th>Statut</th><th></th></tr></thead><tbody id="prets-list-tbody"></tbody></table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-prets-list')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL DETAIL MATERIEL -->
 <div class="modal-bg" id="modal-mat-detail">
   <div class="modal" style="width:620px">
@@ -1127,6 +1141,7 @@ const state={
       {id:'ok',name:'Actif',desc:'En service',color:COLOR_PRESETS[0],icon:'✅',system:true},
       {id:'warn',name:'Maintenance',desc:'En cours de maintenance',color:COLOR_PRESETS[2],icon:'🛠️',system:true},
       {id:'alert',name:'Hors service',desc:'Immobilisé',color:COLOR_PRESETS[3],icon:'🚫',system:true},
+      {id:'pret',name:'Prêté',desc:'Actuellement prêté à un tiers',color:COLOR_PRESETS[4],icon:'📤',system:true},
       {id:'plan',name:'Planifié',desc:'Intervention planifiée',color:COLOR_PRESETS[1],icon:'📅',system:false},
     ]
   },
@@ -1141,6 +1156,7 @@ const state={
       {id:'ok',name:'Actif',desc:'En service',color:COLOR_PRESETS[0],icon:'✅',system:true},
       {id:'warn',name:'Maintenance',desc:'En cours de maintenance',color:COLOR_PRESETS[2],icon:'🛠️',system:true},
       {id:'alert',name:'Hors service',desc:'Immobilisé',color:COLOR_PRESETS[3],icon:'🚫',system:true},
+      {id:'pret',name:'Prêté',desc:'Actuellement prêté à un tiers',color:COLOR_PRESETS[4],icon:'📤',system:true},
       {id:'veille',name:'En veille',desc:'Mis en veille temporaire',color:COLOR_PRESETS[6],icon:'💤',system:false},
     ]
   }
@@ -1744,6 +1760,7 @@ async function savePret(){
   const mats = state[currentCompany].materiels||[];
   const mat = mats.find(m=>(m.id||m.code)===matCode);
   const prets = state[currentCompany].prets;
+  const existing = editingPretId ? prets.find(x=>x.id===editingPretId) : null;
   const rec = {
     id: editingPretId || ('PRET-'+Date.now()),
     matCode, matLabel: mat ? (mat.code+' — '+mat.nom) : matCode,
@@ -1751,7 +1768,8 @@ async function savePret(){
     entreprise, convoyeur,
     tel: document.getElementById('pret-f-tel').value.trim(),
     notes: document.getElementById('pret-f-notes').value.trim(),
-    statut: editingPretId ? (prets.find(x=>x.id===editingPretId)?.statut || 'encours') : 'encours'
+    statut: existing ? existing.statut : 'encours',
+    matStatutAvant: existing ? existing.matStatutAvant : (mat ? mat.statut : null)
   };
   if(editingPretId){
     const idx = prets.findIndex(x=>x.id===editingPretId);
@@ -1759,12 +1777,20 @@ async function savePret(){
   } else {
     prets.push(rec);
   }
+  // Bascule le matériel sur le statut "Prêté" tant que le prêt est en cours
+  if(mat && rec.statut!=='retourne' && mat.statut!=='pret'){
+    mat.statut = 'pret';
+    if(SB && SB_MODE==='online'){
+      await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,statut_id:'pret'});
+    }
+  }
   saveToStorage();
   if(SB && SB_MODE==='online'){
     await saveToSupabase('prets_materiels',{id:rec.id,entreprise_id:currentCompany,materiel_code:rec.matCode,materiel_label:rec.matLabel,date_pret:rec.datePret,date_retour_prevue:rec.dateRetour,entreprise_emprunteuse:rec.entreprise,convoyeur:rec.convoyeur,telephone:rec.tel,notes:rec.notes,statut:rec.statut});
   }
   closeModal('modal-pret');
   renderPretsTable();
+  renderMatTable(COMPANIES[currentCompany], state[currentCompany]);
   generatePretPDF(rec);
 }
 
@@ -1773,11 +1799,21 @@ async function marquerRetourPret(id){
   const idx = prets.findIndex(p=>p.id===id);
   if(idx<0) return;
   prets[idx].statut = 'retourne';
+  // Restaure le statut du matériel d'avant le prêt (ou "Actif" par défaut)
+  const mats = state[currentCompany].materiels||[];
+  const mat = mats.find(m=>(m.id||m.code)===prets[idx].matCode);
+  if(mat && mat.statut==='pret'){
+    mat.statut = prets[idx].matStatutAvant || 'ok';
+    if(SB && SB_MODE==='online'){
+      await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,statut_id:mat.statut});
+    }
+  }
   saveToStorage();
   if(SB && SB_MODE==='online'){
     await saveToSupabase('prets_materiels',{id:prets[idx].id,entreprise_id:currentCompany,statut:'retourne'});
   }
   renderPretsTable();
+  renderMatTable(COMPANIES[currentCompany], state[currentCompany]);
 }
 
 async function deletePret(id){
@@ -1791,6 +1827,25 @@ async function deletePret(id){
 function reimprimerPretPDF(id){
   const p = (state[currentCompany].prets||[]).find(x=>x.id===id);
   if(p) generatePretPDF(p);
+}
+
+function openPretsListModal(){
+  ensurePretState(COMPANIES[currentCompany]);
+  const prets = (state[currentCompany].prets||[]).slice().sort((a,b)=> (b.datePret||'').localeCompare(a.datePret||''));
+  const tbody = document.getElementById('prets-list-tbody');
+  tbody.innerHTML = prets.length
+    ? prets.map(p=>{
+        const enCours = p.statut!=='retourne';
+        return `<tr>
+          <td><strong>${p.matLabel||p.matCode||'—'}</strong></td>
+          <td>${p.entreprise||'—'}</td>
+          <td>${p.datePret?new Date(p.datePret).toLocaleDateString('fr-FR'):'—'}</td>
+          <td>${enCours?'<span class="badge badge-warn">En cours</span>':'<span class="badge badge-ok">Retourné</span>'}</td>
+          <td><button class="btn btn-sm" onclick="reimprimerPretPDF('${p.id}')">📄 Ouvrir le PDF</button></td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text3)">Aucune fiche de prêt enregistrée</td></tr>`;
+  document.getElementById('modal-prets-list').classList.add('open');
 }
 
 function generatePretPDF(rec){
