@@ -1233,7 +1233,7 @@ const COMPANIES={
     adresse:'Mayotte',tel:'',resp:'',
     logo:'https://flagcdn.com/yt.svg',
     materiels:[], ots:[], pieces:[], fournisseurs:[], commandes:[], mouvements:[], plans:[], histos:[],
-    stockAlerts:[],
+    stockAlerts:[], timeline:[],
     transport:{bdc:'—',fourn:'Aucune expédition en cours',mode:'—',progress:0,progressColor:'#9c9a94',progressTxt:'—',alert:null,rows:[],surcout:'—'},
     badgeMaint:0,badgeStock:0
   }
@@ -3018,10 +3018,10 @@ function renderDashboard(co){
     const sm = {encours:'#ba7517',planifie:'#185fa5',bloque:'#a32d2d',termine:'#0f6e56'}[o.statut]||'#9c9a94';
     const sm2 = {encours:'En cours',planifie:'Planifié',bloque:'Bloqué',termine:'Terminé'}[o.statut]||o.statut;
     return {dot:sm, title:`${o.num} — ${o.mat} (${o.type})`, meta:`${sm2} · ${o.tech||'Non assigné'} · ${o.dur||'durée?'}`};
-  }) : co2.timeline;
-  document.getElementById('dash-timeline').innerHTML = tlItems.map(t=>
+  }) : (co2.timeline||[]);
+  document.getElementById('dash-timeline').innerHTML = tlItems.length ? tlItems.map(t=>
     `<div class="tl-item"><div class="tl-dot" style="background:${t.dot}"></div><div><div class="tl-title">${t.title}</div><div class="tl-meta">${t.meta}</div></div></div>`
-  ).join('');
+  ).join('') : '<div style="padding:24px;text-align:center;color:var(--text3)">Aucune intervention récente</div>';
 
   // Alertes dynamiques
   const alerts = [];
