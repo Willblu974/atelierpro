@@ -1319,14 +1319,24 @@ function renderAll(){
   document.getElementById('topbar-tag').style.background=co.color;
   document.getElementById('topbar-tag').textContent=co.icon+' '+co.name;
   document.documentElement.style.setProperty('--company-color',co.color);
-  renderDashboard(co); renderMateriels(co,st); renderMaintenance(co,st);
-  renderPieces(co); renderStock(co); renderFournisseurs(co);
+  function safe(label, fn){
+    try { fn(); } catch(e){ console.error('[renderAll] échec de '+label+' :', e); }
+  }
+  safe('renderDashboard', ()=>renderDashboard(co));
+  safe('renderMateriels', ()=>renderMateriels(co,st));
+  safe('renderMaintenance', ()=>renderMaintenance(co,st));
+  safe('renderPieces', ()=>renderPieces(co));
+  safe('renderStock', ()=>renderStock(co));
+  safe('renderFournisseurs', ()=>renderFournisseurs(co));
   const jA=document.getElementById('journal-annee');if(jA&&!jA.value)jA.value=new Date().getFullYear();
   const jM=document.getElementById('journal-mois');if(jM)jM.value=new Date().getMonth()+1;
   const jOA=document.getElementById('journal-ot-annee');if(jOA&&!jOA.value)jOA.value=new Date().getFullYear();
   const jOM=document.getElementById('journal-ot-mois');if(jOM)jOM.value=new Date().getMonth()+1;
-  renderCommandes(co); renderTransport(co); renderCouts(co); renderRapport(co);
-  renderParametres(co,st);
+  safe('renderCommandes', ()=>renderCommandes(co));
+  safe('renderTransport', ()=>renderTransport(co));
+  safe('renderCouts', ()=>renderCouts(co));
+  safe('renderRapport', ()=>renderRapport(co));
+  safe('renderParametres', ()=>renderParametres(co,st));
 }
 
 const bdg=(cls,txt)=>`<span class="badge badge-${cls}">${txt}</span>`;
