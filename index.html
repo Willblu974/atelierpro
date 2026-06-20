@@ -303,6 +303,8 @@ textarea{resize:vertical;min-height:80px;}
           <div class="card"><div class="card-body" style="padding:14px 18px" id="dash-couts"></div></div>
         </div>
       </div>
+      <div class="section-header" style="margin-top:18px"><div class="section-title">🔄 Pr&ecirc;ts de mat&eacute;riels</div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Mat&eacute;riel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>T&eacute;l&eacute;phone</th><th>Date pr&ecirc;t</th><th>Retour pr&eacute;vu</th><th>Statut</th></tr></thead><tbody id="dash-prets-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-materiels">
@@ -1791,6 +1793,7 @@ async function savePret(){
   closeModal('modal-pret');
   renderPretsTable();
   renderMatTable(COMPANIES[currentCompany], state[currentCompany]);
+  renderDashboard(COMPANIES[currentCompany]);
   generatePretPDF(rec);
 }
 
@@ -1814,6 +1817,7 @@ async function marquerRetourPret(id){
   }
   renderPretsTable();
   renderMatTable(COMPANIES[currentCompany], state[currentCompany]);
+  renderDashboard(COMPANIES[currentCompany]);
 }
 
 async function deletePret(id){
@@ -1822,6 +1826,7 @@ async function deletePret(id){
   saveToStorage();
   if(SB && SB_MODE==='online') await deleteFromSupabase('prets_materiels', id);
   renderPretsTable();
+  renderDashboard(COMPANIES[currentCompany]);
 }
 
 function reimprimerPretPDF(id){
@@ -2971,6 +2976,27 @@ function renderDashboard(co){
   // Badge sidebar
   if(document.getElementById('badge-maint')) document.getElementById('badge-maint').textContent = otUrgents||'';
   if(document.getElementById('badge-stock')) document.getElementById('badge-stock').textContent = (pcRuptures+pcBas)||'';
+
+  // Prêts de matériels
+  ensurePretState(co);
+  const prets = st.prets || [];
+  const dashPretsEl = document.getElementById('dash-prets-tbody');
+  if(dashPretsEl){
+    dashPretsEl.innerHTML = prets.length
+      ? prets.slice().sort((a,b)=> (b.datePret||'').localeCompare(a.datePret||'')).map(p=>{
+          const enCours = p.statut!=='retourne';
+          return `<tr>
+            <td><strong>${p.matLabel||p.matCode||'—'}</strong></td>
+            <td>${p.entreprise||'—'}</td>
+            <td>${p.convoyeur||'—'}</td>
+            <td style="font-size:12px">${p.tel||'—'}</td>
+            <td>${p.datePret?new Date(p.datePret).toLocaleDateString('fr-FR'):'—'}</td>
+            <td>${p.dateRetour?new Date(p.dateRetour).toLocaleDateString('fr-FR'):'—'}</td>
+            <td>${enCours?'<span class="badge badge-warn">En cours</span>':'<span class="badge badge-ok">Retourné</span>'}</td>
+          </tr>`;
+        }).join('')
+      : `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">Aucun prêt enregistré</td></tr>`;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -3960,7 +3986,9 @@ function subscribeRealtime(co){
   var ch=SB.channel('atelierpro-'+co);
   tables.forEach(function(t){
     ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'entreprise_id=eq.'+co},function(){
-      loadFromSupabase();
+      loadFromSupabase().then(function(){
+        renderDashboard(COMPANIES[currentCompany]);
+      });
     });
   });
   window._realtimeChannel=ch.subscribe();
