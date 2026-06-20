@@ -196,6 +196,7 @@ textarea{resize:vertical;min-height:80px;}
         <select id="reg-entreprise">
           <option value="A">&#127959;&#65039; BTP R&eacute;union SARL</option>
           <option value="B">&#9889; &Eacute;nergie &Icirc;le SAS</option>
+          <option value="C">&#127481;&#127481; Ocetra Mayotte</option>
         </select>
       </div>
       <div class="form-group" style="margin-bottom:20px">
@@ -229,6 +230,11 @@ textarea{resize:vertical;min-height:80px;}
       <div class="company-avatar" id="sw-avatar-B" style="background:#185fa5">&#9889;</div>
       <div style="flex:1"><div style="font-size:14px;font-weight:600" id="sw-name-B">&Eacute;nergie &Icirc;le SAS</div><div style="font-size:11px;color:var(--text3)" id="sw-sub-B">23 mat&eacute;riels &middot; 284 r&eacute;f&eacute;rences</div></div>
       <div id="sw-check-B" style="color:var(--teal);visibility:hidden">&#10003;</div>
+    </div>
+    <div class="switch-company-row" id="sw-row-C" onclick="switchCompany('C')">
+      <div class="company-avatar" id="sw-avatar-C" style="background:#1c7a5e">&#127481;&#127481;</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600" id="sw-name-C">Ocetra Mayotte</div><div style="font-size:11px;color:var(--text3)" id="sw-sub-C">Travaux maritimes et sous-marins</div></div>
+      <div id="sw-check-C" style="color:var(--teal);visibility:hidden">&#10003;</div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn" onclick="closeSwitchModal()">Annuler</button></div>
   </div>
@@ -678,6 +684,7 @@ textarea{resize:vertical;min-height:80px;}
         <select id="inv-entreprise">
           <option value="A">Sarl Ocetra</option>
           <option value="B">&Eacute;nergie &Icirc;le SAS</option>
+          <option value="C">Ocetra Mayotte</option>
         </select>
       </div>
       <div class="form-group"><label>Code personnalis&eacute; (optionnel)</label>
@@ -1161,6 +1168,15 @@ const state={
       {id:'pret',name:'Prêté',desc:'Actuellement prêté à un tiers',color:COLOR_PRESETS[4],icon:'📤',system:true},
       {id:'veille',name:'En veille',desc:'Mis en veille temporaire',color:COLOR_PRESETS[6],icon:'💤',system:false},
     ]
+  },
+  C:{
+    familles:[],
+    statuts:[
+      {id:'ok',name:'Actif',desc:'En service',color:COLOR_PRESETS[0],icon:'✅',system:true},
+      {id:'warn',name:'Maintenance',desc:'En cours de maintenance',color:COLOR_PRESETS[2],icon:'🛠️',system:true},
+      {id:'alert',name:'Hors service',desc:'Immobilisé',color:COLOR_PRESETS[3],icon:'🚫',system:true},
+      {id:'pret',name:'Prêté',desc:'Actuellement prêté à un tiers',color:COLOR_PRESETS[4],icon:'📤',system:true},
+    ]
   }
 };
 
@@ -1210,6 +1226,16 @@ const COMPANIES={
     coutRows:[{mat:'GE-120 Caterpillar',mo:'300 €',pieces:'2 800 €',presta:'0 €',transport:'620 €',total:'3 720 €',pct:100},{mat:'GE-45 Kohler',mo:'150 €',pieces:'180 €',presta:'0 €',transport:'0 €',total:'330 €',pct:9},{mat:'PM-08 Grundfos',mo:'262 €',pieces:'420 €',presta:'0 €',transport:'380 €',total:'1 062 €',pct:29},{mat:'ON-02 APC',mo:'0 €',pieces:'0 €',presta:'0 €',transport:'0 €',total:'—',pct:0}],
     rapport:[{m:'Déc.',pct:40,val:'10 800 €',color:'var(--blue)'},{m:'Jan.',pct:35,val:'9 500 €',color:'var(--blue)'},{m:'Fév.',pct:42,val:'11 200 €',color:'var(--blue)'},{m:'Mar.',pct:45,val:'12 100 €',color:'var(--blue)'},{m:'Avr.',pct:47,val:'12 600 €',color:'var(--blue)'},{m:'Mai',pct:51,val:'13 600 €',color:'#185fa5',bold:true}],
     rapportTendance:'+26% sur 6 mois · Pic GE-120 alternateur en mai',badgeMaint:1,badgeStock:2
+  },
+  C:{
+    id:'C',name:'Ocetra Mayotte',icon:'🇾🇹',color:'#1c7a5e',
+    sector:'Travaux maritimes et sous-marins',
+    adresse:'Mayotte',tel:'',resp:'',
+    logo:'https://flagcdn.com/yt.svg',
+    materiels:[], ots:[], pieces:[], fournisseurs:[], commandes:[], mouvements:[], plans:[], histos:[],
+    stockAlerts:[],
+    transport:{bdc:'—',fourn:'Aucune expédition en cours',mode:'—',progress:0,progressColor:'#9c9a94',progressTxt:'—',alert:null,rows:[],surcout:'—'},
+    badgeMaint:0,badgeStock:0
   }
 };
 
@@ -1233,7 +1259,7 @@ function doLogin(){
 function openSwitchModal(){document.getElementById('switch-modal').classList.add('open');updateSwitchModal();}
 function closeSwitchModal(){document.getElementById('switch-modal').classList.remove('open');}
 function updateSwitchModal(){
-  ['A','B'].forEach(id=>{
+  ['A','B','C'].forEach(id=>{
     const co=COMPANIES[id];
     document.getElementById('sw-row-'+id).classList.toggle('current',id===currentCompany);
     document.getElementById('sw-check-'+id).style.visibility=id===currentCompany?'visible':'hidden';
@@ -1939,9 +1965,10 @@ function saveToStorage(){
     localStorage.setItem('atelierPro_state', JSON.stringify({
       A:{ familles:state.A.familles, statuts:state.A.statuts, materiels:state.A.materiels },
       B:{ familles:state.B.familles, statuts:state.B.statuts, materiels:state.B.materiels },
+      C:{ familles:state.C.familles, statuts:state.C.statuts, materiels:state.C.materiels },
     }));
     // Sauvegarder infos entreprises séparément (logo en base64 peut être volumineux)
-    ['A','B'].forEach(id=>{
+    ['A','B','C'].forEach(id=>{
       const co=COMPANIES[id];
       localStorage.setItem('atelierPro_co_'+id, JSON.stringify({
         name:co.name, sector:co.sector, adresse:co.adresse, tel:co.tel, resp:co.resp, logo:co.logo, icon:co.icon
@@ -1954,14 +1981,14 @@ function loadFromStorage(){
     const saved = localStorage.getItem('atelierPro_state');
     if(saved){
       const data = JSON.parse(saved);
-      ['A','B'].forEach(id=>{
+      ['A','B','C'].forEach(id=>{
         if(data[id]?.familles)  state[id].familles  = data[id].familles;
         if(data[id]?.statuts)   state[id].statuts   = data[id].statuts;
         if(data[id]?.materiels) state[id].materiels = data[id].materiels;
       });
     }
     // Charger infos entreprises
-    ['A','B'].forEach(id=>{
+    ['A','B','C'].forEach(id=>{
       const saved2 = localStorage.getItem('atelierPro_co_'+id);
       if(saved2){
         const co=JSON.parse(saved2);
@@ -3480,7 +3507,7 @@ function getNotifConfig(){
 
 function collectAlerts(){
   const alerts = [];
-  ['A','B'].forEach(coId => {
+  ['A','B','C'].forEach(coId => {
     const co = COMPANIES[coId];
     const st = state[coId];
 
@@ -4031,7 +4058,7 @@ async function loadUsers(){
     if(error){ console.warn(error.message); return; }
     const roleColors={admin:'badge-purple',responsable:'badge-info',technicien:'badge-ok'};
     const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien'};
-    const coNames={A:'Sarl Ocetra',B:'TSMOI'};
+    const coNames={A:'Sarl Ocetra',B:'TSMOI',C:'Ocetra Mayotte'};
     let html='';
     (data||[]).forEach(u=>{
       const date=u.created_at?new Date(u.created_at).toLocaleDateString('fr-FR'):'—';
@@ -4069,7 +4096,7 @@ async function loadInvitationCodes(){
     const {data,error}=await SB.from('invitation_codes').select('*').order('created_at',{ascending:false}).limit(20);
     if(error) return;
     const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien'};
-    const coNames={A:'Sarl Ocetra',B:'TSMOI'};
+    const coNames={A:'Sarl Ocetra',B:'TSMOI',C:'Ocetra Mayotte'};
     let html='';
     (data||[]).forEach(c=>{
       const statut=c.used?`<span class="badge badge-warn">Utilisé</span>`:`<span class="badge badge-ok">Disponible</span>`;
