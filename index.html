@@ -448,7 +448,7 @@ textarea{resize:vertical;min-height:80px;}
     <div class="page" id="page-transport">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
         <div>
-          <div class="section-header"><div class="section-title" id="transport-title">Suivi exp&eacute;dition</div></div>
+          <div class="section-header"><div class="section-title" id="transport-title">Suivi exp&eacute;dition</div><button class="btn btn-sm btn-edit" onclick="openTransportModal()">&#9999;&#65039; Modifier</button></div>
           <div class="card"><div class="card-body" style="padding:16px 18px" id="transport-detail"></div></div>
         </div>
         <div>
@@ -1030,6 +1030,31 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- MODAL SUIVI TRANSPORT -->
+<div class="modal-bg" id="modal-transport">
+  <div class="modal" style="width:640px">
+    <div class="modal-header"><strong>Modifier le suivi d'expédition</strong><button class="btn btn-sm" onclick="closeModal('modal-transport')">&#10005;</button></div>
+    <div class="form-grid">
+      <div class="form-group"><label>N° BDC</label><input id="tr-f-bdc" placeholder="ex: BDC-2026-014"></div>
+      <div class="form-group"><label>Mode de transport</label><input id="tr-f-mode" placeholder="ex: Maritime — conteneur 20'"></div>
+      <div class="form-group full"><label>Fournisseur / itinéraire</label><input id="tr-f-fourn" placeholder="ex: Bauer France → Le Port, Réunion"></div>
+      <div class="form-group"><label>Progression (%)</label><input type="number" id="tr-f-progress" min="0" max="100" oninput="updateTransportProgressPreview()"></div>
+      <div class="form-group"><label>Texte progression</label><input id="tr-f-progresstxt" placeholder="ex: 12/18 jours"></div>
+      <div class="form-group full"><label>Blocage / alerte (laisser vide si aucun)</label><input id="tr-f-alert" placeholder="ex: Bloqué en douane depuis 3 jours"></div>
+      <div class="form-group"><label>Surcoût transport (%)</label><input id="tr-f-surcout" placeholder="ex: 8%"></div>
+      <div class="form-group full">
+        <label>Décomposition des coûts</label>
+        <div id="tr-rows-container" style="display:flex;flex-direction:column;gap:6px"></div>
+        <button class="btn btn-sm" style="margin-top:8px" onclick="addTransportRow()">+ Ajouter une ligne</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-transport')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveTransport()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL PRET MATERIEL -->
 <div class="modal-bg" id="modal-pret">
   <div class="modal">
@@ -1413,11 +1438,92 @@ function renderMatTable(co, st){
 
 
 
+function ensureTransportState(co){
+  if(!state[currentCompany].transport){
+    // Première initialisation : valeurs neutres (pas de fausses données de démo)
+    state[currentCompany].transport = {bdc:'—',fourn:'Aucune expédition en cours',mode:'—',progress:0,progressColor:'#9c9a94',progressTxt:'—',alert:null,rows:[],surcout:'—'};
+  }
+}
+
 function renderTransport(co){
-  const t=co.transport;
+  ensureTransportState(co);
+  const t=state[currentCompany].transport;
   document.getElementById('transport-title').textContent='Suivi expédition — '+t.bdc;
   const alertHtml=t.alert?`<div style="font-size:12px;color:var(--red);margin-bottom:14px">${t.alert}</div>`:`<div style="font-size:12px;color:var(--teal);margin-bottom:14px">&#10003; En transit — aucun blocage</div>`;
-  document.getElementById('transport-detail').innerHTML=`<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text3);margin-bottom:4px">Itinéraire</div><div style="font-weight:500">${t.fourn}</div><div style="font-size:12px;color:var(--text3);margin-top:2px">${t.mode}</div></div><div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span>Progression</span><span>${t.progressTxt}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${t.progress}%;background:${t.progressColor}"></div></div></div>${alertHtml}<div style="font-size:13px;font-weight:600;margin-bottom:10px">Décomposition coûts</div>${t.rows.map(r=>`<div class="cost-row"><span style="font-size:13px;color:${r.total?'var(--text)':'var(--text2)'}">${r.l}</span><span${r.total?' style="color:var(--company-color)"':''}>${r.v}</span></div>`).join('')}<div style="font-size:11px;color:var(--amber);margin-top:8px">Surcoût transport : ${t.surcout} du montant initial</div>`;
+  document.getElementById('transport-detail').innerHTML=`<div style="margin-bottom:14px"><div style="font-size:12px;color:var(--text3);margin-bottom:4px">Itinéraire</div><div style="font-weight:500">${t.fourn}</div><div style="font-size:12px;color:var(--text3);margin-top:2px">${t.mode}</div></div><div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span>Progression</span><span>${t.progressTxt}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${t.progress}%;background:${t.progressColor}"></div></div></div>${alertHtml}<div style="font-size:13px;font-weight:600;margin-bottom:10px">Décomposition coûts</div>${(t.rows||[]).map(r=>`<div class="cost-row"><span style="font-size:13px;color:${r.total?'var(--text)':'var(--text2)'}">${r.l}</span><span${r.total?' style="color:var(--company-color)"':''}>${r.v}</span></div>`).join('')||'<div style="font-size:12px;color:var(--text3)">Aucune ligne de coût</div>'}<div style="font-size:11px;color:var(--amber);margin-top:8px">Surcoût transport : ${t.surcout} du montant initial</div>`;
+}
+
+/* ── ÉDITION DU SUIVI TRANSPORT ──────────────────────────── */
+let transportRows = [];
+
+function addTransportRow(row){
+  row = row || {l:'', v:'', total:false};
+  const idx = transportRows.length;
+  transportRows.push(row);
+  const container = document.getElementById('tr-rows-container');
+  const rowEl = document.createElement('div');
+  rowEl.style.cssText = 'display:flex;gap:6px;align-items:center';
+  rowEl.dataset.idx = idx;
+  rowEl.innerHTML = `
+    <input placeholder="Libellé (ex: Fret maritime)" style="flex:2" value="${row.l.replace(/"/g,'&quot;')}" oninput="transportRows[${idx}].l=this.value">
+    <input placeholder="Montant (ex: 1 200 €)" style="flex:1" value="${row.v.replace(/"/g,'&quot;')}" oninput="transportRows[${idx}].v=this.value">
+    <label style="font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" ${row.total?'checked':''} onchange="transportRows[${idx}].total=this.checked"> Total</label>
+    <button class="btn btn-sm btn-danger" onclick="removeTransportRow(${idx})">🗑</button>
+  `;
+  container.appendChild(rowEl);
+}
+
+function removeTransportRow(idx){
+  transportRows[idx] = null; // garde l'index pour ne pas décaler les autres lignes du DOM
+  const container = document.getElementById('tr-rows-container');
+  const rowEl = container.querySelector(`[data-idx="${idx}"]`);
+  if(rowEl) rowEl.remove();
+}
+
+function updateTransportProgressPreview(){ /* réservé pour un futur aperçu live si besoin */ }
+
+function openTransportModal(){
+  ensureTransportState(COMPANIES[currentCompany]);
+  const t = state[currentCompany].transport;
+  document.getElementById('tr-f-bdc').value = t.bdc==='—' ? '' : t.bdc;
+  document.getElementById('tr-f-mode').value = t.mode==='—' ? '' : t.mode;
+  document.getElementById('tr-f-fourn').value = t.fourn==='Aucune expédition en cours' ? '' : t.fourn;
+  document.getElementById('tr-f-progress').value = t.progress||0;
+  document.getElementById('tr-f-progresstxt').value = t.progressTxt==='—' ? '' : t.progressTxt;
+  document.getElementById('tr-f-alert').value = t.alert||'';
+  document.getElementById('tr-f-surcout').value = t.surcout==='—' ? '' : t.surcout;
+  transportRows = [];
+  document.getElementById('tr-rows-container').innerHTML='';
+  (t.rows||[]).forEach(r=>addTransportRow({...r}));
+  document.getElementById('modal-transport').classList.add('open');
+}
+
+async function saveTransport(){
+  const progress = Math.max(0, Math.min(100, parseInt(document.getElementById('tr-f-progress').value)||0));
+  const progressColor = progress>=100?'#0f6e56':progress>=50?'#185fa5':'#ba7517';
+  const rows = transportRows.filter(r=>r && (r.l||r.v));
+  const rec = {
+    bdc: document.getElementById('tr-f-bdc').value.trim()||'—',
+    mode: document.getElementById('tr-f-mode').value.trim()||'—',
+    fourn: document.getElementById('tr-f-fourn').value.trim()||'Aucune expédition en cours',
+    progress, progressColor,
+    progressTxt: document.getElementById('tr-f-progresstxt').value.trim()||'—',
+    alert: document.getElementById('tr-f-alert').value.trim()||null,
+    surcout: document.getElementById('tr-f-surcout').value.trim()||'—',
+    rows
+  };
+  state[currentCompany].transport = rec;
+  saveToStorage();
+  if(SB && SB_MODE==='online'){
+    await saveToSupabase('transport_suivi',{
+      id:currentCompany, entreprise_id:currentCompany,
+      bdc:rec.bdc, mode:rec.mode, fournisseur:rec.fourn, progress:rec.progress,
+      progress_color:rec.progressColor, progress_txt:rec.progressTxt, alert:rec.alert,
+      rows:JSON.stringify(rec.rows), surcout:rec.surcout
+    });
+  }
+  closeModal('modal-transport');
+  renderTransport(COMPANIES[currentCompany]);
 }
 
 
@@ -4048,7 +4154,7 @@ async function loadFromSupabase(){
     const [
       {data:familles},{data:statuts},{data:materiels},
       {data:ots},{data:pieces},{data:mvts},
-      {data:fourns},{data:bdcs},{data:prets}
+      {data:fourns},{data:bdcs},{data:prets},{data:transportRows2}
     ]=await Promise.all([
       SB.from('familles').select('*').eq('entreprise_id',co),
       SB.from('statuts').select('*').eq('entreprise_id',co),
@@ -4059,6 +4165,7 @@ async function loadFromSupabase(){
       SB.from('fournisseurs').select('*').eq('entreprise_id',co),
       SB.from('bons_commande').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}),
       SB.from('prets_materiels').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}),
+      SB.from('transport_suivi').select('*').eq('entreprise_id',co).limit(1),
     ]);
     state[co].familles=(familles||[]).map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
     state[co].statuts=(statuts||[]).map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
@@ -4069,6 +4176,10 @@ async function loadFromSupabase(){
     state[co].fournisseurs=(fourns||[]).map(f=>({id:f.id,nom:f.nom,pays:f.pays,spec:f.spec,delai:f.delai,contact:f.contact,tel:f.tel,fret:f.fret,mode:f.mode,total:f.total_achats,notes:f.notes}));
     state[co].bdcs=(bdcs||[]).map(b=>({id:b.id,num:b.num,fourn:b.fourn_nom,date:b.date_cmd,mode:b.mode,mont:b.montant,art:b.nb_articles,statut:b.statut,livraison:b.date_livraison,articles:b.articles}));
     state[co].prets=(prets||[]).map(p=>({id:p.id,matCode:p.materiel_code,matLabel:p.materiel_label,datePret:p.date_pret,dateRetour:p.date_retour_prevue,entreprise:p.entreprise_emprunteuse,convoyeur:p.convoyeur,tel:p.telephone,notes:p.notes,statut:p.statut||'encours'}));
+    const trRow = transportRows2 && transportRows2[0];
+    state[co].transport = trRow
+      ? {bdc:trRow.bdc||'—',fourn:trRow.fournisseur||'Aucune expédition en cours',mode:trRow.mode||'—',progress:trRow.progress||0,progressColor:trRow.progress_color||'#9c9a94',progressTxt:trRow.progress_txt||'—',alert:trRow.alert||null,rows:(()=>{try{return JSON.parse(trRow.rows||'[]')}catch(e){return []}})(),surcout:trRow.surcout||'—'}
+      : {bdc:'—',fourn:'Aucune expédition en cours',mode:'—',progress:0,progressColor:'#9c9a94',progressTxt:'—',alert:null,rows:[],surcout:'—'};
     setSbStatus('online','🟢 '+SB_USER?.email+' · Synchronisé');
     saveToStorage();
     subscribeRealtime(co);
@@ -4079,7 +4190,7 @@ async function loadFromSupabase(){
 /* ── SUPABASE REALTIME ──────────────────────────────────── */
 function subscribeRealtime(co){
   if(window._realtimeChannel) SB.removeChannel(window._realtimeChannel);
-  var tables=['materiels','ordres_travail','pieces','fournisseurs','bons_commande','mouvements_stock','familles','statuts','prets_materiels'];
+  var tables=['materiels','ordres_travail','pieces','fournisseurs','bons_commande','mouvements_stock','familles','statuts','prets_materiels','transport_suivi'];
   var ch=SB.channel('atelierpro-'+co);
   tables.forEach(function(t){
     ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'entreprise_id=eq.'+co},function(){
