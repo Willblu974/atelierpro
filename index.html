@@ -3896,10 +3896,12 @@ function exportPDF(type){
       <thead><tr style="background:${coInfo.color};color:#fff">
         <th style="padding:8px 10px;text-align:left">Code</th>
         <th style="padding:8px 10px;text-align:left">Désignation</th>
+        <th style="padding:8px 10px;text-align:left">Fournisseur</th>
         <th style="padding:8px 10px;text-align:left">N° Série</th>
         <th style="padding:8px 10px;text-align:left">Statut</th>
         <th style="padding:8px 10px;text-align:left">Proch. maintenance</th>
-        <th style="padding:8px 10px;text-align:right">Coût total</th>
+        <th style="padding:8px 10px;text-align:right">Prix d'achat (€)</th>
+        <th style="padding:8px 10px;text-align:right">Valeur marchande (€)</th>
       </tr></thead><tbody>`;
     co.materiels.forEach((m,i)=>{
       const statut=co.statuts.find(s=>s.id===m.statut);
@@ -3908,19 +3910,21 @@ function exportPDF(type){
       body+=`<tr style="background:${bg}">
         <td style="padding:7px 10px;font-weight:600;color:${coInfo.color}">${m.code||'—'}</td>
         <td style="padding:7px 10px">${m.nom||'—'}</td>
+        <td style="padding:7px 10px">${m.fourn||'—'}</td>
         <td style="padding:7px 10px;color:#666">${m.serie||'—'}</td>
         <td style="padding:7px 10px">${statutNom}</td>
         <td style="padding:7px 10px">${m.maint||'—'}</td>
+        <td style="padding:7px 10px;text-align:right">${m.prixAchat||'—'}</td>
         <td style="padding:7px 10px;text-align:right">${m.cout||'—'}</td>
       </tr>`;
     });
-    if(!co.materiels.length) body+=`<tr><td colspan="6" style="padding:16px;text-align:center;color:#999">Aucun matériel enregistré</td></tr>`;
+    if(!co.materiels.length) body+=`<tr><td colspan="8" style="padding:16px;text-align:center;color:#999">Aucun matériel enregistré</td></tr>`;
     const totalMat=co.materiels.reduce((sum,m)=>{
       const v=parseFloat((m.cout||'').toString().replace(/[^\d.,]/g,'').replace(',','.'));
       return sum+(isNaN(v)?0:v);
     },0);
     body+=`<tr style="background:${coInfo.color}15">
-      <td colspan="5" style="padding:9px 10px;font-weight:700;text-align:right;font-size:12px">Total coûts matériels</td>
+      <td colspan="7" style="padding:9px 10px;font-weight:700;text-align:right;font-size:12px">Total valeur marchande matériels</td>
       <td style="padding:9px 10px;font-weight:700;text-align:right;font-size:13px;color:${coInfo.color}">${totalMat.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})} €</td>
     </tr>`;
     body+=`</tbody></table>`;
