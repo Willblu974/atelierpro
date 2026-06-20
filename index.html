@@ -318,7 +318,7 @@ textarea{resize:vertical;min-height:80px;}
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()" style="margin-left:auto">📥 Importer un fichier</button>
       </div>
-      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>Famille</th><th>N&deg; S&eacute;rie</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Co&ucirc;t total</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>Fournisseur</th><th>Famille</th><th>N&deg; S&eacute;rie</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Co&ucirc;t total</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-maintenance">
@@ -996,6 +996,7 @@ textarea{resize:vertical;min-height:80px;}
       <input type="hidden" id="mat-edit-id">
       <div class="form-group"><label>Code *</label><input id="mat-f-code" placeholder="ex: EN-15"></div>
       <div class="form-group"><label>Désignation *</label><input id="mat-f-nom" placeholder="Nom du matériel"></div>
+      <div class="form-group"><label>Fournisseur</label><select id="mat-form-fourn"><option value="">— Aucun —</option></select></div>
       <div class="form-group"><label>Famille</label><select id="mat-form-famille"></select></div>
       <div class="form-group"><label>N° de série</label><input id="mat-f-serie" placeholder="Numéro constructeur"></div>
       <div class="form-group"><label>Mise en service</label><input type="date" id="mat-f-date"></div>
@@ -1254,10 +1255,12 @@ function familleBadge(id,st){
 
 function renderMateriels(co,st){
   ensureMatState(co);
+  ensureFournState(co);
   document.getElementById('mat-famille-filter').innerHTML='<option value="">Toutes familles</option>'+st.familles.map(f=>`<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
   document.getElementById('mat-statut-filter').innerHTML='<option value="">Tous statuts</option>'+st.statuts.map(s=>`<option value="${s.id}">${s.icon||''} ${s.name}</option>`).join('');
   document.getElementById('mat-form-famille').innerHTML=st.familles.map(f=>`<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
   document.getElementById('mat-form-statut').innerHTML=st.statuts.map(s=>`<option value="${s.id}">${s.icon||''} ${s.name}</option>`).join('');
+  document.getElementById('mat-form-fourn').innerHTML='<option value="">— Aucun —</option>'+(state[currentCompany].fournisseurs||[]).map(f=>`<option value="${f.nom}">${f.nom}</option>`).join('');
   renderMatTable(co, st);
   updateMatKpis();
 }
@@ -1287,6 +1290,7 @@ function renderMatTable(co, st){
     ? rows.map(m=>`<tr>
         <td><strong>${m.code}</strong></td>
         <td>${m.nom}</td>
+        <td style="font-size:12px">${m.fourn||'—'}</td>
         <td>${familleBadge(m.famille,st)}</td>
         <td style="font-size:12px">${m.serie}</td>
         <td>${statutBadge(m.statut,st)}</td>
@@ -1299,7 +1303,7 @@ function renderMatTable(co, st){
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
         </td>
       </tr>`).join('')
-    : `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">Aucun matériel trouvé</td></tr>`;
+    : `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Aucun matériel trouvé</td></tr>`;
   // Update live KPI
   document.getElementById('mat-count-kpi').textContent = state[currentCompany].materiels.length;
 }
@@ -1565,6 +1569,7 @@ function openNewModal(){
   document.getElementById('mat-f-revision').value = '';
   document.getElementById('mat-form-famille').selectedIndex=0;
   document.getElementById('mat-form-statut').selectedIndex=0;
+  document.getElementById('mat-form-fourn').value='';
   document.getElementById('modal-materiel').classList.add('open');
 }
 
@@ -1587,6 +1592,7 @@ function openMatEdit(id){
   const ss = document.getElementById('mat-form-statut');
   if(sf && mat.famille) sf.value = mat.famille;
   if(ss && mat.statut)  ss.value = mat.statut;
+  document.getElementById('mat-form-fourn').value = mat.fourn||'';
   closeModal('modal-mat-detail');
   document.getElementById('modal-materiel').classList.add('open');
 }
@@ -1597,12 +1603,13 @@ function saveMat(){
   if(!code||!nom){ alert('Le code et la désignation sont obligatoires.'); return; }
   const famille = document.getElementById('mat-form-famille').value;
   const statut  = document.getElementById('mat-form-statut').value;
+  const fourn   = document.getElementById('mat-form-fourn').value;
   ensureMatState(COMPANIES[currentCompany]);
   const mats = state[currentCompany].materiels;
   if(editingMatId){
     const idx = mats.findIndex(m=>m.id===editingMatId||m.code===editingMatId);
     if(idx>=0){
-      mats[idx] = { ...mats[idx], code, nom, famille, statut,
+      mats[idx] = { ...mats[idx], code, nom, famille, statut, fourn,
         serie:    document.getElementById('mat-f-serie').value.trim(),
         maint:    document.getElementById('mat-f-maint').value.trim(),
         revision: document.getElementById('mat-f-revision').value||null,
@@ -1613,7 +1620,7 @@ function saveMat(){
     }
   } else {
     if(mats.some(m=>m.code===code)){ alert('Ce code matériel existe déjà.'); return; }
-    mats.push({ id:code, code, nom, famille, statut,
+    mats.push({ id:code, code, nom, famille, statut, fourn,
       serie:    document.getElementById('mat-f-serie').value.trim(),
       maint:    document.getElementById('mat-f-maint').value.trim(),
       revision: document.getElementById('mat-f-revision').value||null,
@@ -1649,6 +1656,7 @@ function openMatDetail(id){
   document.getElementById('detail-sub').textContent = (f?.name||'—')+' · '+COMPANIES[currentCompany].name;
   const fields = [
     {l:'Code', v:'<strong>'+mat.code+'</strong>'},
+    {l:'Fournisseur', v: mat.fourn||'—'},
     {l:'Famille', v: f?`<span class="chip"><span class="chip-dot" style="background:${f.color.text}"></span>${f.icon} ${f.name}</span>`:'—'},
     {l:'N° de série', v: mat.serie||'—'},
     {l:'Mise en service', v: mat.dateMS ? new Date(mat.dateMS).toLocaleDateString('fr-FR') : '—'},
@@ -3678,7 +3686,7 @@ async function loadFromSupabase(){
     ]);
     if(familles?.length) state[co].familles=familles.map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
     if(statuts?.length)  state[co].statuts=statuts.map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
-    if(materiels?.length) state[co].materiels=materiels.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null}));
+    if(materiels?.length) state[co].materiels=materiels.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||''}));
     if(ots?.length) state[co].ots=ots.map(o=>({id:o.id,num:o.num,mat:o.mat_label,type:o.type_ot,prio:o.prio,tech:o.tech,dur:o.dur,statut:o.statut,date:o.date_prevue,desc:o.desc_}));
     if(pieces?.length) state[co].pieces=pieces.map(p=>({id:p.id,ref:p.ref,nom:p.nom,compat:p.compat,prix:p.prix,stock:p.stock,seuil:p.seuil,notes:p.notes,st:p.stock===0?'alert':p.stock<=p.seuil?'warn':'ok'}));
     if(mvts?.length) state[co].mouvements=mvts.map(m=>({date:new Date(m.created_at).toLocaleDateString('fr-FR'),ref:m.ref_piece,nom:m.nom_piece,type:m.type_mvt,qte:(m.type_mvt==='in'?'+':m.type_mvt==='out'?'-':'=')+m.qte,motif:m.motif||'',apres:String(m.stock_apres||0)}));
@@ -4340,7 +4348,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const mats=state[currentCompany].materiels;
     const code=document.getElementById('mat-f-code')?.value?.trim();
     const mat=mats.find(m=>m.code===code); if(!mat) return;
-    await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,code:mat.code,nom:mat.nom,famille_id:mat.famille,serie:mat.serie,statut_id:mat.statut,maint:mat.maint,cout:mat.cout,date_ms:mat.dateMS||null,notes:mat.notes,revision_date:mat.revision||null});
+    await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,code:mat.code,nom:mat.nom,famille_id:mat.famille,serie:mat.serie,statut_id:mat.statut,maint:mat.maint,cout:mat.cout,date_ms:mat.dateMS||null,notes:mat.notes,revision_date:mat.revision||null,fournisseur:mat.fourn||null});
   };
   // Patch saveOT
   const _so=window.saveOT; window.saveOT=async function(){
