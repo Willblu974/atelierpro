@@ -318,7 +318,7 @@ textarea{resize:vertical;min-height:80px;}
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()" style="margin-left:auto">📥 Importer un fichier</button>
       </div>
-      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-maintenance">
@@ -1005,6 +1005,7 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-group"><label>Prochaine maintenance</label><input id="mat-f-maint" placeholder="ex: 500h — dans 45h"></div>
       <div class="form-group"><label>&#128197; Date de révision</label><input type="date" id="mat-f-revision"></div>
       <div class="form-group"><label>Prix d'achat (€)</label><input id="mat-f-prixachat" placeholder="ex: 15 000 €"></div>
+      <div class="form-group"><label>Date d'achat</label><input type="date" id="mat-f-dateachat"></div>
       <div class="form-group"><label>Valeur marchande (€)</label><input id="mat-f-cout" placeholder="ex: 18 420 €"></div>
       <div class="form-group full"><label>Notes / Observations</label><textarea id="mat-f-notes" placeholder="Spécifications, historique, remarques..."></textarea></div>
     </div>
@@ -1299,6 +1300,7 @@ function renderMatTable(co, st){
         <td style="font-size:12px">${m.maint}</td>
         <td>${(function(){var rs=revisionStatus(m);if(!rs)return '<span style="color:var(--text3);font-size:11px">—</span>';var d=new Date(m.revision).toLocaleDateString('fr-FR');return '<span class="badge badge-'+rs.cls+'" title="'+rs.label+'">\uD83D\uDCC5 '+d+'</span>';})()}</td>
         <td>${m.prixAchat ? (/€/.test(m.prixAchat) ? m.prixAchat : m.prixAchat+' €') : '—'}</td>
+        <td style="font-size:12px">${m.dateAchat ? new Date(m.dateAchat).toLocaleDateString('fr-FR') : '—'}</td>
         <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
@@ -1306,7 +1308,7 @@ function renderMatTable(co, st){
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
         </td>
       </tr>`).join('')
-    : `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Aucun matériel trouvé</td></tr>`;
+    : `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">Aucun matériel trouvé</td></tr>`;
   // Update live KPI
   document.getElementById('mat-count-kpi').textContent = state[currentCompany].materiels.length;
 }
@@ -1570,6 +1572,7 @@ function openNewModal(){
   });
   document.getElementById('mat-f-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('mat-f-revision').value = '';
+  document.getElementById('mat-f-dateachat').value = '';
   document.getElementById('mat-form-famille').selectedIndex=0;
   document.getElementById('mat-form-statut').selectedIndex=0;
   document.getElementById('mat-form-fourn').value='';
@@ -1589,6 +1592,7 @@ function openMatEdit(id){
   document.getElementById('mat-f-maint').value = mat.maint||'';
   document.getElementById('mat-f-cout').value  = mat.cout||'';
   document.getElementById('mat-f-prixachat').value = mat.prixAchat||'';
+  document.getElementById('mat-f-dateachat').value = mat.dateAchat||'';
   document.getElementById('mat-f-notes').value = mat.notes||'';
   if(mat.dateMS) document.getElementById('mat-f-date').value = mat.dateMS;
   document.getElementById('mat-f-revision').value = mat.revision||'';
@@ -1619,6 +1623,7 @@ function saveMat(){
         revision: document.getElementById('mat-f-revision').value||null,
         cout:     document.getElementById('mat-f-cout').value.trim(),
         prixAchat:document.getElementById('mat-f-prixachat').value.trim(),
+        dateAchat:document.getElementById('mat-f-dateachat').value||null,
         notes:    document.getElementById('mat-f-notes').value.trim(),
         dateMS:   document.getElementById('mat-f-date').value,
         id: editingMatId };
@@ -1631,6 +1636,7 @@ function saveMat(){
       revision: document.getElementById('mat-f-revision').value||null,
       cout:     document.getElementById('mat-f-cout').value.trim(),
       prixAchat:document.getElementById('mat-f-prixachat').value.trim(),
+      dateAchat:document.getElementById('mat-f-dateachat').value||null,
       notes:    document.getElementById('mat-f-notes').value.trim(),
       dateMS:   document.getElementById('mat-f-date').value,
     });
@@ -1670,6 +1676,7 @@ function openMatDetail(id){
     {l:'Prochaine maintenance', v: mat.maint||'—'},
     {l:'Date de révision', v: (function(){if(!mat.revision)return '—';var rs=revisionStatus(mat);return '<span class="badge badge-'+rs.cls+'">\uD83D\uDCC5 '+new Date(mat.revision).toLocaleDateString('fr-FR')+'</span> <span style="font-size:11px;color:var(--text3)">'+rs.label+'</span>';})()},
     {l:'Prix d\'achat (€)', v: mat.prixAchat ? (/€/.test(mat.prixAchat) ? mat.prixAchat : mat.prixAchat+' €') : '—'},
+    {l:'Date d\'achat', v: mat.dateAchat ? new Date(mat.dateAchat).toLocaleDateString('fr-FR') : '—'},
     {l:'Valeur marchande (€)', v: mat.cout ? (/€/.test(mat.cout) ? mat.cout : mat.cout+' €') : '—'},
     {l:'Entreprise', v: COMPANIES[currentCompany].name},
   ];
@@ -3697,7 +3704,7 @@ async function loadFromSupabase(){
     ]);
     if(familles?.length) state[co].familles=familles.map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
     if(statuts?.length)  state[co].statuts=statuts.map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
-    if(materiels?.length) state[co].materiels=materiels.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||''}));
+    if(materiels?.length) state[co].materiels=materiels.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));
     if(ots?.length) state[co].ots=ots.map(o=>({id:o.id,num:o.num,mat:o.mat_label,type:o.type_ot,prio:o.prio,tech:o.tech,dur:o.dur,statut:o.statut,date:o.date_prevue,desc:o.desc_}));
     if(pieces?.length) state[co].pieces=pieces.map(p=>({id:p.id,ref:p.ref,nom:p.nom,compat:p.compat,prix:p.prix,stock:p.stock,seuil:p.seuil,notes:p.notes,fourn:p.fournisseur||'',st:p.stock===0?'alert':p.stock<=p.seuil?'warn':'ok'}));
     if(mvts?.length) state[co].mouvements=mvts.map(m=>({date:new Date(m.created_at).toLocaleDateString('fr-FR'),ref:m.ref_piece,nom:m.nom_piece,type:m.type_mvt,qte:(m.type_mvt==='in'?'+':m.type_mvt==='out'?'-':'=')+m.qte,motif:m.motif||'',apres:String(m.stock_apres||0)}));
@@ -3906,6 +3913,7 @@ function exportPDF(type){
         <th style="padding:8px 10px;text-align:left">Statut</th>
         <th style="padding:8px 10px;text-align:left">Proch. maintenance</th>
         <th style="padding:8px 10px;text-align:right">Prix d'achat (€)</th>
+        <th style="padding:8px 10px;text-align:left">Date d'achat</th>
         <th style="padding:8px 10px;text-align:right">Valeur marchande (€)</th>
       </tr></thead><tbody>`;
     co.materiels.forEach((m,i)=>{
@@ -3920,16 +3928,17 @@ function exportPDF(type){
         <td style="padding:7px 10px">${statutNom}</td>
         <td style="padding:7px 10px">${m.maint||'—'}</td>
         <td style="padding:7px 10px;text-align:right">${m.prixAchat||'—'}</td>
+        <td style="padding:7px 10px">${m.dateAchat ? new Date(m.dateAchat).toLocaleDateString('fr-FR') : '—'}</td>
         <td style="padding:7px 10px;text-align:right">${m.cout||'—'}</td>
       </tr>`;
     });
-    if(!co.materiels.length) body+=`<tr><td colspan="8" style="padding:16px;text-align:center;color:#999">Aucun matériel enregistré</td></tr>`;
+    if(!co.materiels.length) body+=`<tr><td colspan="9" style="padding:16px;text-align:center;color:#999">Aucun matériel enregistré</td></tr>`;
     const totalMat=co.materiels.reduce((sum,m)=>{
       const v=parseFloat((m.cout||'').toString().replace(/[^\d.,]/g,'').replace(',','.'));
       return sum+(isNaN(v)?0:v);
     },0);
     body+=`<tr style="background:${coInfo.color}15">
-      <td colspan="7" style="padding:9px 10px;font-weight:700;text-align:right;font-size:12px">Total valeur marchande matériels</td>
+      <td colspan="8" style="padding:9px 10px;font-weight:700;text-align:right;font-size:12px">Total valeur marchande matériels</td>
       <td style="padding:9px 10px;font-weight:700;text-align:right;font-size:13px;color:${coInfo.color}">${totalMat.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})} €</td>
     </tr>`;
     body+=`</tbody></table>`;
@@ -4365,7 +4374,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const mats=state[currentCompany].materiels;
     const code=document.getElementById('mat-f-code')?.value?.trim();
     const mat=mats.find(m=>m.code===code); if(!mat) return;
-    await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,code:mat.code,nom:mat.nom,famille_id:mat.famille,serie:mat.serie,statut_id:mat.statut,maint:mat.maint,cout:mat.cout,date_ms:mat.dateMS||null,notes:mat.notes,revision_date:mat.revision||null,fournisseur:mat.fourn||null,prix_achat:mat.prixAchat||null});
+    await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,code:mat.code,nom:mat.nom,famille_id:mat.famille,serie:mat.serie,statut_id:mat.statut,maint:mat.maint,cout:mat.cout,date_ms:mat.dateMS||null,notes:mat.notes,revision_date:mat.revision||null,fournisseur:mat.fourn||null,prix_achat:mat.prixAchat||null,date_achat:mat.dateAchat||null});
   };
   // Patch saveOT
   const _so=window.saveOT; window.saveOT=async function(){
