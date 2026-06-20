@@ -1035,7 +1035,7 @@ textarea{resize:vertical;min-height:80px;}
   <div class="modal" style="width:640px">
     <div class="modal-header"><strong>Modifier le suivi d'expédition</strong><button class="btn btn-sm" onclick="closeModal('modal-transport')">&#10005;</button></div>
     <div class="form-grid">
-      <div class="form-group"><label>N° BDC</label><input id="tr-f-bdc" placeholder="ex: BDC-2026-014"></div>
+      <div class="form-group"><label>N° BDC</label><select id="tr-f-bdc" onchange="onTransportBdcChange()"><option value="">— Aucun —</option></select></div>
       <div class="form-group"><label>Mode de transport</label><input id="tr-f-mode" placeholder="ex: Maritime — conteneur 20'"></div>
       <div class="form-group full"><label>Fournisseur / itinéraire</label><input id="tr-f-fourn" placeholder="ex: Bauer France → Le Port, Réunion"></div>
       <div class="form-group"><label>Progression (%)</label><input type="number" id="tr-f-progress" min="0" max="100" oninput="updateTransportProgressPreview()"></div>
@@ -1484,7 +1484,11 @@ function updateTransportProgressPreview(){ /* réservé pour un futur aperçu li
 
 function openTransportModal(){
   ensureTransportState(COMPANIES[currentCompany]);
+  ensureBDCState(COMPANIES[currentCompany]);
   const t = state[currentCompany].transport;
+  const bdcs = state[currentCompany].bdcs||[];
+  document.getElementById('tr-f-bdc').innerHTML = '<option value="">— Aucun —</option>'
+    + bdcs.map(b=>`<option value="${b.num}">${b.num} — ${b.fourn}</option>`).join('');
   document.getElementById('tr-f-bdc').value = t.bdc==='—' ? '' : t.bdc;
   document.getElementById('tr-f-mode').value = t.mode==='—' ? '' : t.mode;
   document.getElementById('tr-f-fourn').value = t.fourn==='Aucune expédition en cours' ? '' : t.fourn;
@@ -1496,6 +1500,18 @@ function openTransportModal(){
   document.getElementById('tr-rows-container').innerHTML='';
   (t.rows||[]).forEach(r=>addTransportRow({...r}));
   document.getElementById('modal-transport').classList.add('open');
+}
+
+function onTransportBdcChange(){
+  const bdcs = state[currentCompany].bdcs||[];
+  const sel = document.getElementById('tr-f-bdc').value;
+  const b = bdcs.find(x=>x.num===sel);
+  if(b && !document.getElementById('tr-f-fourn').value){
+    document.getElementById('tr-f-fourn').value = b.fourn||'';
+  }
+  if(b && !document.getElementById('tr-f-mode').value){
+    document.getElementById('tr-f-mode').value = b.mode||'';
+  }
 }
 
 async function saveTransport(){
