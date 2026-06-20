@@ -1782,9 +1782,7 @@ async function savePret(){
   // Bascule le matériel sur le statut "Prêté" tant que le prêt est en cours
   if(mat && rec.statut!=='retourne' && mat.statut!=='pret'){
     mat.statut = 'pret';
-    if(SB && SB_MODE==='online'){
-      await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,statut_id:'pret'});
-    }
+    await syncMaterielToSupabase(mat);
   }
   saveToStorage();
   if(SB && SB_MODE==='online'){
@@ -1807,9 +1805,7 @@ async function marquerRetourPret(id){
   const mat = mats.find(m=>(m.id||m.code)===prets[idx].matCode);
   if(mat && mat.statut==='pret'){
     mat.statut = prets[idx].matStatutAvant || 'ok';
-    if(SB && SB_MODE==='online'){
-      await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,statut_id:mat.statut});
-    }
+    await syncMaterielToSupabase(mat);
   }
   saveToStorage();
   if(SB && SB_MODE==='online'){
@@ -4626,6 +4622,10 @@ async function deleteFromSupabase(table, id){
   if(!SB||SB_MODE!=='online') return;
   const { error } = await secureWrite(table, 'delete', null, id);
   if(error) console.warn('[deleteFromSupabase]', table, id, error);
+}
+async function syncMaterielToSupabase(mat){
+  if(!SB||SB_MODE!=='online'||!mat) return;
+  await saveToSupabase('materiels',{id:mat.id,entreprise_id:currentCompany,code:mat.code,nom:mat.nom,famille_id:mat.famille,serie:mat.serie,statut_id:mat.statut,maint:mat.maint,cout:mat.cout,date_ms:mat.dateMS||null,notes:mat.notes,revision_date:mat.revision||null,fournisseur:mat.fourn||null,prix_achat:mat.prixAchat||null,date_achat:mat.dateAchat||null});
 }
 
 /* ── Hooks CRUD → Supabase (double-write) ────────────────── */
