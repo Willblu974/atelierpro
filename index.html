@@ -318,7 +318,7 @@ textarea{resize:vertical;min-height:80px;}
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()" style="margin-left:auto">📥 Importer un fichier</button>
       </div>
-      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>Fournisseur</th><th>Famille</th><th>N&deg; S&eacute;rie</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-maintenance">
@@ -379,7 +379,7 @@ textarea{resize:vertical;min-height:80px;}
         <div style="flex:1"></div>
         <button class="btn btn-sm btn-edit" onclick="openImportPiecesModal()">📥 Importer un fichier</button>
       </div>
-      <div class="card"><div class="card-body"><table><thead><tr><th>Référence</th><th>Désignation</th><th>Fournisseur</th><th>Compatibilités matériels</th><th>Prix unitaire (€)</th><th>Stock</th><th>Seuil min</th><th></th></tr></thead><tbody id="pieces-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilités matériels</th><th>Fournisseur</th><th>Prix unitaire (€)</th><th>Stock</th><th>Seuil min</th><th></th></tr></thead><tbody id="pieces-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-stock">
@@ -1292,9 +1292,9 @@ function renderMatTable(co, st){
     ? rows.map(m=>`<tr>
         <td><strong>${m.code}</strong></td>
         <td>${m.nom}</td>
+        <td style="font-size:12px">${m.serie}</td>
         <td style="font-size:12px">${m.fourn||'—'}</td>
         <td>${familleBadge(m.famille,st)}</td>
-        <td style="font-size:12px">${m.serie}</td>
         <td>${statutBadge(m.statut,st)}</td>
         <td style="font-size:12px">${m.maint}</td>
         <td>${(function(){var rs=revisionStatus(m);if(!rs)return '<span style="color:var(--text3);font-size:11px">—</span>';var d=new Date(m.revision).toLocaleDateString('fr-FR');return '<span class="badge badge-'+rs.cls+'" title="'+rs.label+'">\uD83D\uDCC5 '+d+'</span>';})()}</td>
@@ -2006,8 +2006,8 @@ function renderPiecesTable(){
         return `<tr>
           <td><strong>${p.ref}</strong></td>
           <td>${p.nom}</td>
-          <td style="font-size:12px">${p.fourn||'—'}</td>
           <td style="font-size:12px">${p.compat||'—'}</td>
+          <td style="font-size:12px">${p.fourn||'—'}</td>
           <td>${p.prix||'—'}</td>
           <td>${sb}</td>
           <td>${p.seuil}</td>
@@ -3901,8 +3901,8 @@ function exportPDF(type){
       <thead><tr style="background:${coInfo.color};color:#fff">
         <th style="padding:8px 10px;text-align:left">Code</th>
         <th style="padding:8px 10px;text-align:left">Désignation</th>
-        <th style="padding:8px 10px;text-align:left">Fournisseur</th>
         <th style="padding:8px 10px;text-align:left">N° Série</th>
+        <th style="padding:8px 10px;text-align:left">Fournisseur</th>
         <th style="padding:8px 10px;text-align:left">Statut</th>
         <th style="padding:8px 10px;text-align:left">Proch. maintenance</th>
         <th style="padding:8px 10px;text-align:right">Prix d'achat (€)</th>
@@ -3915,8 +3915,8 @@ function exportPDF(type){
       body+=`<tr style="background:${bg}">
         <td style="padding:7px 10px;font-weight:600;color:${coInfo.color}">${m.code||'—'}</td>
         <td style="padding:7px 10px">${m.nom||'—'}</td>
-        <td style="padding:7px 10px">${m.fourn||'—'}</td>
         <td style="padding:7px 10px;color:#666">${m.serie||'—'}</td>
+        <td style="padding:7px 10px">${m.fourn||'—'}</td>
         <td style="padding:7px 10px">${statutNom}</td>
         <td style="padding:7px 10px">${m.maint||'—'}</td>
         <td style="padding:7px 10px;text-align:right">${m.prixAchat||'—'}</td>
@@ -3972,8 +3972,8 @@ function exportPDF(type){
       <thead><tr style="background:${coInfo.color};color:#fff">
         <th style="padding:8px 10px;text-align:left">Référence</th>
         <th style="padding:8px 10px;text-align:left">Désignation</th>
-        <th style="padding:8px 10px;text-align:left">Fournisseur</th>
         <th style="padding:8px 10px;text-align:left">Compatibilité</th>
+        <th style="padding:8px 10px;text-align:left">Fournisseur</th>
         <th style="padding:8px 10px;text-align:right">Prix unitaire (€)</th>
         <th style="padding:8px 10px;text-align:right">Stock</th>
         <th style="padding:8px 10px;text-align:right">Seuil</th>
@@ -3987,8 +3987,8 @@ function exportPDF(type){
       body+=`<tr style="background:${bg}">
         <td style="padding:7px 10px;font-weight:600;color:${coInfo.color}">${p.ref||'—'}</td>
         <td style="padding:7px 10px">${p.nom||'—'}</td>
-        <td style="padding:7px 10px">${p.fourn||'—'}</td>
         <td style="padding:7px 10px;color:#666;font-size:10px">${p.compat||'—'}</td>
+        <td style="padding:7px 10px">${p.fourn||'—'}</td>
         <td style="padding:7px 10px;text-align:right">${p.prix||'—'}</td>
         <td style="padding:7px 10px;text-align:right;font-weight:600">${p.stock??'—'}</td>
         <td style="padding:7px 10px;text-align:right">${p.seuil??'—'}</td>
