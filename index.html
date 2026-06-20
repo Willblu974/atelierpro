@@ -1282,11 +1282,19 @@ function updateSwitchModal(){
 async function switchCompany(id){
   if(id===currentCompany){closeSwitchModal();return;}
   currentCompany=id; closeSwitchModal();
+  // On vide immédiatement les tableaux affichés avec un indicateur de
+  // chargement : sans ça, l'ancienne entreprise restait visible à
+  // l'écran le temps que le rechargement Supabase se termine (souvent
+  // moins d'une seconde, mais suffisant pour créer une confusion).
+  ['mat-tbody','ot-tbody','pieces-tbody','fourn-tbody','cmd-tbody','pret-tbody','dash-prets-tbody','histo-tbody','plan-tbody','cout-tbody','stock-tbody'].forEach(tid=>{
+    const el=document.getElementById(tid);
+    if(el) el.innerHTML='<tr><td colspan="20" style="text-align:center;padding:24px;color:var(--text3)">Chargement de '+(COMPANIES[id]?.name||id)+'...</td></tr>';
+  });
+  if(SB_MODE==='online') setSbStatus('online','Chargement de '+(COMPANIES[id]?.name||id)+'...');
   // Recharge les vraies données de l'entreprise sélectionnée avant
   // d'afficher quoi que ce soit : sans ça, l'app pouvait montrer des
   // données obsolètes (ou les données de démonstration codées en dur)
   // au lieu des vraies données de cette entreprise.
-  if(SB_MODE==='online') setSbStatus('online','Chargement de '+(COMPANIES[id]?.name||id)+'...');
   await loadFromSupabase();
   renderAll();
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
