@@ -297,6 +297,7 @@ textarea{resize:vertical;min-height:80px;}
 
     <div class="page active" id="page-dashboard">
       <div class="kpi-grid" id="kpi-grid"></div>
+      <div id="dash-maint-alerts" style="margin-bottom:16px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
         <div>
           <div class="section-header"><div class="section-title">Interventions r&eacute;centes</div></div>
@@ -2286,8 +2287,11 @@ function renderOTTable(){
   if(el('ot-urgent-kpi'))  el('ot-urgent-kpi').textContent  = ots.filter(o=>o.prio==='alert'&&o.statut!=='termine').length;
   if(el('ot-termine-kpi')) el('ot-termine-kpi').textContent = ots.filter(o=>o.statut==='termine').length;
   const urgents = ots.filter(o=>o.prio==='alert'&&o.statut!=='termine');
-  if(el('maint-alerts')) el('maint-alerts').innerHTML = urgents.length
+  const _maintAlertsHtml = urgents.length
     ? `<div class="alert alert-danger">🔴 <div><strong>${urgents.length} OT urgent(s)</strong> en attente : ${urgents.map(o=>o.num).join(', ')}</div></div>` : '';
+  if(el('maint-alerts')) el('maint-alerts').innerHTML = _maintAlertsHtml;
+  const _dashSync = document.getElementById('dash-maint-alerts');
+  if(_dashSync) _dashSync.innerHTML = _maintAlertsHtml;
   if(el('badge-maint')) el('badge-maint').textContent = urgents.length||'';
   document.getElementById('ot-tbody').innerHTML = filtered.length
     ? filtered.map(o=>{
@@ -3105,6 +3109,14 @@ function renderDashboard(co){
   const matMaint   = mats.filter(m=>m.statut==='warn').length;
   const matHS      = mats.filter(m=>m.statut==='alert').length;
   const otUrgents  = ots.filter(o=>o.prio==='alert'&&o.statut!=='termine').length;
+  // Sync maintenance-style urgent OT alerts to dashboard
+  const _dashMaintEl = document.getElementById('dash-maint-alerts');
+  if(_dashMaintEl) {
+    const _urgentList = ots.filter(o=>o.prio==='alert'&&o.statut!=='termine');
+    _dashMaintEl.innerHTML = _urgentList.length
+      ? `<div class="alert alert-danger">🔴 <div><strong>${_urgentList.length} OT urgent(s)</strong> en attente : ${_urgentList.map(o=>o.num).join(', ')}</div></div>`
+      : '';
+  }
   const pcRuptures = pieces.filter(p=>p.st==='alert').length;
   const pcBas      = pieces.filter(p=>p.st==='warn').length;
   const bdcActifs  = bdcs.filter(b=>b.statut!=='livre').length;
