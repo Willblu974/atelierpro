@@ -253,6 +253,7 @@ textarea{resize:vertical;min-height:80px;}
     <div class="nav-section">G&eacute;n&eacute;ral</div>
     <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-icon">&#128202;</span> Tableau de bord</div>
     <div class="nav-section">Exploitation</div>
+    <div class="nav-item" onclick="showPage('calendrier',this)"><span class="nav-icon">📅</span> Calendrier</div>
     <div class="nav-item" onclick="showPage('materiels',this)"><span class="nav-icon">&#128295;</span> Mat&eacute;riels</div>
     <div class="nav-item" onclick="showPage('maintenance',this)"><span class="nav-icon">&#128295;&#65039;</span> Maintenance<span class="nav-badge" id="badge-maint">3</span></div>
     <div class="nav-item" onclick="showPage('pieces',this)"><span class="nav-icon">&#128230;</span> Pi&egrave;ces d&eacute;tach&eacute;es</div>
@@ -312,6 +313,24 @@ textarea{resize:vertical;min-height:80px;}
       <div class="section-header" style="margin-top:18px"><div class="section-title">🔄 Pr&ecirc;ts de mat&eacute;riels</div></div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Mat&eacute;riel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>T&eacute;l&eacute;phone</th><th>Date pr&ecirc;t</th><th>Retour pr&eacute;vu</th><th>Statut</th></tr></thead><tbody id="dash-prets-tbody"></tbody></table></div></div>
     </div>
+
+    <div class="page" id="page-calendrier">
+      <div class="cal-toolbar">
+        <button class="btn btn-sm" onclick="calPrev()">&#9664;</button>
+        <div class="cal-title" id="cal-title">—</div>
+        <button class="btn btn-sm" onclick="calNext()">&#9654;</button>
+        <button class="btn btn-sm" onclick="calGoToday()">Aujourd'hui</button>
+        <div class="cal-views">
+          <button class="cal-view-btn" id="calv-annee" onclick="calSetView('annee')">Ann&eacute;e</button>
+          <button class="cal-view-btn active" id="calv-mois" onclick="calSetView('mois')">Mois</button>
+          <button class="cal-view-btn" id="calv-semaine" onclick="calSetView('semaine')">Semaine</button>
+          <button class="cal-view-btn" id="calv-jour" onclick="calSetView('jour')">Jour</button>
+        </div>
+        <button class="btn btn-sm btn-primary btn-edit" onclick="openEventModal()">+ &Eacute;v&eacute;nement</button>
+      </div>
+      <div id="cal-body"></div>
+    </div>
+
 
     <div class="page" id="page-materiels">
       <div class="stat-row" id="mat-stats">
@@ -669,6 +688,32 @@ textarea{resize:vertical;min-height:80px;}
 </div>
 
 <!-- MODAL INVITATION -->
+
+<!-- MODAL ÉVÉNEMENT CALENDRIER -->
+<div class="modal-bg" id="modal-evt">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <strong id="evt-modal-title">Nouvel événement</strong>
+      <button class="btn btn-sm" onclick="closeModal('modal-evt')">&#10005;</button>
+    </div>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="form-group full"><label>Titre *</label><input id="evt-f-titre" placeholder="Titre de l'événement"></div>
+      <div class="form-group"><label>Date *</label><input type="date" id="evt-f-date"></div>
+      <div class="form-group"><label>Couleur</label><input type="color" id="evt-f-couleur" value="#0f6e56" style="height:36px;padding:2px 4px;cursor:pointer"></div>
+      <div class="form-group"><label>Heure d&eacute;but</label><input type="time" id="evt-f-heure-debut"></div>
+      <div class="form-group"><label>Heure fin</label><input type="time" id="evt-f-heure-fin"></div>
+      <div class="form-group full"><label>Technicien</label><input id="evt-f-tech" placeholder="Nom du technicien"></div>
+      <div class="form-group full"><label>Notes</label><textarea id="evt-f-notes" rows="2" placeholder="Observations..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="evt-delete-btn" onclick="deleteEvent()" style="margin-right:auto;display:none">🗑 Supprimer</button>
+      <button class="btn" onclick="closeModal('modal-evt')">Annuler</button>
+      <button class="btn btn-primary" id="evt-save-btn" onclick="saveEvent()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-bg" id="modal-invitation">
   <div class="modal modal-sm">
     <div class="modal-header"><strong>G&eacute;n&eacute;rer un code d'invitation</strong><button class="btn btn-sm" onclick="closeModal('modal-invitation')">&#10005;</button></div>
@@ -2136,9 +2181,9 @@ function openMatDetail(id){
 function saveToStorage(){
   try {
     localStorage.setItem('atelierPro_state', JSON.stringify({
-      A:{ familles:state.A.familles, statuts:state.A.statuts, materiels:state.A.materiels },
-      B:{ familles:state.B.familles, statuts:state.B.statuts, materiels:state.B.materiels },
-      C:{ familles:state.C.familles, statuts:state.C.statuts, materiels:state.C.materiels },
+      A:{ familles:state.A.familles, statuts:state.A.statuts, materiels:state.A.materiels, evenements:state.A.evenements||[] },
+      B:{ familles:state.B.familles, statuts:state.B.statuts, materiels:state.B.materiels, evenements:state.B.evenements||[] },
+      C:{ familles:state.C.familles, statuts:state.C.statuts, materiels:state.C.materiels, evenements:state.C.evenements||[] },
     }));
     // Sauvegarder infos entreprises séparément (logo en base64 peut être volumineux)
     ['A','B','C'].forEach(id=>{
@@ -2157,7 +2202,8 @@ function loadFromStorage(){
       ['A','B','C'].forEach(id=>{
         if(data[id]?.familles)  state[id].familles  = data[id].familles;
         if(data[id]?.statuts)   state[id].statuts   = data[id].statuts;
-        if(data[id]?.materiels) state[id].materiels = data[id].materiels;
+        if(data[id]?.materiels)  state[id].materiels  = data[id].materiels;
+        if(data[id]?.evenements) state[id].evenements = data[id].evenements;
       });
     }
     // Charger infos entreprises
@@ -2228,6 +2274,7 @@ const PAGE_NEW_FN = {
   fournisseurs:()=>openFournModal(),
   commandes:  ()=>openBDCModal(),
   transport:  ()=>openBDCModal(),
+  calendrier: ()=>openEventModal(),
   couts:      ()=>{},
   rapports:   ()=>{},
   parametres: ()=>{}
@@ -2238,8 +2285,9 @@ function showPage(id,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   el.classList.add('active');
-  const titles={dashboard:'Tableau de bord',materiels:'Matériels',maintenance:'Maintenance',pieces:'Pièces détachées',stock:'Gestion de stock',fournisseurs:'Fournisseurs',commandes:'Bons de commande',transport:'Transport & Douanes',couts:"Coûts d'entretien",rapports:'Rapports',parametres:'Paramètres',utilisateurs:'Utilisateurs'};
+  const titles={dashboard:'Tableau de bord',calendrier:'Calendrier',materiels:'Matériels',maintenance:'Maintenance',pieces:'Pièces détachées',stock:'Gestion de stock',fournisseurs:'Fournisseurs',commandes:'Bons de commande',transport:'Transport & Douanes',couts:"Coûts d'entretien",rapports:'Rapports',parametres:'Paramètres',utilisateurs:'Utilisateurs'};
   if(id==='utilisateurs'){ loadUsers(); loadInvitationCodes(); }
+  if(id==='calendrier'){ renderCalendrier(); }
   document.getElementById('page-title').textContent=titles[id]||id;
   document.getElementById('topbar-new').style.display=['parametres','couts','rapports','utilisateurs'].includes(id)?'none':'';
   currentPage=id;
@@ -4088,7 +4136,7 @@ function applyPageRole(page){
   }
 
   // Pages où la création (+ Nouveau) a un sens et où Technicien peut créer
-  const createPages = ['materiels','maintenance','pieces','stock','fournisseurs','commandes','transport'];
+  const createPages = ['materiels','maintenance','pieces','stock','fournisseurs','commandes','transport','calendrier'];
 
   // Bouton + Nouveau
   if(topbarNew){
@@ -5044,6 +5092,263 @@ function createBDCFromPDF(){
     if(art)document.getElementById('bdc-f-art').value=art;
     if(articles)document.getElementById('bdc-f-articles').value=articles;
   },150);
+}
+
+
+
+/* ══════════════════════════════════════════════════════════
+   CALENDRIER
+   ══════════════════════════════════════════════════════════ */
+let calView = 'mois';
+let calDate  = new Date();
+const MOIS_FR   = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const JOURS_CT  = ['Lu','Ma','Me','Je','Ve','Sa','Di'];
+
+function ensureCalState(){
+  if(!state[currentCompany]) state[currentCompany]={};
+  if(!state[currentCompany].evenements) state[currentCompany].evenements=[];
+}
+function toDS(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+function getAllCalEvents(){
+  ensureCalState();
+  const custom=(state[currentCompany].evenements||[]).map(e=>({...e,source:'custom'}));
+  const ots=(state[currentCompany].ots||[]).filter(o=>o.date).map(o=>({
+    id:'ot_'+o.id, titre:o.num+' — '+o.mat, date:o.date,
+    couleur:o.prio==='alert'?'#a32d2d':o.prio==='warn'?'#ba7517':'#0f6e56',
+    source:'ot', otId:o.id, tech:o.tech||''
+  }));
+  return [...ots,...custom];
+}
+function eventsOnDate(ds){ return getAllCalEvents().filter(e=>e.date===ds); }
+
+function calGoToday(){ calDate=new Date(); renderCalendrier(); }
+function calPrev(){
+  if(calView==='annee')   calDate=new Date(calDate.getFullYear()-1,0,1);
+  else if(calView==='mois')    calDate=new Date(calDate.getFullYear(),calDate.getMonth()-1,1);
+  else if(calView==='semaine'){ calDate=new Date(calDate); calDate.setDate(calDate.getDate()-7);}
+  else{ calDate=new Date(calDate); calDate.setDate(calDate.getDate()-1);}
+  renderCalendrier();
+}
+function calNext(){
+  if(calView==='annee')   calDate=new Date(calDate.getFullYear()+1,0,1);
+  else if(calView==='mois')    calDate=new Date(calDate.getFullYear(),calDate.getMonth()+1,1);
+  else if(calView==='semaine'){ calDate=new Date(calDate); calDate.setDate(calDate.getDate()+7);}
+  else{ calDate=new Date(calDate); calDate.setDate(calDate.getDate()+1);}
+  renderCalendrier();
+}
+function calSetView(v){
+  calView=v;
+  document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.toggle('active',b.id==='calv-'+v));
+  renderCalendrier();
+}
+function renderCalendrier(){
+  ensureCalState();
+  document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.toggle('active',b.id==='calv-'+calView));
+  if(calView==='annee')        renderCalAnnee();
+  else if(calView==='mois')    renderCalMois();
+  else if(calView==='semaine') renderCalSemaine();
+  else                         renderCalJour();
+}
+
+/* ── Vue MOIS ── */
+function renderCalMois(){
+  const y=calDate.getFullYear(), m=calDate.getMonth();
+  document.getElementById('cal-title').textContent=MOIS_FR[m]+' '+y;
+  const today=toDS(new Date());
+  const firstDow=(new Date(y,m,1).getDay()+6)%7;
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const canEdit=['admin','technicien'].includes(getUserRole());
+
+  let h='<div class="cal-month-wrap"><div class="cal-month-head">';
+  JOURS_CT.forEach(j=>{h+=`<div class="cal-month-head-cell">${j}</div>`;});
+  h+='</div><div class="cal-month-grid">';
+
+  let day=1-firstDow;
+  for(let row=0;row<6;row++){
+    for(let col=0;col<7;col++){
+      const cur=new Date(y,m,day);
+      const ds=toDS(cur);
+      const inMonth=cur.getMonth()===m;
+      const isToday=ds===today;
+      const evts=inMonth?eventsOnDate(ds):[];
+      h+=`<div class="cal-month-day${!inMonth?' other-month':''}${isToday?' today':''}${canEdit&&inMonth?' clickable':''}"`;
+      if(canEdit&&inMonth) h+=` onclick="openEventModal('${ds}')"`;
+      h+='>';
+      if(inMonth){
+        h+=`<span class="cal-day-num${isToday?' today-num':''}">${cur.getDate()}</span>`;
+        evts.slice(0,3).forEach(e=>{
+          h+=`<span class="cal-event-chip" style="background:${e.couleur||'var(--teal)'}" onclick="event.stopPropagation();openEventDetail('${e.id}')" title="${e.titre||''}">${e.titre||''}</span>`;
+        });
+        if(evts.length>3) h+=`<span style="font-size:10px;color:var(--text3)">+${evts.length-3} autres</span>`;
+      }
+      h+='</div>';
+      day++;
+    }
+  }
+  h+='</div></div>';
+  document.getElementById('cal-body').innerHTML=h;
+}
+
+/* ── Vue ANNÉE ── */
+function renderCalAnnee(){
+  const y=calDate.getFullYear();
+  document.getElementById('cal-title').textContent=String(y);
+  const today=toDS(new Date());
+  const evtDates=new Set(getAllCalEvents().map(e=>e.date));
+
+  let h='<div class="cal-year-grid">';
+  for(let mo=0;mo<12;mo++){
+    const firstDow=(new Date(y,mo,1).getDay()+6)%7;
+    const dim=new Date(y,mo+1,0).getDate();
+    h+=`<div class="cal-year-month"><div class="cal-year-month-title">${MOIS_FR[mo]}</div><div class="cal-year-mini">`;
+    JOURS_CT.forEach(j=>{h+=`<div class="cal-mini-hd">${j[0]}</div>`;});
+    let day=1-firstDow;
+    for(let i=0;i<42;i++){
+      const cur=new Date(y,mo,day);
+      const inMonth=cur.getMonth()===mo;
+      const ds=toDS(cur);
+      const isToday=ds===today;
+      const hasEvt=inMonth&&evtDates.has(ds);
+      if(!inMonth){ h+='<div class="cal-mini-day om"></div>';}
+      else{
+        let cls='cal-mini-day'+(isToday?' today-d':hasEvt?' has-evt':'');
+        h+=`<div class="${cls}" ${hasEvt||isToday?`onclick="calDate=new Date(${y},${mo},${cur.getDate()});calSetView('jour')"`:''} title="${ds}">${cur.getDate()}</div>`;
+      }
+      day++;
+    }
+    h+='</div></div>';
+  }
+  h+='</div>';
+  document.getElementById('cal-body').innerHTML=h;
+}
+
+/* ── Vue SEMAINE ── */
+function renderCalSemaine(){
+  const d=new Date(calDate);
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  const days=[];
+  for(let i=0;i<7;i++){const dd=new Date(d);dd.setDate(d.getDate()+i);days.push(dd);}
+  const f=days[0],l=days[6];
+  document.getElementById('cal-title').textContent=
+    f.getDate()+' '+MOIS_FR[f.getMonth()].slice(0,3)+' – '+l.getDate()+' '+MOIS_FR[l.getMonth()].slice(0,3)+' '+l.getFullYear();
+  const today=toDS(new Date());
+  const canEdit=['admin','technicien'].includes(getUserRole());
+  const hours=Array.from({length:15},(_,i)=>i+6);
+
+  let h=`<div class="cal-time-grid"><div class="cal-time-inner" style="grid-template-columns:52px repeat(7,1fr)">`;
+  // header
+  h+='<div class="cal-tg-head" style="border-bottom:2px solid var(--border)"></div>';
+  days.forEach(dd=>{
+    const ds=toDS(dd);
+    const isT=ds===today;
+    h+=`<div class="cal-tg-head${isT?' today-col':''}"><div>${JOURS_CT[(dd.getDay()+6)%7]}</div><div style="font-size:16px;font-weight:700">${dd.getDate()}</div></div>`;
+  });
+  // rows
+  hours.forEach(h2=>{
+    const hs=String(h2).padStart(2,'0')+':00';
+    h+=`<div class="cal-tg-lbl">${hs}</div>`;
+    days.forEach(dd=>{
+      const ds=toDS(dd);
+      const evts=eventsOnDate(ds).filter(e=>!e.heureDebut?h2===6:parseInt(e.heureDebut.split(':')[0])===h2);
+      h+=`<div class="cal-tg-cell${canEdit?' clickable':''}" ${canEdit?`onclick="openEventModal('${ds}','${hs}')"`:''}">`;
+      evts.forEach(e=>{h+=`<div class="cal-tg-evt" style="background:${e.couleur||'var(--teal)'}" onclick="event.stopPropagation();openEventDetail('${e.id}')">${e.titre||''}</div>`;});
+      h+='</div>';
+    });
+  });
+  h+='</div></div>';
+  document.getElementById('cal-body').innerHTML=h;
+}
+
+/* ── Vue JOUR ── */
+function renderCalJour(){
+  const ds=toDS(calDate);
+  const dow=(calDate.getDay()+6)%7;
+  document.getElementById('cal-title').textContent=
+    JOURS_CT[dow]+' '+calDate.getDate()+' '+MOIS_FR[calDate.getMonth()]+' '+calDate.getFullYear();
+  const canEdit=['admin','technicien'].includes(getUserRole());
+  const evts=eventsOnDate(ds);
+  const hours=Array.from({length:15},(_,i)=>i+6);
+
+  let h=`<div class="cal-time-grid"><div class="cal-time-inner" style="grid-template-columns:60px 1fr">`;
+  h+='<div class="cal-tg-head" style="border-bottom:2px solid var(--border)"></div>';
+  h+=`<div class="cal-tg-head today-col" style="font-size:15px">${calDate.getDate()} ${MOIS_FR[calDate.getMonth()]}</div>`;
+  hours.forEach(hh=>{
+    const hs=String(hh).padStart(2,'0')+':00';
+    const hEvts=evts.filter(e=>!e.heureDebut?hh===6:parseInt(e.heureDebut.split(':')[0])===hh);
+    h+=`<div class="cal-tg-lbl">${hs}</div>`;
+    h+=`<div class="cal-tg-cell${canEdit?' clickable':''}" ${canEdit?`onclick="openEventModal('${ds}','${hs}')"`:''}">`;
+    hEvts.forEach(e=>{h+=`<div class="cal-tg-evt" style="background:${e.couleur||'var(--teal)'}" onclick="event.stopPropagation();openEventDetail('${e.id}')">${e.titre||''}${e.tech?' — '+e.tech:''}</div>`;});
+    h+='</div>';
+  });
+  h+='</div></div>';
+  document.getElementById('cal-body').innerHTML=h;
+}
+
+/* ── Modal événement ── */
+let editingEventId=null;
+function openEventModal(date='',heure=''){
+  if(!['admin','technicien'].includes(getUserRole())) return;
+  editingEventId=null;
+  document.getElementById('evt-modal-title').textContent='Nouvel événement';
+  document.getElementById('evt-f-titre').value='';
+  document.getElementById('evt-f-date').value=date||toDS(new Date());
+  document.getElementById('evt-f-heure-debut').value=heure||'';
+  document.getElementById('evt-f-heure-fin').value='';
+  document.getElementById('evt-f-tech').value='';
+  document.getElementById('evt-f-notes').value='';
+  document.getElementById('evt-f-couleur').value='#0f6e56';
+  document.getElementById('evt-delete-btn').style.display='none';
+  document.getElementById('evt-save-btn').style.display='';
+  ['evt-f-titre','evt-f-date','evt-f-heure-debut','evt-f-heure-fin','evt-f-tech','evt-f-notes','evt-f-couleur'].forEach(id=>{document.getElementById(id).disabled=false;});
+  openModal('modal-evt');
+}
+function openEventDetail(id){
+  const e=getAllCalEvents().find(x=>x.id===id);
+  if(!e) return;
+  if(e.source==='ot'){const ot=(state[currentCompany].ots||[]).find(o=>o.id===e.otId);if(ot){openOTDetail(ot.id);}return;}
+  editingEventId=id;
+  const canEdit=['admin','technicien'].includes(getUserRole());
+  document.getElementById('evt-modal-title').textContent=canEdit?'Modifier événement':'Détail événement';
+  document.getElementById('evt-f-titre').value=e.titre||'';
+  document.getElementById('evt-f-date').value=e.date||'';
+  document.getElementById('evt-f-heure-debut').value=e.heureDebut||'';
+  document.getElementById('evt-f-heure-fin').value=e.heureFin||'';
+  document.getElementById('evt-f-tech').value=e.tech||'';
+  document.getElementById('evt-f-notes').value=e.notes||'';
+  document.getElementById('evt-f-couleur').value=e.couleur||'#0f6e56';
+  document.getElementById('evt-delete-btn').style.display=canEdit?'':'none';
+  document.getElementById('evt-save-btn').style.display=canEdit?'':'none';
+  ['evt-f-titre','evt-f-date','evt-f-heure-debut','evt-f-heure-fin','evt-f-tech','evt-f-notes','evt-f-couleur'].forEach(fid=>{document.getElementById(fid).disabled=!canEdit;});
+  openModal('modal-evt');
+}
+function saveEvent(){
+  const titre=document.getElementById('evt-f-titre').value.trim();
+  const date=document.getElementById('evt-f-date').value;
+  if(!titre||!date){alert('Titre et date obligatoires.');return;}
+  ensureCalState();
+  const evts=state[currentCompany].evenements;
+  const obj={
+    id:editingEventId||('evt_'+Date.now()),
+    titre, date,
+    heureDebut:document.getElementById('evt-f-heure-debut').value,
+    heureFin:document.getElementById('evt-f-heure-fin').value,
+    tech:document.getElementById('evt-f-tech').value,
+    notes:document.getElementById('evt-f-notes').value,
+    couleur:document.getElementById('evt-f-couleur').value||'#0f6e56'
+  };
+  if(editingEventId){const idx=evts.findIndex(x=>x.id===editingEventId);if(idx>=0)evts[idx]=obj;}
+  else evts.push(obj);
+  saveToStorage();
+  closeModal('modal-evt');
+  renderCalendrier();
+}
+function deleteEvent(){
+  if(!editingEventId||!confirm('Supprimer cet événement ?')) return;
+  state[currentCompany].evenements=(state[currentCompany].evenements||[]).filter(e=>e.id!==editingEventId);
+  saveToStorage();
+  closeModal('modal-evt');
+  renderCalendrier();
 }
 
 </script>
