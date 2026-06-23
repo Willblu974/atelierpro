@@ -297,7 +297,6 @@ textarea{resize:vertical;min-height:80px;}
 
     <div class="page active" id="page-dashboard">
       <div class="kpi-grid" id="kpi-grid"></div>
-      <div id="dash-maint-alerts" style="margin-bottom:16px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
         <div>
           <div class="section-header"><div class="section-title">Interventions r&eacute;centes</div></div>
@@ -2290,8 +2289,6 @@ function renderOTTable(){
   const _maintAlertsHtml = urgents.length
     ? `<div class="alert alert-danger">🔴 <div><strong>${urgents.length} OT urgent(s)</strong> en attente : ${urgents.map(o=>o.num).join(', ')}</div></div>` : '';
   if(el('maint-alerts')) el('maint-alerts').innerHTML = _maintAlertsHtml;
-  const _dashSync = document.getElementById('dash-maint-alerts');
-  if(_dashSync) _dashSync.innerHTML = _maintAlertsHtml;
   if(el('badge-maint')) el('badge-maint').textContent = urgents.length||'';
   document.getElementById('ot-tbody').innerHTML = filtered.length
     ? filtered.map(o=>{
@@ -3109,14 +3106,6 @@ function renderDashboard(co){
   const matMaint   = mats.filter(m=>m.statut==='warn').length;
   const matHS      = mats.filter(m=>m.statut==='alert').length;
   const otUrgents  = ots.filter(o=>o.prio==='alert'&&o.statut!=='termine').length;
-  // Sync maintenance-style urgent OT alerts to dashboard
-  const _dashMaintEl = document.getElementById('dash-maint-alerts');
-  if(_dashMaintEl) {
-    const _urgentList = ots.filter(o=>o.prio==='alert'&&o.statut!=='termine');
-    _dashMaintEl.innerHTML = _urgentList.length
-      ? `<div class="alert alert-danger">🔴 <div><strong>${_urgentList.length} OT urgent(s)</strong> en attente : ${_urgentList.map(o=>o.num).join(', ')}</div></div>`
-      : '';
-  }
   const pcRuptures = pieces.filter(p=>p.st==='alert').length;
   const pcBas      = pieces.filter(p=>p.st==='warn').length;
   const bdcActifs  = bdcs.filter(b=>b.statut!=='livre').length;
@@ -3157,23 +3146,37 @@ function renderDashboard(co){
     `<div class="tl-item"><div class="tl-dot" style="background:${t.dot}"></div><div><div class="tl-title">${t.title}</div><div class="tl-meta">${t.meta}</div></div></div>`
   ).join('') : '<div style="padding:24px;text-align:center;color:var(--text3)">Aucune intervention récente</div>';
 
-  // Alertes dynamiques
-  const alerts = [];
-  if(pcRuptures>0) alerts.push({type:'danger', text:`<strong>Rupture de stock :</strong> ${pieces.filter(p=>p.st==='alert').map(p=>p.ref+' ('+p.nom+')').join(', ')}`});
-  if(pcBas>0)      alerts.push({type:'warn',   text:`<strong>Stock bas :</strong> ${pieces.filter(p=>p.st==='warn').map(p=>p.ref+' ('+p.stock+'/'+p.seuil+')').join(', ')}`});
-  if(otUrgents>0)  alerts.push({type:'danger', text:`<strong>OT urgents :</strong> ${ots.filter(o=>o.prio==='alert'&&o.statut!=='termine').map(o=>o.num).join(', ')}`});
-  if(bdcBloque>0)  alerts.push({type:'warn',   text:`<strong>Douane :</strong> ${bdcs.filter(b=>b.statut==='bloque').map(b=>b.num+' ('+b.fourn+')').join(', ')}`});
-  const bdcTransit = bdcs.filter(b=>b.statut==='transit');
-  if(bdcTransit.length) alerts.push({type:'info', text:`<strong>En transit :</strong> ${bdcTransit.map(b=>b.num).join(', ')}`});
+  // Alertes identiques aux onglets (format par ligne)
+  const alertItems = [];
+  // Pièces — format identique à #pieces-alerts
+  pieces.filter(p=>p.st==='alert').forEach(p=>
+    alertItems.push(`<div class="alert alert-danger">🔴 <div><strong>Rupture :</strong> ${p.ref} — ${p.nom} (0 unité)</div></div>`)
+  );
+  pieces.filter(p=>p.st==='warn').forEach(p=>
+    alertItems.push(`<div class="alert alert-warn">⚠️ <div><strong>Stock bas :</strong> ${p.ref} — ${p.nom} (${p.stock}/${p.seuil})</div></div>`)
+  );
+  // OT — format identique à #maint-alerts
+  const _urgOTs = ots.filter(o=>o.prio==='alert'&&o.statut!=='termine');
+  if(_urgOTs.length)
+    alertItems.push(`<div class="alert alert-danger">🔴 <div><strong>${_urgOTs.length} OT urgent(s)</strong> en attente : ${_urgOTs.map(o=>o.num).join(', ')}</div></div>`);
+  // BDC bloqués / en transit
+  bdcs.filter(b=>b.statut==='bloque').forEach(b=>
+    alertItems.push(`<div class="alert alert-warn">⚠️ <div><strong>Douane bloquée :</strong> ${b.num} — ${b.fourn}</div></div>`)
+  );
+  bdcs.filter(b=>b.statut==='transit').forEach(b=>
+    alertItems.push(`<div class="alert alert-info">ℹ️ <div><strong>En transit :</strong> ${b.num}</div></div>`)
+  );
   // Révisions matériels
   var mats2=st.materiels||[];
-  var revExp=mats2.filter(function(m){var rs=revisionStatus(m);return rs&&rs.cls==='alert';});
-  var revImm=mats2.filter(function(m){var rs=revisionStatus(m);return rs&&rs.cls==='warn';});
-  if(revExp.length) alerts.push({type:'danger',text:'<strong>Révisions dépassées :</strong> '+revExp.map(function(m){return m.code+' — '+new Date(m.revision).toLocaleDateString('fr-FR');}).join(', ')});
-  if(revImm.length) alerts.push({type:'warn',text:'<strong>Révisions imminentes (&le;30 j) :</strong> '+revImm.map(function(m){return m.code+' — '+new Date(m.revision).toLocaleDateString('fr-FR');}).join(', ')});
-  if(!alerts.length) alerts.push({type:'info', text:'✅ Aucune alerte — situation nominale'});
-  document.getElementById('dash-alerts').innerHTML = alerts.map(a=>
-    `<div class="alert alert-${a.type}">→ <div>${a.text}</div></div>`).join('');
+  mats2.filter(function(m){var rs=revisionStatus(m);return rs&&rs.cls==='alert';}).forEach(function(m){
+    alertItems.push(`<div class="alert alert-danger">🔴 <div><strong>Révision dépassée :</strong> ${m.code} — ${new Date(m.revision).toLocaleDateString('fr-FR')}</div></div>`);
+  });
+  mats2.filter(function(m){var rs=revisionStatus(m);return rs&&rs.cls==='warn';}).forEach(function(m){
+    alertItems.push(`<div class="alert alert-warn">⚠️ <div><strong>Révision imminente (≤30 j) :</strong> ${m.code} — ${new Date(m.revision).toLocaleDateString('fr-FR')}</div></div>`);
+  });
+  if(!alertItems.length)
+    alertItems.push('<div class="alert alert-info">✅ <div>Aucune alerte — situation nominale</div></div>');
+  document.getElementById('dash-alerts').innerHTML = alertItems.join('');
 
   // Coûts du mois — dynamiques depuis mouvements de stock
   const mvts = st.mouvements || [];
