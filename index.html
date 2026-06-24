@@ -207,6 +207,14 @@ textarea{resize:vertical;min-height:80px;}
 .cal-tg-evt:hover{opacity:.82;}
 @media(max-width:900px){.cal-year-grid{grid-template-columns:repeat(2,1fr);} .cal-month-day{min-height:60px;}}
 
+
+/* ── Sélecteur multi-matériels ── */
+.mat-check-list{max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:4px;}
+.mat-check-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:13px;}
+.mat-check-item:hover{background:var(--bg);}
+.mat-check-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--company-color);cursor:pointer;}
+.badge-reserve{background:#7c3aed;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;}
+
 </style>
 </head>
 <body>
@@ -744,8 +752,9 @@ textarea{resize:vertical;min-height:80px;}
     </div>
     <div class="form-grid" style="grid-template-columns:1fr 1fr">
       <div class="form-group full">
-        <label>Matériel *</label>
-        <select id="evt-f-materiel" style="width:100%"></select>
+        <label>Matériels *</label>
+        <input type="text" id="evt-f-mat-search" placeholder="Rechercher..." style="width:100%;margin-bottom:4px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);" oninput="filterMatCheckList(this.value)">
+        <div class="mat-check-list" id="evt-f-materiels-list"></div>
       </div>
       <div class="form-group"><label>Date début *</label><input type="date" id="evt-f-date-debut"></div>
       <div class="form-group"><label>Date fin *</label><input type="date" id="evt-f-date-fin"></div>
@@ -1489,6 +1498,15 @@ function revisionStatus(mat){
   return {cls:'ok',label:'Révision OK — dans '+diff+' j',diff:diff};
 }
 
+function isMatReserve(matId){
+  const today=toDS(new Date());
+  return (state[currentCompany].evenements||[]).some(e=>{
+    const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
+    const debut=e.dateDebut||e.date||'';
+    const fin=e.dateFin||e.dateDebut||e.date||'';
+    return ids.includes(String(matId))&&today>=debut&&today<=fin;
+  });
+}
 function renderMatTable(co, st){
   const filt = document.getElementById('mat-famille-filter')?.value || '';
   const sfilt = document.getElementById('mat-statut-filter')?.value || '';
@@ -1508,7 +1526,7 @@ function renderMatTable(co, st){
         <td style="font-size:12px">${m.serie}</td>
         <td style="font-size:12px">${m.fourn||'—'}</td>
         <td>${familleBadge(m.famille,st)}</td>
-        <td>${statutBadge(m.statut,st)}</td>
+        <td>${isMatReserve(m.id||m.code)?'<span class="badge-reserve">📅 Réservé</span>':statutBadge(m.statut,st)}</td>
         <td style="font-size:12px">${m.maint}</td>
         <td>${(function(){var rs=revisionStatus(m);if(!rs)return '<span style="color:var(--text3);font-size:11px">—</span>';var d=new Date(m.revision).toLocaleDateString('fr-FR');return '<span class="badge badge-'+rs.cls+'" title="'+rs.label+'">\uD83D\uDCC5 '+d+'</span>';})()}</td>
         <td>${m.prixAchat ? (/€/.test(m.prixAchat) ? m.prixAchat : m.prixAchat+' €') : '—'}</td>
@@ -5159,7 +5177,25 @@ function toDS(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'
 
 function getAllCalEvents(){
   ensureCalState();
-  return (state[currentCompany].evenements||[]).map(e=>({...e,source:'immo'}));
+  const result=[];
+  for(const e of (state[currentCompany].evenements||[])){
+    const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
+    const noms=e.materielNoms||(e.materielNom?[e.materielNom]:[]);
+    if(!ids.length){
+      result.push({...e,source:'immo'});
+    } else {
+      ids.forEach((mid,i)=>{
+        result.push({...e,
+          id:e.id+'_'+mid,
+          materielId:mid,
+          materielNom:noms[i]||mid,
+          titre:(noms[i]||mid)+(e.motif?' — '+e.motif:''),
+          source:'immo'
+        });
+      });
+    }
+  }
+  return result;
 }
 function eventsOnDate(ds){
   return getAllCalEvents().filter(e=>{
@@ -5337,16 +5373,35 @@ let editingEventId=null;
 function openEventModal(date='',heure=''){
   openImmobilisationModal('',date);
 }
+function buildMatCheckList(mats, selectedIds=[], disabled=false){
+  const container=document.getElementById('evt-f-materiels-list');
+  container.innerHTML=mats.map(m=>{
+    const id=m.id||m.code;
+    const checked=selectedIds.includes(id)?'checked':'';
+    const dis=disabled?'disabled':'';
+    return `<label class="mat-check-item">
+      <input type="checkbox" value="${id}" data-nom="${m.nom}" ${checked} ${dis}>
+      <span><strong>${m.code}</strong> — ${m.nom}</span>
+    </label>`;
+  }).join('');
+}
+function filterMatCheckList(q){
+  document.querySelectorAll('#evt-f-materiels-list .mat-check-item').forEach(el=>{
+    const txt=el.textContent.toLowerCase();
+    el.style.display=txt.includes(q.toLowerCase())?'':'none';
+  });
+}
+function getCheckedMatIds(){
+  return [...document.querySelectorAll('#evt-f-materiels-list input[type=checkbox]:checked')].map(cb=>cb.value);
+}
 function openImmobilisationModal(materielId='',dateDebut='',dateFin=''){
   if(!['admin','technicien'].includes(getUserRole())) return;
   editingEventId=null;
-  document.getElementById('evt-modal-title').textContent='Immobilisation matériel';
-  // Peupler la liste des matériels
+  document.getElementById('evt-modal-title').textContent='Immobilisation matériels';
   const mats=(state[currentCompany].materiels||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
-  const sel=document.getElementById('evt-f-materiel');
-  sel.innerHTML='<option value="">— Choisir un matériel —</option>'+mats.map(m=>`<option value="${m.id||m.code}">${m.code} — ${m.nom}</option>`).join('');
-  if(materielId) sel.value=materielId;
-  sel.disabled=false;
+  const presel=materielId?[materielId]:[];
+  buildMatCheckList(mats,presel,false);
+  if(document.getElementById('evt-f-mat-search')) document.getElementById('evt-f-mat-search').value='';
   document.getElementById('evt-f-date-debut').value=dateDebut||toDS(new Date());
   document.getElementById('evt-f-date-fin').value=dateFin||dateDebut||toDS(new Date());
   document.getElementById('evt-f-motif').value='';
@@ -5356,40 +5411,40 @@ function openImmobilisationModal(materielId='',dateDebut='',dateFin=''){
   document.getElementById('modal-evt').classList.add('open');
 }
 function openEventDetail(id){
-  const e=getAllCalEvents().find(x=>x.id===id);
-  if(!e) return;
-  editingEventId=id;
+  // Retrouver l'événement source (pas l'événement expandé)
+  const raw=(state[currentCompany].evenements||[]).find(x=>x.id===id||id.startsWith(x.id+'_'));
+  if(!raw) return;
+  editingEventId=raw.id;
   const canEdit=['admin','technicien'].includes(getUserRole());
   document.getElementById('evt-modal-title').textContent=canEdit?'Modifier immobilisation':'Détail immobilisation';
   const mats=(state[currentCompany].materiels||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
-  const sel=document.getElementById('evt-f-materiel');
-  sel.innerHTML='<option value="">— Choisir un matériel —</option>'+mats.map(m=>`<option value="${m.id||m.code}">${m.code} — ${m.nom}</option>`).join('');
-  sel.value=e.materielId||'';
-  sel.disabled=!canEdit;
-  document.getElementById('evt-f-date-debut').value=e.dateDebut||e.date||'';
-  document.getElementById('evt-f-date-fin').value=e.dateFin||e.dateDebut||e.date||'';
-  document.getElementById('evt-f-motif').value=e.motif||'';
+  const selectedIds=raw.materielIds||(raw.materielId?[raw.materielId]:[]);
+  buildMatCheckList(mats,selectedIds,!canEdit);
+  if(document.getElementById('evt-f-mat-search')) document.getElementById('evt-f-mat-search').value='';
+  document.getElementById('evt-f-date-debut').value=raw.dateDebut||raw.date||'';
+  document.getElementById('evt-f-date-fin').value=raw.dateFin||raw.dateDebut||raw.date||'';
+  document.getElementById('evt-f-motif').value=raw.motif||'';
   document.getElementById('evt-delete-btn').style.display=canEdit?'':'none';
   document.getElementById('evt-save-btn').style.display=canEdit?'':'none';
   ['evt-f-date-debut','evt-f-date-fin','evt-f-motif'].forEach(fid=>{document.getElementById(fid).disabled=!canEdit;});
   document.getElementById('modal-evt').classList.add('open');
 }
 function saveEvent(){
-  const sel=document.getElementById('evt-f-materiel');
-  const materielId=sel.value;
-  const materielNom=sel.options[sel.selectedIndex]?.text||'';
+  const checkedItems=[...document.querySelectorAll('#evt-f-materiels-list input[type=checkbox]:checked')];
+  const materielIds=checkedItems.map(cb=>cb.value);
+  const materielNoms=checkedItems.map(cb=>cb.dataset.nom||cb.value);
   const dateDebut=document.getElementById('evt-f-date-debut').value;
   const dateFin=document.getElementById('evt-f-date-fin').value;
-  if(!materielId||!dateDebut||!dateFin){alert('Matériel et dates obligatoires.');return;}
+  if(!materielIds.length||!dateDebut||!dateFin){alert('Sélectionnez au moins un matériel et les dates.');return;}
   if(dateFin<dateDebut){alert('La date de fin doit être après la date de début.');return;}
   ensureCalState();
   const motif=document.getElementById('evt-f-motif').value.trim();
   const evts=state[currentCompany].evenements;
+  const titre=materielNoms.join(', ')+(motif?' — '+motif:'');
   const obj={
     id:editingEventId||('evt_'+Date.now()),
-    titre:materielNom+(motif?' — '+motif:''),
-    date:dateDebut,
-    dateDebut, dateFin, materielId, materielNom, motif,
+    titre, date:dateDebut,
+    dateDebut, dateFin, materielIds, materielNoms, motif,
     couleur:'#a32d2d'
   };
   if(editingEventId){const idx=evts.findIndex(x=>x.id===editingEventId);if(idx>=0)evts[idx]=obj;}
@@ -5397,6 +5452,7 @@ function saveEvent(){
   saveToStorage();
   closeModal('modal-evt');
   renderCalendrier();
+  renderMatTable(COMPANIES[currentCompany], state[currentCompany]);
 }
 function deleteEvent(){
   if(!editingEventId||!confirm('Supprimer cet événement ?')) return;
