@@ -272,6 +272,24 @@ textarea{resize:vertical;min-height:80px;}
       <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doRegister()">Cr&eacute;er mon compte &rarr;</button>
     </div>
 
+    <!-- Panneau réinitialisation mot de passe -->
+    <div id="panel-reset-pwd" style="display:none">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:32px;margin-bottom:8px">🔑</div>
+        <div style="font-weight:700;font-size:16px">Nouveau mot de passe</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">Choisissez un mot de passe sécurisé (min. 6 caractères)</div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Nouveau mot de passe *</label>
+        <input type="password" id="new-pwd-1" placeholder="••••••••" autocomplete="new-password">
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>Confirmer le mot de passe *</label>
+        <input type="password" id="new-pwd-2" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter')doUpdatePassword()">
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doUpdatePassword()">Enregistrer le mot de passe →</button>
+    </div>
+
     <div id="login-msg" style="font-size:12px;text-align:center;margin-top:12px;min-height:18px"></div>
     <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
     <div style="font-size:11px;color:var(--text3);text-align:center">
@@ -4017,6 +4035,15 @@ function initSupabase(){
     setSbStatus('online','Connexion Supabase...');
     checkSession();
     SB.auth.onAuthStateChange((ev, session)=>{
+      if(ev==='PASSWORD_RECOVERY'){
+        // L'utilisateur a cliqué sur le lien de réinitialisation : afficher le formulaire
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('panel-login').style.display='none';
+        document.getElementById('panel-register').style.display='none';
+        document.getElementById('panel-reset-pwd').style.display='';
+        setLoginMsg('','');
+        return;
+      }
       if(ev==='SIGNED_IN' && session?.user){
         if(SB_USER && SB_USER.id===session.user.id){
           // Supabase peut ré-émettre "SIGNED_IN" lors d'un simple changement
@@ -4151,13 +4178,34 @@ async function doRegister(){
   setTimeout(()=>switchLoginTab('login'), 2500);
 }
 
-async function doResetPassword(){
+async async function doResetPassword(){
   if(!SB){ alert('Supabase non configuré.'); return; }
   const email=document.getElementById('login-email').value.trim();
   if(!email){ setLoginMsg("Entrez votre email d'abord.",'var(--amber)'); return; }
-  const {error}=await SB.auth.resetPasswordForEmail(email);
+  // redirectTo : URL de la page courante, pour que le lien de réinitialisation ramène ici
+  const redirectTo = window.location.href.split('#')[0].split('?')[0];
+  const {error}=await SB.auth.resetPasswordForEmail(email, { redirectTo });
   if(error) setLoginMsg(error.message,'var(--red)');
-  else setLoginMsg('Email de réinitialisation envoyé !','var(--teal)');
+  else setLoginMsg("Email de réinitialisation envoyé à "+email+" — vérifiez vos spams si besoin.",'var(--teal)');
+}
+
+async function doUpdatePassword(){
+  const pwd1=document.getElementById('new-pwd-1').value;
+  const pwd2=document.getElementById('new-pwd-2').value;
+  if(!pwd1||pwd1.length<6){ setLoginMsg('Le mot de passe doit faire au moins 6 caractères.','var(--amber)'); return; }
+  if(pwd1!==pwd2){ setLoginMsg('Les deux mots de passe ne correspondent pas.','var(--amber)'); return; }
+  setLoginMsg('Mise à jour en cours…','var(--text3)');
+  const {error}=await SB.auth.updateUser({ password: pwd1 });
+  if(error){ setLoginMsg('Erreur : '+error.message,'var(--red)'); return; }
+  setLoginMsg('Mot de passe mis à jour ! Connexion en cours…','var(--teal)');
+  // Retour au panneau login après 1,5s
+  setTimeout(()=>{
+    document.getElementById('panel-reset-pwd').style.display='none';
+    document.getElementById('panel-login').style.display='';
+    document.getElementById('new-pwd-1').value='';
+    document.getElementById('new-pwd-2').value='';
+    setLoginMsg('','');
+  },1500);
 }
 
 // Réinitialisation du mot de passe d'un utilisateur par un admin :
