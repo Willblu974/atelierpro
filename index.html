@@ -2355,6 +2355,7 @@ function showPage(id,el){
   const titles={dashboard:'Tableau de bord',calendrier:'Calendrier',materiels:'Matériels',maintenance:'Maintenance',pieces:'Pièces détachées',stock:'Gestion de stock',fournisseurs:'Fournisseurs',commandes:'Bons de commande',transport:'Transport & Douanes',couts:"Coûts d'entretien",rapports:'Rapports',parametres:'Paramètres',utilisateurs:'Utilisateurs'};
   if(id==='utilisateurs'){ loadUsers(); loadInvitationCodes(); }
   if(id==='calendrier'){ renderCalendrier(); }
+  if(id==='dashboard'){ renderDashboard(COMPANIES[currentCompany]); }
   document.getElementById('page-title').textContent=titles[id]||id;
   document.getElementById('topbar-new').style.display=['parametres','couts','rapports','utilisateurs'].includes(id)?'none':'';
   currentPage=id;
