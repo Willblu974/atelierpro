@@ -366,6 +366,8 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div class="section-header" style="margin-top:18px"><div class="section-title">🔄 Pr&ecirc;ts de mat&eacute;riels</div></div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Mat&eacute;riel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>T&eacute;l&eacute;phone</th><th>Date pr&ecirc;t</th><th>Retour pr&eacute;vu</th><th>Statut</th></tr></thead><tbody id="dash-prets-tbody"></tbody></table></div></div>
+      <div class="section-header" style="margin-top:18px"><div class="section-title">📅 R&eacute;servations mat&eacute;riels — 30 jours</div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>Mat&eacute;riel</th><th>D&eacute;but</th><th>Fin</th><th>Motif</th><th>Statut</th></tr></thead><tbody id="dash-reservations-tbody"></tbody></table></div></div>
     </div>
 
     <div class="page" id="page-calendrier">
@@ -3306,6 +3308,35 @@ function renderDashboard(co){
     {label:'Pièces consommées (sorties stock)', val: coutPieces ? coutPieces.toLocaleString('fr-FR')+' €' : '0 €'},
     {label:'Total calculé', val: total ? total.toLocaleString('fr-FR')+' €' : '0 €', total:true},
   ].map(c=>`<div class="cost-row"><span style="color:var(--text2)">${c.label}</span><span${c.total?' style="font-weight:700"':''}>${c.val}</span></div>`).join('');
+
+  // Réservations matériels — 30 jours
+  ensureCalState();
+  const today30=toDS(new Date());
+  const in30=toDS(new Date(Date.now()+30*24*3600*1000));
+  const evts30=state[currentCompany].evenements||[];
+  const upcoming=[];
+  evts30.forEach(e=>{
+    const debut=e.dateDebut||e.date||'';
+    const fin=e.dateFin||e.dateDebut||e.date||'';
+    if(fin>=today30&&debut<=in30){
+      const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
+      const noms=e.materielNoms||(e.materielNom?[e.materielNom]:[]);
+      ids.forEach((mid,i)=>upcoming.push({debut,fin,matId:mid,matNom:noms[i]||mid,motif:e.motif||''}));
+    }
+  });
+  upcoming.sort((a,b)=>a.debut.localeCompare(b.debut));
+  const resEl=document.getElementById('dash-reservations-tbody');
+  if(resEl){
+    resEl.innerHTML=upcoming.length?upcoming.map(r=>{
+      const isActive=r.debut<=today30&&r.fin>=today30;
+      const badge=isActive
+        ?'<span class="badge-reserve">📅 En cours</span>'
+        :'<span class="badge" style="background:#e0e7ff;color:#3730a3">⏳ À venir</span>';
+      const df=d=>d?new Date(d).toLocaleDateString('fr-FR'):'—';
+      return `<tr><td><strong>${r.matId}</strong></td><td>${r.matNom}</td><td>${df(r.debut)}</td><td>${df(r.fin)}</td><td>${r.motif||'—'}</td><td>${badge}</td></tr>`;
+    }).join('')
+    :'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Aucune réservation dans les 30 prochains jours</td></tr>';
+  }
 
   // Badge sidebar
   if(document.getElementById('badge-maint')) document.getElementById('badge-maint').textContent = otUrgents||'';
