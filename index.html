@@ -4178,7 +4178,7 @@ async function doRegister(){
   setTimeout(()=>switchLoginTab('login'), 2500);
 }
 
-async async function doResetPassword(){
+async function doResetPassword(){
   if(!SB){ alert('Supabase non configuré.'); return; }
   const email=document.getElementById('login-email').value.trim();
   if(!email){ setLoginMsg("Entrez votre email d'abord.",'var(--amber)'); return; }
