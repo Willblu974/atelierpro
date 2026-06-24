@@ -4226,11 +4226,30 @@ async function doUpdatePassword(){
 // envoie un email de réinitialisation à cet utilisateur (la clé publique
 // ne permet pas de modifier directement le mot de passe d'un tiers).
 async function adminResetPassword(email){
-  if(!SB||SB_MODE!=='online'){ alert('Connexion Supabase requise.'); return; }
-  if(!confirm(`Envoyer un email de réinitialisation de mot de passe à ${email} ?`)) return;
-  const {error}=await SB.auth.resetPasswordForEmail(email);
-  if(error) alert('Erreur : '+error.message);
-  else alert(`Email de réinitialisation envoyé à ${email}.`);
+  if(!confirm(`Envoyer un mot de passe temporaire à ${email} ?`)) return;
+  // Générer un mot de passe temporaire sécurisé
+  const chars='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
+  let tempPwd='';
+  for(let i=0;i<10;i++) tempPwd+=chars[Math.floor(Math.random()*chars.length)];
+
+  try {
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+    await emailjs.send(EMAILJS_SERVICE_ID, 'template_u0gptcs', {
+      to_email: email,
+      temp_password: tempPwd,
+    });
+    // Afficher le mot de passe dans une alerte pour que l'admin puisse le saisir dans Supabase
+    alert(
+      `✅ Email envoyé à ${email}\n\n`+
+      `Mot de passe temporaire : ${tempPwd}\n\n`+
+      `⚠️ Action requise :\n`+
+      `Allez dans Supabase → Authentication → Users\n`+
+      `→ trouvez ${email} → modifiez le mot de passe\n`+
+      `→ saisissez : ${tempPwd}`
+    );
+  } catch(err){
+    alert('Erreur envoi email : '+(err?.text||err?.message||JSON.stringify(err)));
+  }
 }
 
 async function checkSession(){
@@ -5490,248 +5509,280 @@ function getAllCalEvents(){
           id:e.id+'_'+mid,
           materielId:mid,
           materielNom:noms[i]||mid,
-          titre:(noms[i]||mid)+(e.motif?' — '+e.motif:''),
-          source:'immo'
-        });
-      });
-    }
+          titre:(noms[i]||mid)+(e.motif?' — '+e.motif:''), source:'immo'}); }); }
   }
   return result;
 }
+
 function eventsOnDate(ds){
   return getAllCalEvents().filter(e=>{
     const debut=e.dateDebut||e.date||'';
     const fin=e.dateFin||e.dateDebut||e.date||'';
-    return ds>=debut && ds<=fin;
+    return ds>=debut&&ds<=fin;
   });
 }
 
-function calGoToday(){ calDate=new Date(); renderCalendrier(); }
-function calPrev(){
-  if(calView==='annee')   calDate=new Date(calDate.getFullYear()-1,0,1);
-  else if(calView==='mois')    calDate=new Date(calDate.getFullYear(),calDate.getMonth()-1,1);
-  else if(calView==='semaine'){ calDate=new Date(calDate); calDate.setDate(calDate.getDate()-7);}
-  else{ calDate=new Date(calDate); calDate.setDate(calDate.getDate()-1);}
-  renderCalendrier();
-}
-function calNext(){
-  if(calView==='annee')   calDate=new Date(calDate.getFullYear()+1,0,1);
-  else if(calView==='mois')    calDate=new Date(calDate.getFullYear(),calDate.getMonth()+1,1);
-  else if(calView==='semaine'){ calDate=new Date(calDate); calDate.setDate(calDate.getDate()+7);}
-  else{ calDate=new Date(calDate); calDate.setDate(calDate.getDate()+1);}
-  renderCalendrier();
-}
-function calSetView(v){
-  calView=v;
-  document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.toggle('active',b.id==='calv-'+v));
-  renderCalendrier();
-}
-function renderCalendrier(){
-  ensureCalState();
-  document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.toggle('active',b.id==='calv-'+calView));
-  if(calView==='annee')        renderCalAnnee();
-  else if(calView==='mois')    renderCalMois();
-  else if(calView==='semaine') renderCalSemaine();
-  else                         renderCalJour();
-}
-
-/* ── Vue MOIS ── */
-function renderCalMois(){
-  const y=calDate.getFullYear(), m=calDate.getMonth();
-  document.getElementById('cal-title').textContent=MOIS_FR[m]+' '+y;
-  const today=toDS(new Date());
-  const firstDow=(new Date(y,m,1).getDay()+6)%7;
-  const daysInMonth=new Date(y,m+1,0).getDate();
-  const canEdit=['admin','technicien'].includes(getUserRole());
-
-  let h='<div class="cal-month-wrap"><div class="cal-month-head">';
-  JOURS_CT.forEach(j=>{h+=`<div class="cal-month-head-cell">${j}</div>`;});
-  h+='</div><div class="cal-month-grid">';
-
-  let day=1-firstDow;
-  for(let row=0;row<6;row++){
-    for(let col=0;col<7;col++){
-      const cur=new Date(y,m,day);
-      const ds=toDS(cur);
-      const inMonth=cur.getMonth()===m;
-      const isToday=ds===today;
-      const evts=inMonth?eventsOnDate(ds):[];
-      h+=`<div class="cal-month-day${!inMonth?' other-month':''}${isToday?' today':''}${canEdit&&inMonth?' clickable':''}"`;
-      if(canEdit&&inMonth) h+=` onclick="openEventModal('${ds}')"`;
-      h+='>';
-      if(inMonth){
-        h+=`<span class="cal-day-num${isToday?' today-num':''}">${cur.getDate()}</span>`;
-        evts.slice(0,3).forEach(e=>{
-          h+=`<span class="cal-event-chip" style="background:${e.couleur||'var(--teal)'}" onclick="event.stopPropagation();openEventDetail('${e.id}')" title="${e.titre||''}">${e.titre||''}</span>`;
-        });
-        if(evts.length>3) h+=`<span style="font-size:10px;color:var(--text3)">+${evts.length-3} autres</span>`;
-      }
-      h+='</div>';
-      day++;
-    }
-  }
-  h+='</div></div>';
-  document.getElementById('cal-body').innerHTML=h;
-}
-
-/* ── Vue ANNÉE ── */
-function renderCalAnnee(){
-  const y=calDate.getFullYear();
-  document.getElementById('cal-title').textContent=String(y);
-  const today=toDS(new Date());
-  const evtDates=new Set(getAllCalEvents().map(e=>e.date));
-
-  let h='<div class="cal-year-grid">';
-  for(let mo=0;mo<12;mo++){
-    const firstDow=(new Date(y,mo,1).getDay()+6)%7;
-    const dim=new Date(y,mo+1,0).getDate();
-    h+=`<div class="cal-year-month"><div class="cal-year-month-title">${MOIS_FR[mo]}</div><div class="cal-year-mini">`;
-    JOURS_CT.forEach(j=>{h+=`<div class="cal-mini-hd">${j[0]}</div>`;});
-    let day=1-firstDow;
-    for(let i=0;i<42;i++){
-      const cur=new Date(y,mo,day);
-      const inMonth=cur.getMonth()===mo;
-      const ds=toDS(cur);
-      const isToday=ds===today;
-      const hasEvt=inMonth&&evtDates.has(ds);
-      if(!inMonth){ h+='<div class="cal-mini-day om"></div>';}
-      else{
-        let cls='cal-mini-day'+(isToday?' today-d':hasEvt?' has-evt':'');
-        h+=`<div class="${cls}" ${hasEvt||isToday?`onclick="calDate=new Date(${y},${mo},${cur.getDate()});calSetView('jour')"`:''} title="${ds}">${cur.getDate()}</div>`;
-      }
-      day++;
-    }
-    h+='</div></div>';
-  }
-  h+='</div>';
-  document.getElementById('cal-body').innerHTML=h;
-}
-
-/* ── Vue SEMAINE ── */
-function renderCalSemaine(){
-  const d=new Date(calDate);
-  d.setDate(d.getDate()-((d.getDay()+6)%7));
-  const days=[];
-  for(let i=0;i<7;i++){const dd=new Date(d);dd.setDate(d.getDate()+i);days.push(dd);}
-  const f=days[0],l=days[6];
-  document.getElementById('cal-title').textContent=
-    f.getDate()+' '+MOIS_FR[f.getMonth()].slice(0,3)+' – '+l.getDate()+' '+MOIS_FR[l.getMonth()].slice(0,3)+' '+l.getFullYear();
-  const today=toDS(new Date());
-  const canEdit=['admin','technicien'].includes(getUserRole());
-  const hours=Array.from({length:15},(_,i)=>i+6);
-
-  let h=`<div class="cal-time-grid"><div class="cal-time-inner" style="grid-template-columns:52px repeat(7,1fr)">`;
-  // header
-  h+='<div class="cal-tg-head" style="border-bottom:2px solid var(--border)"></div>';
-  days.forEach(dd=>{
-    const ds=toDS(dd);
-    const isT=ds===today;
-    h+=`<div class="cal-tg-head${isT?' today-col':''}"><div>${JOURS_CT[(dd.getDay()+6)%7]}</div><div style="font-size:16px;font-weight:700">${dd.getDate()}</div></div>`;
+function filterMatCheckList(val){
+  const q=(val||'').toLowerCase();
+  document.querySelectorAll('#evt-f-materiels-list .mat-check-item').forEach(item=>{
+    item.style.display=item.textContent.toLowerCase().includes(q)?'':'none';
   });
-  // rows
-  hours.forEach(h2=>{
-    const hs=String(h2).padStart(2,'0')+':00';
-    h+=`<div class="cal-tg-lbl">${hs}</div>`;
-    days.forEach(dd=>{
-      const ds=toDS(dd);
-      const evts=eventsOnDate(ds).filter(e=>!e.heureDebut?h2===6:parseInt(e.heureDebut.split(':')[0])===h2);
-      h+=`<div class="cal-tg-cell${canEdit?' clickable':''}" ${canEdit?`onclick="openEventModal('${ds}','${hs}')"`:''}">`;
-      evts.forEach(e=>{h+=`<div class="cal-tg-evt" style="background:${e.couleur||'var(--teal)'}" onclick="event.stopPropagation();openEventDetail('${e.id}')">${e.titre||''}</div>`;});
-      h+='</div>';
-    });
-  });
-  h+='</div></div>';
-  document.getElementById('cal-body').innerHTML=h;
 }
 
-/* ── Vue JOUR ── */
-function renderCalJour(){
-  const ds=toDS(calDate);
-  const dow=(calDate.getDay()+6)%7;
-  document.getElementById('cal-title').textContent=
-    JOURS_CT[dow]+' '+calDate.getDate()+' '+MOIS_FR[calDate.getMonth()]+' '+calDate.getFullYear();
-  const canEdit=['admin','technicien'].includes(getUserRole());
-  const evts=eventsOnDate(ds);
-  const hours=Array.from({length:15},(_,i)=>i+6);
-
-  let h=`<div class="cal-time-grid"><div class="cal-time-inner" style="grid-template-columns:60px 1fr">`;
-  h+='<div class="cal-tg-head" style="border-bottom:2px solid var(--border)"></div>';
-  h+=`<div class="cal-tg-head today-col" style="font-size:15px">${calDate.getDate()} ${MOIS_FR[calDate.getMonth()]}</div>`;
-  hours.forEach(hh=>{
-    const hs=String(hh).padStart(2,'0')+':00';
-    const hEvts=evts.filter(e=>!e.heureDebut?hh===6:parseInt(e.heureDebut.split(':')[0])===hh);
-    h+=`<div class="cal-tg-lbl">${hs}</div>`;
-    h+=`<div class="cal-tg-cell${canEdit?' clickable':''}" ${canEdit?`onclick="openEventModal('${ds}','${hs}')"`:''}">`;
-    hEvts.forEach(e=>{h+=`<div class="cal-tg-evt" style="background:${e.couleur||'var(--teal)'}" onclick="event.stopPropagation();openEventDetail('${e.id}')">${e.titre||''}${e.tech?' — '+e.tech:''}</div>`;});
-    h+='</div>';
-  });
-  h+='</div></div>';
-  document.getElementById('cal-body').innerHTML=h;
-}
-
-/* ── Modal événement ── */
-let editingEventId=null;
-function openEventModal(date='',heure=''){
-  openImmobilisationModal('',date);
-}
-function buildMatCheckList(mats, selectedIds=[], disabled=false){
+function buildMatCheckList(mats,selectedIds=[],disabled=false){
   const container=document.getElementById('evt-f-materiels-list');
+  if(!container) return;
   container.innerHTML=mats.map(m=>{
-    const id=m.id||m.code;
-    const checked=selectedIds.includes(id)?'checked':'';
-    const dis=disabled?'disabled':'';
+    const id=String(m.id||m.code);
+    const checked=selectedIds.map(String).includes(id)?'checked':'';
     return `<label class="mat-check-item">
-      <input type="checkbox" value="${id}" data-nom="${m.nom}" ${checked} ${dis}>
+      <input type="checkbox" value="${id}" data-nom="${m.nom||m.code}" ${checked} ${disabled?'disabled':''}>
       <span><strong>${m.code}</strong> — ${m.nom}</span>
     </label>`;
   }).join('');
 }
-function filterMatCheckList(q){
-  document.querySelectorAll('#evt-f-materiels-list .mat-check-item').forEach(el=>{
-    const txt=el.textContent.toLowerCase();
-    el.style.display=txt.includes(q.toLowerCase())?'':'none';
+
+function isMatReserve(matId){
+  const today=toDS(new Date());
+  return (state[currentCompany].evenements||[]).some(e=>{
+    const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
+    const debut=e.dateDebut||e.date||'';
+    const fin=e.dateFin||e.dateDebut||e.date||'';
+    return ids.map(String).includes(String(matId))&&today>=debut&&today<=fin;
   });
 }
-function getCheckedMatIds(){
-  return [...document.querySelectorAll('#evt-f-materiels-list input[type=checkbox]:checked')].map(cb=>cb.value);
-}
-function openImmobilisationModal(materielId='',dateDebut='',dateFin=''){
-  if(!['admin','technicien'].includes(getUserRole())) return;
+
+let editingEventId=null;
+
+function openEventModal(){
   editingEventId=null;
-  document.getElementById('evt-modal-title').textContent='Immobilisation matériels';
-  const mats=(state[currentCompany].materiels||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
-  const presel=materielId?[materielId]:[];
-  buildMatCheckList(mats,presel,false);
-  if(document.getElementById('evt-f-mat-search')) document.getElementById('evt-f-mat-search').value='';
-  document.getElementById('evt-f-date-debut').value=dateDebut||toDS(new Date());
-  document.getElementById('evt-f-date-fin').value=dateFin||dateDebut||toDS(new Date());
+  ensureCalState();
+  const mats=state[currentCompany].materiels||[];
+  document.getElementById('evt-modal-title').textContent='Nouvelle immobilisation';
+  document.getElementById('evt-f-mat-search').value='';
+  document.getElementById('evt-f-date-debut').value='';
+  document.getElementById('evt-f-date-fin').value='';
   document.getElementById('evt-f-motif').value='';
   document.getElementById('evt-delete-btn').style.display='none';
-  document.getElementById('evt-save-btn').style.display='';
-  ['evt-f-date-debut','evt-f-date-fin','evt-f-motif'].forEach(id=>{document.getElementById(id).disabled=false;});
+  buildMatCheckList(mats,[]);
   document.getElementById('modal-evt').classList.add('open');
 }
-function openEventDetail(id){
-  // Retrouver l'événement source (pas l'événement expandé)
-  const raw=(state[currentCompany].evenements||[]).find(x=>x.id===id||id.startsWith(x.id+'_'));
-  if(!raw) return;
-  editingEventId=raw.id;
-  const canEdit=['admin','technicien'].includes(getUserRole());
-  document.getElementById('evt-modal-title').textContent=canEdit?'Modifier immobilisation':'Détail immobilisation';
-  const mats=(state[currentCompany].materiels||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom,'fr'));
-  const selectedIds=raw.materielIds||(raw.materielId?[raw.materielId]:[]);
-  buildMatCheckList(mats,selectedIds,!canEdit);
-  if(document.getElementById('evt-f-mat-search')) document.getElementById('evt-f-mat-search').value='';
-  document.getElementById('evt-f-date-debut').value=raw.dateDebut||raw.date||'';
-  document.getElementById('evt-f-date-fin').value=raw.dateFin||raw.dateDebut||raw.date||'';
-  document.getElementById('evt-f-motif').value=raw.motif||'';
-  document.getElementById('evt-delete-btn').style.display=canEdit?'':'none';
-  document.getElementById('evt-save-btn').style.display=canEdit?'':'none';
-  ['evt-f-date-debut','evt-f-date-fin','evt-f-motif'].forEach(fid=>{document.getElementById(fid).disabled=!canEdit;});
+
+function openImmobilisationModal(id){
+  editingEventId=null;
+  ensureCalState();
+  const mats=state[currentCompany].materiels||[];
+  document.getElementById('evt-modal-title').textContent='Nouvelle immobilisation';
+  document.getElementById('evt-f-mat-search').value='';
+  document.getElementById('evt-f-date-debut').value='';
+  document.getElementById('evt-f-date-fin').value='';
+  document.getElementById('evt-f-motif').value='';
+  document.getElementById('evt-delete-btn').style.display='none';
+  buildMatCheckList(mats,[]);
+  if(id){
+    const realId=id.includes('_')?id.split('_').slice(0,-1).join('_'):id;
+    const evt=(state[currentCompany].evenements||[]).find(e=>e.id===realId);
+    if(evt){
+      const ids=evt.materielIds||(evt.materielId?[evt.materielId]:[]);
+      buildMatCheckList(mats,ids);
+      document.getElementById('evt-f-date-debut').value=evt.dateDebut||evt.date||'';
+      document.getElementById('evt-f-date-fin').value=evt.dateFin||evt.dateDebut||evt.date||'';
+      document.getElementById('evt-f-motif').value=evt.motif||'';
+      document.getElementById('evt-delete-btn').style.display='';
+      document.getElementById('evt-modal-title').textContent='Modifier l\'immobilisation';
+      editingEventId=realId;
+    }
+  }
   document.getElementById('modal-evt').classList.add('open');
 }
+
+function openEventDetail(id){ openImmobilisationModal(id); }
+
 function saveEvent(){
   const checkedItems=[...document.querySelectorAll('#evt-f-materiels-list input[type=checkbox]:checked')];
+  const materielIds=checkedItems.map(cb=>cb.value);
+  const materielNoms=checkedItems.map(cb=>cb.dataset.nom||cb.value);
+  const dateDebut=document.getElementById('evt-f-date-debut').value;
+  const dateFin=document.getElementById('evt-f-date-fin').value;
+  if(!materielIds.length||!dateDebut||!dateFin){alert('Sélectionnez au moins un matériel et les dates.');return;}
+  if(dateFin<dateDebut){alert('La date de fin doit être après la date de début.');return;}
+  ensureCalState();
+  const motif=document.getElementById('evt-f-motif').value.trim();
+  const evts=state[currentCompany].evenements;
+  const titre=materielNoms.join(', ')+(motif?' — '+motif:'');
+  const obj={id:editingEventId||('evt_'+Date.now()),titre,date:dateDebut,dateDebut,dateFin,materielIds,materielNoms,motif,couleur:'#a32d2d'};
+  if(editingEventId){const i=evts.findIndex(x=>x.id===editingEventId);if(i>=0)evts[i]=obj;}
+  else evts.push(obj);
+  saveToStorage();
+  closeModal('modal-evt');
+  renderCalendrier();
+  renderMatTable(COMPANIES[currentCompany],state[currentCompany]);
+}
+
+function deleteEvent(){
+  if(!editingEventId){return;}
+  if(!confirm('Supprimer cette immobilisation ?')) return;
+  ensureCalState();
+  const evts=state[currentCompany].evenements;
+  const i=evts.findIndex(x=>x.id===editingEventId);
+  if(i>=0) evts.splice(i,1);
+  saveToStorage();
+  closeModal('modal-evt');
+  renderCalendrier();
+  renderMatTable(COMPANIES[currentCompany],state[currentCompany]);
+}
+
+/* ── RENDU CALENDRIER ───────────────────────────────────── */
+
+function calSetView(v){
+  calView=v;
+  renderCalendrier();
+}
+function calGoToday(){
+  calDate=new Date();
+  renderCalendrier();
+}
+function calPrev(){
+  if(calView==='mois')       calDate=new Date(calDate.getFullYear(),calDate.getMonth()-1,1);
+  else if(calView==='semaine'){ calDate=new Date(calDate); calDate.setDate(calDate.getDate()-7); }
+  else if(calView==='jour'){   calDate=new Date(calDate); calDate.setDate(calDate.getDate()-1); }
+  else                         calDate=new Date(calDate.getFullYear()-1,calDate.getMonth(),1);
+  renderCalendrier();
+}
+function calNext(){
+  if(calView==='mois')       calDate=new Date(calDate.getFullYear(),calDate.getMonth()+1,1);
+  else if(calView==='semaine'){ calDate=new Date(calDate); calDate.setDate(calDate.getDate()+7); }
+  else if(calView==='jour'){   calDate=new Date(calDate); calDate.setDate(calDate.getDate()+1); }
+  else                         calDate=new Date(calDate.getFullYear()+1,calDate.getMonth(),1);
+  renderCalendrier();
+}
+
+function renderCalendrier(){
+  // Titre
+  const title=document.getElementById('cal-title');
+  if(!title) return;
+  const y=calDate.getFullYear(), m=calDate.getMonth();
+  if(calView==='mois')         title.textContent=MOIS_FR[m]+' '+y;
+  else if(calView==='semaine'){ const lu=_calLundi(calDate),di=new Date(lu);di.setDate(di.getDate()+6);title.textContent=lu.getDate()+' – '+di.getDate()+' '+MOIS_FR[di.getMonth()]+' '+di.getFullYear(); }
+  else if(calView==='jour')    title.textContent=calDate.getDate()+' '+MOIS_FR[m]+' '+y;
+  else                         title.textContent='Année '+y;
+  // Boutons vue actifs
+  ['annee','mois','semaine','jour'].forEach(v=>{
+    const b=document.getElementById('calv-'+v);
+    if(b) b.classList.toggle('active',v===calView);
+  });
+  // Corps
+  const body=document.getElementById('cal-body');
+  if(!body) return;
+  if(calView==='mois')    body.innerHTML=_calBuildMois();
+  else if(calView==='semaine') body.innerHTML=_calBuildSemaine();
+  else if(calView==='jour')   body.innerHTML=_calBuildJour();
+  else                        body.innerHTML=_calBuildAnnee();
+}
+
+function _calLundi(d){
+  const r=new Date(d);
+  const day=r.getDay()||7;
+  r.setDate(r.getDate()-(day-1));
+  return r;
+}
+
+function _calChip(e){
+  return `<span class="cal-event-chip" style="background:${e.couleur||'#a32d2d'};cursor:pointer" onclick="openEventDetail('${e.id.split('_')[0]}')">${e.titre||'Immo'}</span>`;
+}
+
+function _calBuildMois(){
+  const y=calDate.getFullYear(),m=calDate.getMonth();
+  const premier=new Date(y,m,1), dernier=new Date(y,m+1,0);
+  const todayStr=toDS(new Date());
+  let h=`<div class="cal-month-wrap"><div class="cal-month-grid">`;
+  JOURS_CT.forEach(j=>h+=`<div style="text-align:center;font-size:11px;font-weight:600;color:var(--text3);padding:4px 0">${j}</div>`);
+  const startDay=(premier.getDay()+6)%7;
+  for(let i=0;i<startDay;i++) h+=`<div class="cal-month-day" style="background:transparent;border-color:transparent"></div>`;
+  for(let d=1;d<=dernier.getDate();d++){
+    const ds=toDS(new Date(y,m,d));
+    const evts=eventsOnDate(ds);
+    const isToday=ds===todayStr;
+    h+=`<div class="cal-month-day${isToday?' today':''}" onclick="calDayClick('${ds}')">
+      <div style="font-size:12px;font-weight:${isToday?700:400};color:${isToday?'var(--company-color)':'var(--text2)'};margin-bottom:3px">${d}</div>
+      ${evts.slice(0,2).map(_calChip).join('')}
+      ${evts.length>2?`<span style="font-size:10px;color:var(--text3)">+${evts.length-2}</span>`:''}
+    </div>`;
+  }
+  h+=`</div></div>`;
+  return h;
+}
+
+function _calBuildSemaine(){
+  const lundi=_calLundi(calDate);
+  const todayStr=toDS(new Date());
+  let h=`<div>`;
+  for(let i=0;i<7;i++){
+    const d=new Date(lundi); d.setDate(d.getDate()+i);
+    const ds=toDS(d);
+    const evts=eventsOnDate(ds);
+    const isToday=ds===todayStr;
+    h+=`<div class="cal-tg-cell" onclick="calDayClick('${ds}')">
+      <div style="font-size:12px;font-weight:600;color:${isToday?'var(--company-color)':'var(--text2)'};margin-bottom:4px;padding:6px 8px">
+        ${JOURS_CT[i]} ${d.getDate()} ${MOIS_FR[d.getMonth()]}
+      </div>
+      <div style="padding:0 8px 6px">${evts.map(_calChip).join('')}</div>
+    </div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+
+function _calBuildJour(){
+  const ds=toDS(calDate);
+  const evts=eventsOnDate(ds);
+  let h=`<div style="padding:16px">`;
+  if(!evts.length) h+=`<p style="color:var(--text3);text-align:center;padding:32px">Aucune immobilisation ce jour</p>`;
+  else evts.forEach(e=>{
+    h+=`<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openEventDetail('${e.id.split('_')[0]}')">
+      <div class="card-body">
+        <div style="font-weight:600;color:${e.couleur||'#a32d2d'}">${e.titre||'Immobilisation'}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${e.dateDebut} → ${e.dateFin||e.dateDebut}</div>
+        ${e.motif?`<div style="font-size:12px;margin-top:4px">${e.motif}</div>`:''}
+      </div>
+    </div>`;
+  });
+  h+=`<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="calDayClick('${ds}')">+ Immobilisation ce jour</button>`;
+  h+=`</div>`;
+  return h;
+}
+
+function _calBuildAnnee(){
+  const y=calDate.getFullYear();
+  let h=`<div class="cal-year-grid">`;
+  for(let m=0;m<12;m++){
+    const nb=new Date(y,m+1,0).getDate();
+    let cnt=0;
+    for(let d=1;d<=nb;d++) cnt+=eventsOnDate(toDS(new Date(y,m,d))).length;
+    h+=`<div class="card" style="cursor:pointer;${cnt?'border-color:var(--company-color)':''}" onclick="calDate=new Date(${y},${m},1);calSetView('mois')"><div class="card-body" style="padding:12px;text-align:center"><div style="font-weight:600">${MOIS_FR[m]}</div>${cnt?`<div style="font-size:11px;color:var(--company-color);margin-top:4px">● ${cnt} immob.</div>`:""}</div></div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+
+function calDayClick(ds){
+  openEventModal();
+  setTimeout(()=>{
+    document.getElementById('evt-f-date-debut').value=ds;
+    document.getElementById('evt-f-date-fin').value=ds;
+  },50);
+}
+
+</script>
+</body>
+</html>
+ },50);
+}
+
+</script>
+</body>
+</html>
+ecked')];
   const materielIds=checkedItems.map(cb=>cb.value);
   const materielNoms=checkedItems.map(cb=>cb.dataset.nom||cb.value);
   const dateDebut=document.getElementById('evt-f-date-debut').value;
