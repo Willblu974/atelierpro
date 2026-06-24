@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AtelierPro — Gestion multi-entreprises</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(typeof pdfjsLib!=='undefined') pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
@@ -4178,15 +4179,28 @@ async function doRegister(){
   setTimeout(()=>switchLoginTab('login'), 2500);
 }
 
+// ── EmailJS config ──────────────────────────────────────────
+const EMAILJS_PUBLIC_KEY  = '3HZ8Mm1Y7AB24879w';
+const EMAILJS_SERVICE_ID  = 'service_5m9joen';
+const EMAILJS_TEMPLATE_ID = 'template_0g4a07j';
+
 async function doResetPassword(){
-  if(!SB){ alert('Supabase non configuré.'); return; }
   const email=document.getElementById('login-email').value.trim();
   if(!email){ setLoginMsg("Entrez votre email d'abord.",'var(--amber)'); return; }
-  // redirectTo : URL de la page courante, pour que le lien de réinitialisation ramène ici
-  const redirectTo = window.location.href.split('#')[0].split('?')[0];
-  const {error}=await SB.auth.resetPasswordForEmail(email, { redirectTo });
-  if(error) setLoginMsg(error.message,'var(--red)');
-  else setLoginMsg("Email de réinitialisation envoyé à "+email+" — vérifiez vos spams si besoin.",'var(--teal)');
+  setLoginMsg('Envoi de la demande…','var(--text3)');
+  try {
+    // Initialiser EmailJS (idempotent)
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+    // Envoyer la notification à l'administrateur
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      user_email: email,
+      date: new Date().toLocaleString('fr-FR'),
+    });
+    setLoginMsg("Votre demande a été transmise à l'administrateur. Vous serez contacté prochainement.",'var(--teal)');
+  } catch(err){
+    console.error('EmailJS error:', err);
+    setLoginMsg("Erreur lors de l'envoi de la demande ("+( err?.text||err?.message||'réseau')+')'  ,'var(--red)');
+  }
 }
 
 async function doUpdatePassword(){
