@@ -757,34 +757,30 @@ textarea{resize:vertical;min-height:80px;}
     <div class="stat-mini"><div class="stat-mini-val" id="user-tech-kpi" style="color:var(--green)">—</div><div class="stat-mini-lbl">Techniciens</div></div>
   </div>
 
-  <!-- Layout 2 colonnes -->
-  <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start">
-
-    <!-- Colonne gauche : liste utilisateurs -->
-    <div class="card">
-      <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
-      <div class="card-body">
-        <table>
-          <thead><tr>
-            <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
-          </tr></thead>
-          <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
-        </table>
-      </div>
+  <!-- Liste utilisateurs pleine largeur -->
+  <div class="card">
+    <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
+    <div class="card-body">
+      <table>
+        <thead><tr>
+          <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
+        </tr></thead>
+        <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+      </table>
     </div>
-
-    <!-- Colonne droite : codes d'invitation -->
-    <div class="card" style="position:sticky;top:80px">
-      <div class="card-header"><strong>🎟 Codes d'invitation</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635;</button></div>
-      <div class="card-body" style="padding:0;max-height:70vh;overflow-y:auto">
-        <table style="font-size:12px">
-          <thead><tr><th>Code</th><th>Rôle</th><th>Ent.</th><th>Statut</th><th></th></tr></thead>
-          <tbody id="codes-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
   </div>
+
+  <!-- Codes d'invitation -->
+  <div class="card" style="margin-top:18px">
+    <div class="card-header"><strong>🎟 Codes d'invitation</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635; Rafraîchir</button></div>
+    <div class="card-body">
+      <table>
+        <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th></th></tr></thead>
+        <tbody id="codes-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- MODAL INVITATION -->
