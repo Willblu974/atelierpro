@@ -214,6 +214,14 @@ textarea{resize:vertical;min-height:80px;}
 .mat-check-item:hover{background:var(--bg);}
 .mat-check-item input[type=checkbox]{width:15px;height:15px;accent-color:var(--company-color);cursor:pointer;}
 .badge-reserve{background:#7c3aed;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;}
+/* ── TOAST ──────────────────────────────────────────────── */
+#ap-toast{position:fixed;bottom:24px;right:24px;z-index:9999;max-width:380px;padding:13px 20px;border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 4px 24px rgba(0,0,0,.22);transition:opacity .5s;opacity:0;pointer-events:none;line-height:1.4;}
+/* ── ARCHIVES JOURNAL ───────────────────────────────────── */
+.archive-table{width:100%;border-collapse:collapse;}
+.archive-table th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;background:#f3f3ef;color:#555;}
+.archive-table td{padding:8px 12px;border-top:1px solid var(--border);font-size:13px;}
+.archive-badge-in{background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+.archive-badge-out{background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
 
 </style>
 </head>
@@ -488,6 +496,15 @@ textarea{resize:vertical;min-height:80px;}
           </span>
         </div>
         <div class="card-body"><table><thead><tr><th>Date</th><th>R&eacute;f&eacute;rence</th><th>D&eacute;signation</th><th>Mouvement</th><th>Qt&eacute;</th><th>Motif</th><th>Stock apr&egrave;s</th></tr></thead><tbody id="stock-tbody"></tbody></table></div>
+      </div>
+      <!-- Archives journal mensuel -->
+      <div class="section-header" style="margin-top:18px">
+        <div class="section-title">📦 Archives journal mensuel</div>
+      </div>
+      <div class="card">
+        <div class="card-body" id="archives-journal-section" style="padding:4px 0">
+          <p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive disponible</p>
+        </div>
       </div>
     </div>
 
@@ -2356,6 +2373,7 @@ function showPage(id,el){
   if(id==='utilisateurs'){ loadUsers(); loadInvitationCodes(); }
   if(id==='calendrier'){ renderCalendrier(); }
   if(id==='dashboard'){ renderDashboard(COMPANIES[currentCompany]); }
+  if(id==='stock'){ renderArchivesSection(); }
   document.getElementById('page-title').textContent=titles[id]||id;
   document.getElementById('topbar-new').style.display=['parametres','couts','rapports','utilisateurs'].includes(id)?'none':'';
   currentPage=id;
@@ -4263,6 +4281,8 @@ function enterApp(){
   renderAll(); calcImport();
   loadNotifConfig();
   startNotifTimer();
+  // Vérifier et archiver les journaux des mois passés
+  setTimeout(()=>{ checkAndAutoArchive(); renderArchivesSection(); }, 800);
 }
 
 async function doLogout(){
@@ -4831,6 +4851,177 @@ function exportJournalOT(){
   </div>
   </body></html>`;
 
+  printHTMLDocument(html);
+}
+
+/* ══════════════════════════════════════════════════════════
+   AUTO-ARCHIVAGE MENSUEL DU JOURNAL DE STOCK
+   ══════════════════════════════════════════════════════════ */
+
+function showToast(msg, type='success'){
+  let t=document.getElementById('ap-toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='ap-toast';
+    document.body.appendChild(t);
+  }
+  t.style.background=type==='success'?'#065f46':type==='warn'?'#92400e':'#7c3aed';
+  t.style.color='#fff';
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{t.style.opacity='0';},5000);
+}
+
+function getArchivesJournal(companyId){
+  try{
+    const s=localStorage.getItem('atelierPro_archives_'+companyId);
+    return s?JSON.parse(s):{};
+  }catch(e){return {};}
+}
+
+function saveArchivesJournal(companyId,archives){
+  try{ localStorage.setItem('atelierPro_archives_'+companyId,JSON.stringify(archives)); }catch(e){}
+}
+
+function getMvtsPourMois(companyId,mois,annee){
+  const co=state[companyId];
+  const coInfo=COMPANIES[companyId];
+  const allMvts=[...(co.mouvements||[]),...(coInfo.mouvements||[])];
+  return allMvts.filter(m=>{
+    if(m.isoDate){const d=new Date(m.isoDate);return d.getMonth()+1===mois&&d.getFullYear()===annee;}
+    const parts=(m.date||'').split('/');
+    if(parts.length===3)return parseInt(parts[1])===mois&&parseInt(parts[2])===annee;
+    return false;
+  });
+}
+
+function checkAndAutoArchive(){
+  const now=new Date();
+  const curMois=now.getMonth()+1;
+  const curAnnee=now.getFullYear();
+  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const archives=getArchivesJournal(currentCompany);
+  const archived=[];
+
+  // Vérifier les 12 derniers mois (en remontant depuis le mois précédent)
+  for(let i=1;i<=12;i++){
+    let m=curMois-i, y=curAnnee;
+    if(m<=0){m+=12;y--;}
+    // S'arrêter à 12 mois en arrière
+    if(y<curAnnee-1||(y===curAnnee-1&&m<curMois)) break;
+    const key=`${y}-${String(m).padStart(2,'0')}`;
+    if(archives[key]) continue; // déjà archivé
+    const mvts=getMvtsPourMois(currentCompany,m,y);
+    if(!mvts.length) continue; // pas de mouvements, on passe
+    archives[key]={
+      moisNom:moisNoms[m-1], annee:y,
+      mvts:[...mvts],
+      nbIn:mvts.filter(x=>x.type==='in').length,
+      nbOut:mvts.filter(x=>x.type==='out').length,
+      nbAdj:mvts.filter(x=>x.type==='adjust'||x.type==='adj').length,
+      dateArchive:toDS(now)
+    };
+    archived.push(`${moisNoms[m-1]} ${y}`);
+  }
+
+  if(archived.length){
+    saveArchivesJournal(currentCompany,archives);
+    showToast(`📥 Journal archivé automatiquement : ${archived.join(', ')}`, 'success');
+    renderArchivesSection();
+  }
+}
+
+function renderArchivesSection(){
+  const el=document.getElementById('archives-journal-section');
+  if(!el) return;
+  const archives=getArchivesJournal(currentCompany);
+  const keys=Object.keys(archives).sort().reverse();
+  if(!keys.length){
+    el.innerHTML='<p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive disponible</p>';
+    return;
+  }
+  const rows=keys.map(key=>{
+    const a=archives[key];
+    const total=a.mvts?a.mvts.length:0;
+    return `<tr>
+      <td style="font-weight:600">${a.moisNom} ${a.annee}</td>
+      <td>${total} mouvement${total>1?'s':''}</td>
+      <td>
+        <span class="archive-badge-in">↑ ${a.nbIn||0} entrée${(a.nbIn||0)>1?'s':''}</span>
+        <span class="archive-badge-out" style="margin-left:4px">↓ ${a.nbOut||0} sortie${(a.nbOut||0)>1?'s':''}</span>
+      </td>
+      <td style="color:#999;font-size:12px">${a.dateArchive||'—'}</td>
+      <td><button class="btn btn-sm btn-edit" onclick="printArchivedJournal('${key}')">📄 PDF</button></td>
+    </tr>`;
+  }).join('');
+  el.innerHTML=`<table class="archive-table">
+    <thead><tr>
+      <th>Période</th><th>Mouvements</th><th>Détail</th><th>Archivé le</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function printArchivedJournal(key){
+  const archives=getArchivesJournal(currentCompany);
+  const a=archives[key];
+  if(!a){alert('Archive introuvable.');return;}
+  const co=state[currentCompany];
+  const coInfo=COMPANIES[currentCompany];
+  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const filtered=a.mvts||[];
+  const moisNom=a.moisNom, annee=a.annee;
+  const nbEntrees=filtered.filter(m=>m.type==='in').length;
+  const nbSorties=filtered.filter(m=>m.type==='out').length;
+  const nbAjust=filtered.filter(m=>m.type==='adjust'||m.type==='adj').length;
+  const qteTotaleEntree=filtered.filter(m=>m.type==='in').reduce((s,m)=>s+Math.abs(parseInt(m.qte)||0),0);
+  const qteTotaleSortie=filtered.filter(m=>m.type==='out').reduce((s,m)=>s+Math.abs(parseInt(m.qte)||0),0);
+  const header=buildPDFHeader(co,coInfo,now);
+  let rows='';
+  if(filtered.length){
+    filtered.forEach((m,i)=>{
+      const bg=i%2===0?'#f9f9f7':'#fff';
+      const typeLabel=m.type==='in'?'<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Entrée</span>':
+                      m.type==='out'?'<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Sortie</span>':
+                      '<span style="background:#e0f2fe;color:#075985;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">Ajust.</span>';
+      const qteColor=m.type==='in'?'#065f46':m.type==='out'?'#991b1b':'#075985';
+      rows+=`<tr style="background:${bg}">
+        <td style="padding:7px 10px;color:#555">${m.date||'—'}</td>
+        <td style="padding:7px 10px;font-weight:600;color:${coInfo.color}">${m.ref||'—'}</td>
+        <td style="padding:7px 10px">${m.nom||'—'}</td>
+        <td style="padding:7px 10px">${typeLabel}</td>
+        <td style="padding:7px 10px;font-weight:700;color:${qteColor};text-align:center">${m.qte||'—'}</td>
+        <td style="padding:7px 10px;color:#555">${m.motif||'—'}</td>
+        <td style="padding:7px 10px;text-align:center;font-weight:600">${m.apres||'—'}</td>
+      </tr>`;
+    });
+  } else {
+    rows=`<tr><td colspan="7" style="padding:24px;text-align:center;color:#999">Aucun mouvement archivé pour ${moisNom} ${annee}</td></tr>`;
+  }
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Journal mouvements ${moisNom} ${annee}</title>
+  <style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:12px}table{width:100%;border-collapse:collapse}th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600}@media print{body{padding:10px}}</style>
+  </head><body>
+  ${header}
+  <div style="margin-bottom:18px">
+    <h2 style="font-size:16px;font-weight:700;color:${coInfo.color};margin:0 0 4px">📋 Journal des mouvements de pièces détachées</h2>
+    <div style="font-size:13px;color:#555">Période : <strong>${moisNom} ${annee}</strong> — <em>Archive automatique</em></div>
+  </div>
+  <div style="display:flex;gap:16px;margin-bottom:18px">
+    <div style="background:#d1fae5;border-radius:8px;padding:10px 18px;text-align:center;min-width:100px"><div style="font-size:22px;font-weight:700;color:#065f46">${nbEntrees}</div><div style="font-size:11px;color:#065f46">Entrée(s)</div><div style="font-size:11px;color:#065f46">+${qteTotaleEntree} unité(s)</div></div>
+    <div style="background:#fee2e2;border-radius:8px;padding:10px 18px;text-align:center;min-width:100px"><div style="font-size:22px;font-weight:700;color:#991b1b">${nbSorties}</div><div style="font-size:11px;color:#991b1b">Sortie(s)</div><div style="font-size:11px;color:#991b1b">-${qteTotaleSortie} unité(s)</div></div>
+    <div style="background:#e0f2fe;border-radius:8px;padding:10px 18px;text-align:center;min-width:100px"><div style="font-size:22px;font-weight:700;color:#075985">${nbAjust}</div><div style="font-size:11px;color:#075985">Ajustement(s)</div></div>
+    <div style="background:#f3f4f6;border-radius:8px;padding:10px 18px;text-align:center;min-width:100px"><div style="font-size:22px;font-weight:700;color:#374151">${filtered.length}</div><div style="font-size:11px;color:#374151">Total mouvements</div></div>
+  </div>
+  <table><thead><tr style="background:${coInfo.color};color:#fff">
+    <th>Date</th><th>Référence</th><th>Désignation</th><th>Type</th><th style="text-align:center">Qté</th><th>Motif / OT</th><th style="text-align:center">Stock après</th>
+  </tr></thead><tbody>${rows}</tbody></table>
+  <div style="margin-top:20px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999">
+    <span>AtelierPro — Archive générée le ${now}</span>
+    <span>${coInfo.name} — ${moisNom} ${annee}</span>
+  </div>
+  </body></html>`;
   printHTMLDocument(html);
 }
 
