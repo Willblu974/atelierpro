@@ -1173,6 +1173,26 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- MODAL RESET PASSWORD ADMIN -->
+<div class="modal-bg" id="modal-admin-reset-pwd">
+  <div class="modal" style="width:520px">
+    <div class="modal-header"><strong>🔑 Mot de passe temporaire généré</strong><button class="btn btn-sm" onclick="closeModal('modal-admin-reset-pwd')">&#10005;</button></div>
+    <div style="padding:0 0 16px">
+      <div style="margin-bottom:14px;font-size:13px">Email envoyé à <strong id="reset-pwd-email"></strong>. Pour activer ce mot de passe, copiez et exécutez le SQL ci-dessous dans Supabase → SQL Editor :</div>
+      <div style="position:relative">
+        <textarea id="reset-pwd-sql" readonly rows="4" style="width:100%;font-family:monospace;font-size:12px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);resize:none;box-sizing:border-box"></textarea>
+        <button class="btn btn-sm btn-edit" id="reset-pwd-copy-btn" onclick="copyResetSql()" style="position:absolute;top:8px;right:8px">📋 Copier</button>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--amber-bg,#fef9ec);border-radius:6px;font-size:12px;color:var(--amber,#854f0b)">
+        ⚠️ Ce mot de passe est à usage unique. Demandez à l'utilisateur de le changer dès sa première connexion.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-admin-reset-pwd')">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL SUIVI TRANSPORT -->
 <div class="modal-bg" id="modal-transport">
   <div class="modal" style="width:640px">
@@ -4251,8 +4271,7 @@ async function doUpdatePassword(){
 // envoie un email de réinitialisation à cet utilisateur (la clé publique
 // ne permet pas de modifier directement le mot de passe d'un tiers).
 async function adminResetPassword(email){
-  if(!confirm(`Envoyer un mot de passe temporaire à ${email} ?`)) return;
-  // Générer un mot de passe temporaire sécurisé
+  if(!confirm(`Générer un mot de passe temporaire pour ${email} ?`)) return;
   const chars='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
   let tempPwd='';
   for(let i=0;i<10;i++) tempPwd+=chars[Math.floor(Math.random()*chars.length)];
@@ -4263,18 +4282,33 @@ async function adminResetPassword(email){
       to_email: email,
       temp_password: tempPwd,
     });
-    // Afficher le mot de passe dans une alerte pour que l'admin puisse le saisir dans Supabase
-    alert(
-      `✅ Email envoyé à ${email}\n\n`+
-      `Mot de passe temporaire : ${tempPwd}\n\n`+
-      `⚠️ Action requise :\n`+
-      `Allez dans Supabase → Authentication → Users\n`+
-      `→ trouvez ${email} → modifiez le mot de passe\n`+
-      `→ saisissez : ${tempPwd}`
-    );
   } catch(err){
     alert('Erreur envoi email : '+(err?.text||err?.message||JSON.stringify(err)));
+    return;
   }
+
+  // Afficher le modal avec le SQL prêt à copier
+  const sql = `UPDATE auth.users\nSET encrypted_password = crypt('${tempPwd}', gen_salt('bf'))\nWHERE email = '${email}';`;
+  document.getElementById('reset-pwd-email').textContent = email;
+  document.getElementById('reset-pwd-sql').value = sql;
+  document.getElementById('reset-pwd-copy-btn').textContent = '📋 Copier';
+  document.getElementById('modal-admin-reset-pwd').classList.add('open');
+}
+
+function copyResetSql(){
+  const sql = document.getElementById('reset-pwd-sql').value;
+  navigator.clipboard.writeText(sql).then(()=>{
+    const btn = document.getElementById('reset-pwd-copy-btn');
+    btn.textContent = '✅ Copié !';
+    setTimeout(()=>{ btn.textContent = '📋 Copier'; }, 2000);
+  }).catch(()=>{
+    // Fallback pour les navigateurs sans clipboard API
+    document.getElementById('reset-pwd-sql').select();
+    document.execCommand('copy');
+    const btn = document.getElementById('reset-pwd-copy-btn');
+    btn.textContent = '✅ Copié !';
+    setTimeout(()=>{ btn.textContent = '📋 Copier'; }, 2000);
+  });
 }
 
 async function checkSession(){
