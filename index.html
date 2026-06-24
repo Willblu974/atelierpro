@@ -4564,6 +4564,7 @@ async function doChangePwd(){
 }
 
 
+function updateUserBadge(email,profile){
   const nom=profile?.nom||email?.split('@')[0]||'—';
   const el=document.getElementById('user-name');
   if(el) el.textContent=nom;
