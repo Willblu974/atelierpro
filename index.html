@@ -757,28 +757,33 @@ textarea{resize:vertical;min-height:80px;}
     <div class="stat-mini"><div class="stat-mini-val" id="user-tech-kpi" style="color:var(--green)">—</div><div class="stat-mini-lbl">Techniciens</div></div>
   </div>
 
-  <!-- Liste utilisateurs pleine largeur -->
-  <div class="card">
-    <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
-    <div class="card-body">
-      <table>
-        <thead><tr>
-          <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
-        </tr></thead>
-        <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
+  <!-- Tableaux côte à côte -->
+  <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:18px;align-items:start;margin-top:0">
 
-  <!-- Codes d'invitation -->
-  <div class="card" style="margin-top:18px">
-    <div class="card-header"><strong>🎟 Codes d'invitation</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635; Rafraîchir</button></div>
-    <div class="card-body">
-      <table>
-        <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th></th></tr></thead>
-        <tbody id="codes-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
-      </table>
+    <!-- Gauche : liste utilisateurs -->
+    <div class="card">
+      <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
+      <div class="card-body" style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
+          </tr></thead>
+          <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+        </table>
+      </div>
     </div>
+
+    <!-- Droite : codes d'invitation -->
+    <div class="card">
+      <div class="card-header"><strong>🎟 Codes d'invitation</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635; Rafraîchir</button></div>
+      <div class="card-body" style="overflow-x:auto;max-height:60vh;overflow-y:auto;padding:0">
+        <table style="font-size:12px">
+          <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="codes-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
 </div>
