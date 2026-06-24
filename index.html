@@ -4184,6 +4184,7 @@ async function afterLogin(user){
   const coId=SB_PROFILE.entreprise_id||'A';
   currentCompany=coId; selectedLogin=coId;
   updateUserBadge(user.email,SB_PROFILE);
+  loadFromStorage(); // charger evenements (localStorage) avant que Supabase ne sauvegarde
   await loadFromSupabase();
   enterApp();
 }
@@ -4377,6 +4378,11 @@ async function loadFromSupabase(){
       ? {bdc:trRow.bdc||'—',fourn:trRow.fournisseur||'Aucune expédition en cours',mode:trRow.mode||'—',progress:trRow.progress||0,progressColor:trRow.progress_color||'#9c9a94',progressTxt:trRow.progress_txt||'—',alert:trRow.alert||null,rows:(()=>{try{return JSON.parse(trRow.rows||'[]')}catch(e){return []}})(),surcout:trRow.surcout||'—'}
       : {bdc:'—',fourn:'Aucune expédition en cours',mode:'—',progress:0,progressColor:'#9c9a94',progressTxt:'—',alert:null,rows:[],surcout:'—'};
     setSbStatus('online','🟢 '+SB_USER?.email+' · Synchronisé');
+    // Préserver les événements (stockés uniquement en localStorage, pas dans Supabase)
+    try{
+      const _ls=JSON.parse(localStorage.getItem('atelierPro_state')||'{}');
+      ['A','B','C'].forEach(id=>{ if(_ls[id]?.evenements?.length) state[id].evenements=_ls[id].evenements; });
+    }catch(e){}
     saveToStorage();
     subscribeRealtime(co);
   } catch(e){ setSbStatus('error','Erreur : '+e.message); loadFromStorage(); }
