@@ -757,28 +757,37 @@ textarea{resize:vertical;min-height:80px;}
     <div class="stat-mini"><div class="stat-mini-val" id="user-tech-kpi" style="color:var(--green)">—</div><div class="stat-mini-lbl">Techniciens</div></div>
   </div>
 
-  <!-- Liste utilisateurs -->
-  <div class="card">
-    <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
-    <div class="card-body">
-      <table>
-        <thead><tr>
-          <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
-        </tr></thead>
-        <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
+  <!-- Layout 2 colonnes -->
+  <div style="display:grid;grid-template-columns:1fr 380px;gap:18px;align-items:start">
 
-  <!-- Codes d'invitation -->
-  <div class="card" style="margin-top:20px">
-    <div class="card-header"><strong>🎟 Codes d'invitation actifs</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635; Rafraîchir</button></div>
-    <div class="card-body">
-      <table>
-        <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th>Utilisé par</th><th></th></tr></thead>
-        <tbody id="codes-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
-      </table>
+    <!-- Colonne gauche : liste utilisateurs -->
+    <div>
+      <div class="card">
+        <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
+        <div class="card-body">
+          <table>
+            <thead><tr>
+              <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
+            </tr></thead>
+            <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
+
+    <!-- Colonne droite : codes d'invitation actifs -->
+    <div style="position:sticky;top:80px">
+      <div class="card">
+        <div class="card-header"><strong>🎟 Codes d'invitation</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635;</button></div>
+        <div class="card-body" style="padding:0">
+          <table style="font-size:12px">
+            <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="codes-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -4705,24 +4714,23 @@ async function loadInvitationCodes(){
   try {
     const {data,error}=await SB.from('invitation_codes').select('*').order('created_at',{ascending:false}).limit(20);
     if(error) return;
-    const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien'};
-    const coNames={A:'Sarl Ocetra',B:'TSMOI',C:'Ocetra Mayotte'};
+    const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien',resp_travaux:'Resp. travaux'};
+    const coNames={A:'Sarl Ocetra',B:'TSMOI',C:'Mayotte'};
     let html='';
     (data||[]).forEach(c=>{
-      const statut=c.used?`<span class="badge badge-warn">Utilisé</span>`:`<span class="badge badge-ok">Disponible</span>`;
+      const statut=c.used?`<span class="badge badge-warn" title="Utilisé par ${c.used_by||'—'}">Utilisé</span>`:`<span class="badge badge-ok">Dispo</span>`;
       html+=`<tr>
-        <td style="font-weight:700;letter-spacing:1px;color:var(--teal)">${c.code}</td>
-        <td>${roleLabels[c.role]||c.role||'—'}</td>
-        <td>${coNames[c.entreprise_id]||'—'}</td>
+        <td style="font-weight:700;letter-spacing:1px;color:var(--teal);font-size:11px">${c.code}</td>
+        <td style="font-size:11px">${roleLabels[c.role]||c.role||'—'}</td>
+        <td style="font-size:11px">${coNames[c.entreprise_id]||c.entreprise_id||'—'}</td>
         <td>${statut}</td>
-        <td style="font-size:11px;color:var(--text3)">${c.used_by||'—'}</td>
-        <td style="white-space:nowrap;display:flex;gap:4px">
-          ${c.used?`<button class="btn btn-sm" onclick="reinitialiserCode('${c.id}')" title="Remettre disponible">♻️ Réinitialiser</button>`:''}
+        <td style="white-space:nowrap;display:flex;gap:2px">
+          ${c.used?`<button class="btn btn-sm" onclick="reinitialiserCode('${c.id}')" title="Remettre disponible">♻️</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="supprimerCode('${c.id}')" title="Supprimer">🗑</button>
         </td>
       </tr>`;
     });
-    if(!html) html='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Aucun code</td></tr>';
+    if(!html) html='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Aucun code</td></tr>';
     document.getElementById('codes-tbody').innerHTML=html;
   } catch(e){}
 }
