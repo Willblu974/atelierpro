@@ -5353,7 +5353,7 @@ function openImmobilisationModal(materielId='',dateDebut='',dateFin=''){
   document.getElementById('evt-delete-btn').style.display='none';
   document.getElementById('evt-save-btn').style.display='';
   ['evt-f-date-debut','evt-f-date-fin','evt-f-motif'].forEach(id=>{document.getElementById(id).disabled=false;});
-  openModal('modal-evt');
+  document.getElementById('modal-evt').classList.add('open');
 }
 function openEventDetail(id){
   const e=getAllCalEvents().find(x=>x.id===id);
@@ -5372,7 +5372,7 @@ function openEventDetail(id){
   document.getElementById('evt-delete-btn').style.display=canEdit?'':'none';
   document.getElementById('evt-save-btn').style.display=canEdit?'':'none';
   ['evt-f-date-debut','evt-f-date-fin','evt-f-motif'].forEach(fid=>{document.getElementById(fid).disabled=!canEdit;});
-  openModal('modal-evt');
+  document.getElementById('modal-evt').classList.add('open');
 }
 function saveEvent(){
   const sel=document.getElementById('evt-f-materiel');
