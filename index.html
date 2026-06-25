@@ -181,12 +181,8 @@ textarea{resize:vertical;min-height:80px;}
 .cal-month-head{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:2px;}
 .cal-month-head-cell{text-align:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:4px 0;}
 .cal-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-.cal-month-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 6px;min-height:88px;font-size:12px;display:flex;flex-direction:column;gap:2px;transition:background .1s;}
-.cal-day-more{font-size:10px;color:var(--text3);cursor:pointer;padding:1px 4px;border-radius:3px;align-self:flex-start;line-height:1.6;}
-.cal-day-more:hover{background:var(--surface2);color:var(--text);}
-.cal-hidden-evts{display:none;flex-direction:column;gap:2px;}
-.cal-month-day.expanded .cal-hidden-evts{display:flex;}
-.cal-month-day.expanded .cal-day-more{display:none;}
+.cal-month-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 6px;min-height:72px;font-size:12px;display:flex;flex-direction:column;gap:2px;transition:background .1s;}
+
 .cal-month-day.other-month{background:var(--bg);border-color:transparent;opacity:.5;}
 .cal-month-day.today{border-color:var(--company-color);background:var(--teal-light);}
 .cal-month-day.clickable:hover{background:var(--bg);cursor:pointer;}
@@ -216,7 +212,7 @@ textarea{resize:vertical;min-height:80px;}
 .cal-tg-cell.clickable:hover{background:var(--teal-light);cursor:pointer;}
 .cal-tg-evt{background:var(--company-color);color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cal-tg-evt:hover{opacity:.82;}
-@media(max-width:900px){.cal-year-grid{grid-template-columns:repeat(2,1fr);} .cal-month-day{min-height:60px;}}
+@media(max-width:900px){.cal-year-grid{grid-template-columns:repeat(2,1fr);} .cal-month-day{min-height:48px;}}
 
 
 /* ── Sélecteur multi-matériels ── */
@@ -5850,12 +5846,9 @@ function _calBuildMois(){
     const ds=toDS(new Date(y,m,d));
     const evts=eventsOnDate(ds);
     const isToday=ds===todayStr;
-    const visible=evts.slice(0,2);
-    const hidden=evts.slice(2);
     h+=`<div class="cal-month-day${isToday?' today':''}">
       <div style="font-size:12px;font-weight:${isToday?700:400};color:${isToday?'var(--company-color)':'var(--text2)'};margin-bottom:3px;cursor:pointer" onclick="calDayClick('${ds}')">${d}</div>
-      ${visible.map(_calChip).join('')}
-      ${hidden.length?`<div class="cal-hidden-evts">${hidden.map(_calChip).join('')}</div><span class="cal-day-more" onclick="calToggleDay(this,event)">+${hidden.length} voir tout</span>`:''}
+      ${evts.map(_calChip).join('')}
     </div>`;
   }
   h+=`</div></div>`;
