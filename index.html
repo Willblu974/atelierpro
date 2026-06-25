@@ -417,9 +417,9 @@ textarea{resize:vertical;min-height:80px;}
           <button class="cal-view-btn" id="calv-semaine" onclick="calSetView('semaine')">Semaine</button>
           <button class="cal-view-btn" id="calv-jour" onclick="calSetView('jour')">Jour</button>
         </div>
-        <button class="btn btn-sm btn-primary btn-edit" onclick="openEventModal()">+ &Eacute;v&eacute;nement</button>
+        <button id="btn-cal-new-evt" class="btn btn-sm btn-primary btn-edit" onclick="openEventModal()">+ &Eacute;v&eacute;nement</button>
         <button class="btn btn-sm" onclick="genererRapportCalPDF()" title="Rapport PDF des immobilisations">&#128196; Rapport PDF</button>
-        <button class="btn btn-sm btn-danger" onclick="openCancelEvtModal()" title="Annuler des immobilisations">&#10006; Annuler immobilisation</button>
+        <button id="btn-cal-cancel-evt" class="btn btn-sm btn-danger" onclick="openCancelEvtModal()" title="Annuler des immobilisations">&#10006; Annuler immobilisation</button>
       </div>
       <div id="cal-body"></div>
     </div>
@@ -4344,6 +4344,15 @@ function getUserRole(){
   return (SB_PROFILE?.role||'technicien').toLowerCase();
 }
 
+// Peut modifier/annuler les immobilisations : admin, technicien, resp_travaux
+// ET seulement sur son propre entreprise
+function canEditCalendar(){
+  const role = getUserRole();
+  const canRole = ['admin','technicien','resp_travaux'].includes(role);
+  const ownCompany = (SB_PROFILE?.entreprise_id||'A') === currentCompany;
+  return canRole && ownCompany;
+}
+
 function applyRoles(){
   const role = getUserRole();
 
@@ -5647,7 +5656,24 @@ function openImmobilisationModal(id){
       editingEventId=realId;
     }
   }
+  // Droits d'édition : masquer Save/Delete si consultation seule
+  const canEdit = canEditCalendar();
+  const saveBtn = document.getElementById('evt-save-btn');
+  const delBtn  = document.getElementById('evt-delete-btn');
+  if(saveBtn) saveBtn.style.display = canEdit ? '' : 'none';
+  if(delBtn && !canEdit) delBtn.style.display = 'none';
+  // Champs en lecture seule si pas autorisé
+  ['evt-f-date-debut','evt-f-date-fin','evt-f-motif','evt-f-mat-search'].forEach(fid=>{
+    const el=document.getElementById(fid);
+    if(el) el.disabled = !canEdit;
+  });
+  document.querySelectorAll('#evt-f-materiels-list input[type=checkbox]').forEach(cb=>{ cb.disabled=!canEdit; });
   document.getElementById('modal-evt').classList.add('open');
+}
+
+// Ouvre la modale en lecture seule (autre entreprise)
+function openImmobilisationReadOnly(id){
+  openImmobilisationModal(id); // canEditCalendar() retournera false → readonly automatique
 }
 
 function openEventDetail(id){ openImmobilisationModal(id); }
@@ -5725,6 +5751,25 @@ function renderCalendrier(){
     const b=document.getElementById('calv-'+v);
     if(b) b.classList.toggle('active',v===calView);
   });
+  // Boutons d'action : visibles uniquement si l'utilisateur peut éditer
+  const canEdit = canEditCalendar();
+  ['btn-cal-new-evt','btn-cal-cancel-evt'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(b) b.style.display = canEdit ? '' : 'none';
+  });
+  // Indicateur "consultation seule" si autre entreprise
+  let infoEl = document.getElementById('cal-readonly-info');
+  if(!canEdit){
+    const ownCo = COMPANIES[SB_PROFILE?.entreprise_id||'A'];
+    if(!infoEl){
+      infoEl = document.createElement('span');
+      infoEl.id = 'cal-readonly-info';
+      infoEl.style.cssText = 'font-size:11px;color:var(--text3);font-style:italic';
+      document.querySelector('.cal-toolbar').appendChild(infoEl);
+    }
+    infoEl.textContent = `👁 Consultation — modifications sur ${ownCo?.name||'votre entreprise'} uniquement`;
+  } else if(infoEl){ infoEl.textContent=''; }
+
   // Corps
   const body=document.getElementById('cal-body');
   if(!body) return;
@@ -5743,8 +5788,12 @@ function _calLundi(d){
 
 // Chip cliquable → ouvre la modale d'édition
 function _calChip(e){
-  const realId=e.id; // openImmobilisationModal gère le strip du suffixe _matId
-  return `<span class="cal-event-chip" style="background:${e.couleur||'#a32d2d'}" onclick="event.stopPropagation();openImmobilisationModal('${realId}')" title="Modifier">${e.titre||'Immo'}</span>`;
+  const realId=e.id;
+  const canEdit=canEditCalendar();
+  const action=canEdit
+    ?`onclick="event.stopPropagation();openImmobilisationModal('${realId}')" title="Modifier"`
+    :`onclick="event.stopPropagation();openImmobilisationReadOnly('${realId}')" title="Consulter" style="cursor:default;opacity:.85"`;
+  return `<span class="cal-event-chip" style="background:${e.couleur||'#a32d2d'}" ${action}>${e.titre||'Immo'}</span>`;
 }
 
 function calToggleDay(el,ev){
@@ -5779,53 +5828,151 @@ function _calBuildMois(){
 function _calBuildSemaine(){
   const lundi=_calLundi(calDate);
   const todayStr=toDS(new Date());
-  let h=`<div>`;
+  let h='<div>';
   for(let i=0;i<7;i++){
     const d=new Date(lundi); d.setDate(d.getDate()+i);
     const ds=toDS(d);
     const evts=eventsOnDate(ds);
     const isToday=ds===todayStr;
-    h+=`<div class="cal-tg-cell" onclick="calDayClick('${ds}')">
-      <div style="font-size:12px;font-weight:600;color:${isToday?'var(--company-color)':'var(--text2)'};margin-bottom:4px;padding:6px 8px">
-        ${JOURS_CT[i]} ${d.getDate()} ${MOIS_FR[d.getMonth()]}
-      </div>
-      <div style="padding:0 8px 6px">${evts.map(_calChip).join('')}</div>
-    </div>`;
+    const color=isToday?'var(--company-color)':'var(--text2)';
+    h+='<div class="cal-tg-cell" onclick="calDayClick(''+ds+'')'+'">'+
+       '<div style="font-size:12px;font-weight:600;color:'+color+';margin-bottom:4px;padding:6px 8px">'+
+       JOURS_CT[i]+' '+d.getDate()+' '+MOIS_FR[d.getMonth()]+
+       '</div><div style="padding:0 8px 6px">'+evts.map(_calChip).join('')+'</div></div>';
   }
-  h+=`</div>`;
+  h+='</div>';
   return h;
 }
 
 function _calBuildJour(){
   const ds=toDS(calDate);
   const evts=eventsOnDate(ds);
-  let h=`<div style="padding:16px">`;
-  if(!evts.length) h+=`<p style="color:var(--text3);text-align:center;padding:32px">Aucune immobilisation ce jour</p>`;
-  else evts.forEach(e=>{
-    h+=`<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openImmobilisationModal('${e.id}')">
-      <div class="card-body">
-        <div style="font-weight:600;color:${e.couleur||'#a32d2d'}">${e.titre||'Immobilisation'}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">${e.dateDebut} → ${e.dateFin||e.dateDebut}</div>
-        ${e.motif?`<div style="font-size:12px;margin-top:4px">${e.motif}</div>`:''}
-      </div>
-    </div>`;
+  let h='<div style="padding:16px">';
+  if(!evts.length) h+='<p style="color:var(--text3);text-align:center;padding:32px">Aucune immobilisation ce jour</p>';
+  else evts.forEach(function(e){
+    h+='<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openImmobilisationModal(''+e.id+'')">'+
+       '<div class="card-body">'+
+       '<div style="font-weight:600;color:'+(e.couleur||'#a32d2d')+'">'+(e.titre||'Immobilisation')+'</div>'+
+       '<div style="font-size:12px;color:var(--text3);margin-top:4px">'+e.dateDebut+' → '+(e.dateFin||e.dateDebut)+'</div>'+
+       (e.motif?'<div style="font-size:12px;margin-top:4px">'+e.motif+'</div>':'')+
+       '</div></div>';
   });
-  h+=`<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="calDayClick('${ds}')">+ Immobilisation ce jour</button>`;
-  h+=`</div>`;
+  h+='<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="calDayClick(''+ds+'')">+ Immobilisation ce jour</button>';
+  h+='</div>';
   return h;
 }
 
 function _calBuildAnnee(){
   const y=calDate.getFullYear();
-  let h=`<div class="cal-year-grid">`;
+  let h='<div class="cal-year-grid">';
   for(let m=0;m<12;m++){
     const nb=new Date(y,m+1,0).getDate();
     let cnt=0;
     for(let d=1;d<=nb;d++) cnt+=eventsOnDate(toDS(new Date(y,m,d))).length;
-    h+=`<div class="card" style="cursor:pointer;${cnt?'border-color:var(--company-color)':''}" onclick="calDate=new Date(${y},${m},1);calSetView('mois')"><div class="card-body" style="padding:12px;text-align:center"><div style="font-weight:600">${MOIS_FR[m]}</div>${cnt?`<div style="font-size:11px;color:var(--company-color);margin-top:4px">● ${cnt} immob.</div>`:''}</div></div>`;
+    h+='<div class="card" style="cursor:pointer;'+(cnt?'border-color:var(--company-color)':'')+'" onclick="calDate=new Date('+y+','+m+',1);calSetView('mois')">'+
+       '<div class="card-body" style="padding:12px;text-align:center">'+
+       '<div style="font-weight:600">'+MOIS_FR[m]+'</div>'+
+       (cnt?'<div style="font-size:11px;color:var(--company-color);margin-top:4px">● '+cnt+' immob.</div>':'')+
+       '</div></div>';
   }
-  h+=`</div>`;
+  h+='</div>';
   return h;
+}
+
+function openCancelEvtModal(){
+  document.getElementById('cancel-evt-search').value='';
+  renderCancelEvtList('');
+  document.getElementById('modal-cancel-evt').classList.add('open');
+}
+
+function renderCancelEvtList(q){
+  ensureCalState();
+  const canEdit=canEditCalendar();
+  const evts=(state[currentCompany].evenements||[]).slice().sort(function(a,b){return (a.dateDebut||'').localeCompare(b.dateDebut||'');});
+  const ql=q.toLowerCase();
+  const filtered=ql?evts.filter(function(e){
+    return (e.materielNoms||[e.materielNom]||[]).join(' ').toLowerCase().includes(ql)||
+           (e.motif||'').toLowerCase().includes(ql)||
+           (e.titre||'').toLowerCase().includes(ql);
+  }):evts;
+  const el=document.getElementById('cancel-evt-list');
+  if(!filtered.length){
+    el.innerHTML='<p style="text-align:center;color:var(--text3);padding:32px">Aucune immobilisation trouvée</p>';
+    return;
+  }
+  el.innerHTML=filtered.map(function(e){
+    const noms=(e.materielNoms||[e.materielNom]).filter(Boolean).join(', ')||'—';
+    const debut=e.dateDebut||'—';
+    const fin=e.dateFin&&e.dateFin!==e.dateDebut?' → '+e.dateFin:'';
+    const actionBtn=canEdit
+      ?'<button class="btn btn-danger btn-sm" onclick="cancelEvt(''+e.id+'')">Annuler</button>'
+      :'<span style="font-size:11px;color:var(--text3)">Consultation</span>';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">'+
+      '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+(e.couleur||'#a32d2d')+';flex-shrink:0"></span>'+
+      '<div style="flex:1;min-width:0">'+
+      '<div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+noms+'</div>'+
+      '<div style="font-size:11px;color:var(--text3)">'+debut+fin+(e.motif?' · '+e.motif:'')+'</div>'+
+      '</div>'+actionBtn+'</div>';
+  }).join('');
+}
+
+function filterCancelEvtList(q){ renderCancelEvtList(q); }
+
+function cancelEvt(id){
+  if(!canEditCalendar()){alert('Action non autorisée.');return;}
+  if(!confirm('Annuler cette immobilisation ?')) return;
+  ensureCalState();
+  const evts=state[currentCompany].evenements;
+  const i=evts.findIndex(function(x){return x.id===id;});
+  if(i>=0) evts.splice(i,1);
+  saveToStorage();
+  renderCalendrier();
+  renderMatTable(COMPANIES[currentCompany],state[currentCompany]);
+  renderCancelEvtList(document.getElementById('cancel-evt-search').value);
+}
+
+function genererRapportCalPDF(){
+  const evts=getAllCalEvents().filter(function(e,i,arr){return arr.findIndex(function(x){return x.id===e.id;})===i;}).sort(function(a,b){return (a.dateDebut||'').localeCompare(b.dateDebut||'');});
+  const co=COMPANIES[currentCompany];
+  const coNom=co?co.name:'Entreprise';
+  const now=new Date().toLocaleString('fr-FR');
+  const parMois={};
+  evts.forEach(function(e){
+    const k=(e.dateDebut||'').slice(0,7);
+    if(!parMois[k]) parMois[k]=[];
+    parMois[k].push(e);
+  });
+  function couleurBadge(c){return 'background:'+(c||'#a32d2d')+';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap';}
+  let rows='';
+  Object.keys(parMois).sort().forEach(function(k){
+    const parts=k.split('-');
+    const moisLabel=MOIS_FR[parseInt(parts[1])-1]+' '+parts[0];
+    rows+='<tr style="background:#f0efe9"><td colspan="5" style="padding:8px 10px;font-weight:700;font-size:13px;color:#0f6e56;border-top:2px solid #0f6e56">'+moisLabel+'</td></tr>';
+    parMois[k].forEach(function(e){
+      const debut=e.dateDebut||'—';
+      const fin=e.dateFin&&e.dateFin!==e.dateDebut?e.dateFin:'—';
+      const noms=(e.materielNoms||(e.materielNom?[e.materielNom]:[])).join(', ')||'—';
+      rows+='<tr><td style="padding:7px 10px;border-bottom:1px solid #e2e0d8"><span style="'+couleurBadge(e.couleur)+'">'+(e.titre||'Immobilisation')+'</span></td>'+
+            '<td style="padding:7px 10px;border-bottom:1px solid #e2e0d8">'+noms+'</td>'+
+            '<td style="padding:7px 10px;border-bottom:1px solid #e2e0d8;white-space:nowrap">'+debut+'</td>'+
+            '<td style="padding:7px 10px;border-bottom:1px solid #e2e0d8;white-space:nowrap">'+fin+'</td>'+
+            '<td style="padding:7px 10px;border-bottom:1px solid #e2e0d8;color:#5c5a54">'+(e.motif||'—')+'</td></tr>';
+    });
+  });
+  if(!rows) rows='<tr><td colspan="5" style="padding:32px;text-align:center;color:#9c9a94">Aucune immobilisation enregistrée</td></tr>';
+  const html='<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport immobilisations — '+coNom+'</title>'+
+    '<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:system-ui,sans-serif;font-size:13px;color:#1a1917;padding:32px;}'+
+    'h1{font-size:20px;color:#0f6e56;margin-bottom:4px;}.sub{font-size:12px;color:#5c5a54;margin-bottom:24px;}'+
+    'table{width:100%;border-collapse:collapse;}thead tr{background:#0f6e56;color:#fff;}thead th{padding:9px 10px;text-align:left;font-size:12px;font-weight:600;}'+
+    'tr:hover{background:#f5f4f0;}@media print{body{padding:16px;}button{display:none;}}</style></head><body>'+
+    '<h1>📋 Rapport des immobilisations — '+coNom+'</h1>'+
+    '<div class="sub">Généré le '+now+' · '+evts.length+' immobilisation(s)</div>'+
+    '<table><thead><tr><th>Titre</th><th>Matériel</th><th>Début</th><th>Fin</th><th>Motif</th></tr></thead>'+
+    '<tbody>'+rows+'</tbody></table>'+
+    '<script>window.onload=function(){window.print();}<\/script></body></html>';
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
 }
 
 function calDayClick(ds){
