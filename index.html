@@ -4674,10 +4674,11 @@ async function saveUserRole(){
 }
 
 async function supprimerUtilisateur(id,email){
-  if(!confirm(`Supprimer le compte ${email} ?\n\nL'utilisateur sera retiré de la liste et ne pourra plus accéder à l'application.`)) return;
+  if(!confirm(`Supprimer le compte ${email} ?\n\nCette action est irréversible.`)) return;
   if(!SB||SB_MODE!=='online') return;
   try {
-    const {error}=await secureWrite('utilisateurs','delete',null,id);
+    // RPC SECURITY DEFINER : supprime profil + auth.users côté serveur
+    const {error}=await SB.rpc('delete_user_account',{target_id:id});
     if(error){ alert('Erreur : '+error.message); return; }
     alert(`Compte ${email} supprimé avec succès.`);
     loadUsers();
