@@ -399,6 +399,8 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div class="section-header" style="margin-top:18px" id="dash-demandes-header"><div class="section-title">🤝 Demandes de prêt reçues</div></div>
       <div class="card" id="dash-demandes-card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>De</th><th>Date souhaitée</th><th>Durée</th><th>Motif</th><th>Statut</th><th></th></tr></thead><tbody id="dash-demandes-tbody"></tbody></table></div></div>
+      <div class="section-header" style="margin-top:18px" id="dash-demandes-env-header"><div class="section-title">📤 Mes demandes de prêt envoyées</div></div>
+      <div class="card" id="dash-demandes-env-card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>Vers</th><th>Date souhaitée</th><th>Durée</th><th>Motif</th><th>Statut</th></tr></thead><tbody id="dash-demandes-env-tbody"></tbody></table></div></div>
       <div class="section-header" style="margin-top:18px"><div class="section-title">🔄 Pr&ecirc;ts de mat&eacute;riels</div></div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Mat&eacute;riel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>T&eacute;l&eacute;phone</th><th>Date pr&ecirc;t</th><th>Retour pr&eacute;vu</th><th>Statut</th></tr></thead><tbody id="dash-prets-tbody"></tbody></table></div></div>
       <div class="section-header" style="margin-top:18px"><div class="section-title">📅 R&eacute;servations mat&eacute;riels — 30 jours</div></div>
@@ -2302,6 +2304,45 @@ function renderDemandesSection(){
 }
 
 
+function renderDemandesEnvoyeesSection(){
+  const tbody=document.getElementById('dash-demandes-env-tbody');
+  if(!tbody) return;
+  const ownCo=SB_PROFILE?.entreprise_id||currentCompany;
+  const header=document.getElementById('dash-demandes-env-header');
+  const card=document.getElementById('dash-demandes-env-card');
+  // Collecter toutes les demandes émises par mon entreprise, dans toutes les cibles
+  const coNoms={};
+  Object.keys(COMPANIES).forEach(function(k){coNoms[k]=COMPANIES[k].name;});
+  const df=function(s){return s?new Date(s).toLocaleDateString('fr-FR'):'—';};
+  var toutes=[];
+  Object.keys(state).forEach(function(co){
+    if(!state[co].demandesPret) return;
+    state[co].demandesPret.forEach(function(d){
+      if(d.entrepriseSource===ownCo){
+        toutes.push(Object.assign({},d,{_coCible:co}));
+      }
+    });
+  });
+  toutes.sort(function(a,b){return (b.dateCreation||'').localeCompare(a.dateCreation||'');});
+  if(header) header.style.display=toutes.length?'':'none';
+  if(card) card.style.display=toutes.length?'':'none';
+  if(!toutes.length){tbody.innerHTML='';return;}
+  tbody.innerHTML=toutes.map(function(d){
+    const badge=d.statut==='en_attente'
+      ?'<span class="badge badge-warn">⏳ En attente</span>'
+      :d.statut==='acceptee'
+        ?'<span class="badge badge-ok">✅ Acceptée</span>'
+        :'<span class="badge" style="background:var(--red-light);color:var(--red)">❌ Refusée</span>';
+    return '<tr><td><strong>'+d.matLabel+'</strong></td>'+
+      '<td>'+(coNoms[d._coCible]||d._coCible)+'</td>'+
+      '<td>'+df(d.dateSouhaitee)+'</td>'+
+      '<td>'+d.duree+' j</td>'+
+      '<td style="font-size:12px">'+d.motif+'</td>'+
+      '<td>'+badge+'</td></tr>';
+  }).join('');
+}
+
+
 async function savePret(){
   const matCode = document.getElementById('pret-f-mat').value;
   const datePret = document.getElementById('pret-f-date').value;
@@ -3583,6 +3624,7 @@ function renderDashboard(co){
 
   // Demandes de prêt reçues
   renderDemandesSection();
+  renderDemandesEnvoyeesSection();
 
   // Badge sidebar
   if(document.getElementById('badge-maint')) document.getElementById('badge-maint').textContent = otUrgents||'';
