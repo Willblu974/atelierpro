@@ -3399,16 +3399,18 @@ function renderDashboard(co){
     {label:'Total calculé', val: total ? total.toLocaleString('fr-FR')+' €' : '0 €', total:true},
   ].map(c=>`<div class="cost-row"><span style="color:var(--text2)">${c.label}</span><span${c.total?' style="font-weight:700"':''}>${c.val}</span></div>`).join('');
 
-  // Réservations matériels — 30 jours
+  // Réservations matériels — année en cours
   ensureCalState();
-  const today30=toDS(new Date());
-  const in30=toDS(new Date(Date.now()+30*24*3600*1000));
-  const evts30=state[currentCompany].evenements||[];
+  const todayDs=toDS(new Date());
+  const annee=new Date().getFullYear();
+  const debutAnnee=`${annee}-01-01`;
+  const finAnnee=`${annee}-12-31`;
+  const evtsAnnee=state[currentCompany].evenements||[];
   const upcoming=[];
-  evts30.forEach(e=>{
+  evtsAnnee.forEach(e=>{
     const debut=e.dateDebut||e.date||'';
     const fin=e.dateFin||e.dateDebut||e.date||'';
-    if(fin>=today30&&debut<=in30){
+    if(fin>=debutAnnee&&debut<=finAnnee){
       const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
       const noms=e.materielNoms||(e.materielNom?[e.materielNom]:[]);
       ids.forEach((mid,i)=>upcoming.push({debut,fin,matId:mid,matNom:noms[i]||mid,motif:e.motif||''}));
@@ -3418,14 +3420,17 @@ function renderDashboard(co){
   const resEl=document.getElementById('dash-reservations-tbody');
   if(resEl){
     resEl.innerHTML=upcoming.length?upcoming.map(r=>{
-      const isActive=r.debut<=today30&&r.fin>=today30;
+      const isActive=r.debut<=todayDs&&r.fin>=todayDs;
+      const isPast=r.fin<todayDs;
       const badge=isActive
         ?'<span class="badge-reserve">📅 En cours</span>'
-        :'<span class="badge" style="background:#e0e7ff;color:#3730a3">⏳ À venir</span>';
+        :isPast
+          ?'<span class="badge" style="background:var(--surface2);color:var(--text3)">✓ Passée</span>'
+          :'<span class="badge" style="background:#e0e7ff;color:#3730a3">⏳ À venir</span>';
       const df=d=>d?new Date(d).toLocaleDateString('fr-FR'):'—';
       return `<tr><td><strong>${r.matId}</strong></td><td>${r.matNom}</td><td>${df(r.debut)}</td><td>${df(r.fin)}</td><td>${r.motif||'—'}</td><td>${badge}</td></tr>`;
     }).join('')
-    :'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Aucune réservation dans les 30 prochains jours</td></tr>';
+    :`<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Aucune réservation en ${annee}</td></tr>`;
   }
 
   // Badge sidebar
