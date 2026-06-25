@@ -4475,6 +4475,7 @@ async function afterLogin(user){
   updateUserBadge(user.email,SB_PROFILE);
   loadFromStorage(); // charger evenements (localStorage) avant que Supabase ne sauvegarde
   await loadFromSupabase();
+  loadMaterielsPourConsultation(); // charger matériels des autres entreprises (consultation)
   enterApp();
 }
 
@@ -4692,6 +4693,28 @@ async function loadFromSupabase(){
     subscribeRealtime(co);
   } catch(e){ setSbStatus('error','Erreur : '+e.message); loadFromStorage(); }
 }
+
+/* ── CHARGEMENT MATÉRIELS AUTRES ENTREPRISES (lecture seule) ── */
+async function loadMaterielsPourConsultation(){
+  if(!SB||SB_MODE!=='online') return;
+  const ownCo = SB_PROFILE?.entreprise_id||currentCompany;
+  const autres = Object.keys(COMPANIES).filter(k=>k!==ownCo);
+  for(const co of autres){
+    try{
+      const [{data:fam},{data:stat},{data:mat}] = await Promise.all([
+        SB.from('familles').select('*').eq('entreprise_id',co),
+        SB.from('statuts').select('*').eq('entreprise_id',co),
+        SB.from('materiels').select('*').eq('entreprise_id',co),
+      ]);
+      if(fam && fam.length) state[co].familles=fam.map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
+      if(stat && stat.length) state[co].statuts=stat.map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
+      if(mat && mat.length) state[co].materiels=mat.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));
+    }catch(e){
+      console.warn('loadMaterielsPourConsultation: erreur pour '+co, e.message);
+    }
+  }
+}
+
 
 
 /* ── SUPABASE REALTIME ──────────────────────────────────── */
