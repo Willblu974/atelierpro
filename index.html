@@ -397,6 +397,8 @@ textarea{resize:vertical;min-height:80px;}
           <div class="card"><div class="card-body" style="padding:14px 18px" id="dash-couts"></div></div>
         </div>
       </div>
+      <div class="section-header" style="margin-top:18px" id="dash-demandes-header"><div class="section-title">🤝 Demandes de prêt reçues</div></div>
+      <div class="card" id="dash-demandes-card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>De</th><th>Date souhaitée</th><th>Durée</th><th>Motif</th><th>Statut</th><th></th></tr></thead><tbody id="dash-demandes-tbody"></tbody></table></div></div>
       <div class="section-header" style="margin-top:18px"><div class="section-title">🔄 Pr&ecirc;ts de mat&eacute;riels</div></div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Mat&eacute;riel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>T&eacute;l&eacute;phone</th><th>Date pr&ecirc;t</th><th>Retour pr&eacute;vu</th><th>Statut</th></tr></thead><tbody id="dash-prets-tbody"></tbody></table></div></div>
       <div class="section-header" style="margin-top:18px"><div class="section-title">📅 R&eacute;servations mat&eacute;riels — 30 jours</div></div>
@@ -1310,6 +1312,46 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- MODAL DEMANDE PRET -->
+<div class="modal-bg" id="modal-demande-pret">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <strong>🤝 Demande de prêt de matériel</strong>
+      <button class="btn btn-sm" onclick="closeModal('modal-demande-pret')">&#10005;</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div class="form-group">
+        <label>Matériel</label>
+        <input id="dp-mat" readonly style="background:var(--surface2)">
+      </div>
+      <div class="form-group">
+        <label>Entreprise propriétaire</label>
+        <input id="dp-co-cible" readonly style="background:var(--surface2)">
+      </div>
+      <div class="form-group">
+        <label>Date souhaitée *</label>
+        <input type="date" id="dp-date">
+      </div>
+      <div class="form-group">
+        <label>Durée estimée (jours) *</label>
+        <input type="number" id="dp-duree" min="1" placeholder="ex: 7">
+      </div>
+      <div class="form-group">
+        <label>Motif *</label>
+        <textarea id="dp-motif" rows="2" placeholder="Raison de la demande..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Contact (téléphone / email)</label>
+        <input id="dp-contact" placeholder="Pour vous joindre">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-demande-pret')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveDemandePret()">Envoyer la demande</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL USER MENU -->
 <div class="modal-bg" id="modal-user-menu">
   <div class="modal modal-sm">
@@ -1640,6 +1682,7 @@ function renderMatTable(co, st){
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
           <button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
+          ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${m.id||m.code}','${m.code} — ${m.nom}')">🤝 Demander</button>`:''}
         </td>
       </tr>`).join('')
     : `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">Aucun matériel trouvé</td></tr>`;
@@ -2166,6 +2209,98 @@ function openPretModal(id=null){
   document.getElementById('pret-f-notes').value = p?.notes || '';
   document.getElementById('modal-pret').classList.add('open');
 }
+
+function ensureDemandesState(co){
+  if(!state[co]) state[co]={};
+  if(!state[co].demandesPret) state[co].demandesPret=[];
+}
+
+function openDemandePret(matId, matLabel){
+  document.getElementById('dp-mat').value=matLabel;
+  document.getElementById('dp-co-cible').value=COMPANIES[currentCompany]?.name||currentCompany;
+  document.getElementById('dp-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('dp-duree').value='';
+  document.getElementById('dp-motif').value='';
+  document.getElementById('dp-contact').value=SB_PROFILE?.nom||'';
+  document.getElementById('modal-demande-pret').dataset.matId=matId;
+  document.getElementById('modal-demande-pret').dataset.matLabel=matLabel;
+  document.getElementById('modal-demande-pret').dataset.coCible=currentCompany;
+  document.getElementById('modal-demande-pret').classList.add('open');
+}
+
+function saveDemandePret(){
+  const date=document.getElementById('dp-date').value;
+  const duree=document.getElementById('dp-duree').value;
+  const motif=document.getElementById('dp-motif').value.trim();
+  if(!date||!duree||!motif){alert('Date, durée et motif sont obligatoires.');return;}
+  const modal=document.getElementById('modal-demande-pret');
+  const coCible=modal.dataset.coCible;
+  ensureDemandesState(coCible);
+  const rec={
+    id:'DEMANDE-'+Date.now(),
+    matCode:modal.dataset.matId,
+    matLabel:modal.dataset.matLabel,
+    entrepriseSource:SB_PROFILE?.entreprise_id||'A',
+    nomSource:SB_PROFILE?.nom||'—',
+    coCibleId:coCible,
+    dateCreation:new Date().toISOString().split('T')[0],
+    dateSouhaitee:date,
+    duree:parseInt(duree),
+    motif,
+    contact:document.getElementById('dp-contact').value.trim(),
+    statut:'en_attente'
+  };
+  state[coCible].demandesPret.push(rec);
+  saveToStorage();
+  closeModal('modal-demande-pret');
+  alert('✅ Demande envoyée à '+( COMPANIES[coCible]?.name||coCible)+' !');
+}
+
+function traiterDemandePret(coId, demandeId, action){
+  ensureDemandesState(coId);
+  const d=state[coId].demandesPret.find(function(x){return x.id===demandeId;});
+  if(!d) return;
+  d.statut=action; // 'acceptee' ou 'refusee'
+  saveToStorage();
+  renderDashboard(COMPANIES[currentCompany]);
+}
+
+function renderDemandesSection(){
+  const tbody=document.getElementById('dash-demandes-tbody');
+  if(!tbody) return;
+  ensureDemandesState(currentCompany);
+  const demandes=(state[currentCompany].demandesPret||[]).slice().sort(function(a,b){return (b.dateCreation||'').localeCompare(a.dateCreation||'');});
+  const header=document.getElementById('dash-demandes-header');
+  const card=document.getElementById('dash-demandes-card');
+  if(header) header.style.display=demandes.length?'':'none';
+  if(card) card.style.display=demandes.length?'':'none';
+  if(!demandes.length){tbody.innerHTML='';return;}
+  const coNoms={};
+  Object.keys(COMPANIES).forEach(function(k){coNoms[k]=COMPANIES[k].name;});
+  const df=function(s){return s?new Date(s).toLocaleDateString('fr-FR'):'—';};
+  tbody.innerHTML=demandes.map(function(d){
+    const badge=d.statut==='en_attente'
+      ?'<span class="badge badge-warn">⏳ En attente</span>'
+      :d.statut==='acceptee'
+        ?'<span class="badge badge-ok">✅ Acceptée</span>'
+        :'<span class="badge" style="background:var(--red-light);color:var(--red)">❌ Refusée</span>';
+    var actions='';
+    if(d.statut==='en_attente'){
+      var coEnc=currentCompany;
+      var did=d.id;
+      actions='<button class="btn btn-sm" style="background:var(--teal-light);color:var(--teal)" onclick="traiterDemandePret('+JSON.stringify(coEnc)+','+JSON.stringify(did)+',\'acceptee\')">✅ Accepter</button>'+
+              ' <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="traiterDemandePret('+JSON.stringify(coEnc)+','+JSON.stringify(did)+',\'refusee\')">❌ Refuser</button>';
+    }
+    return '<tr><td><strong>'+d.matLabel+'</strong></td>'+
+      '<td>'+(coNoms[d.entrepriseSource]||d.entrepriseSource)+'<div style="font-size:11px;color:var(--text3)">'+d.nomSource+'</div></td>'+
+      '<td>'+df(d.dateSouhaitee)+'</td>'+
+      '<td>'+d.duree+' j</td>'+
+      '<td style="font-size:12px">'+d.motif+'</td>'+
+      '<td>'+badge+'</td>'+
+      '<td>'+actions+'</td></tr>';
+  }).join('');
+}
+
 
 async function savePret(){
   const matCode = document.getElementById('pret-f-mat').value;
@@ -3445,6 +3580,9 @@ function renderDashboard(co){
     }).join('')
     :`<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px">Aucune réservation en ${annee}</td></tr>`;
   }
+
+  // Demandes de prêt reçues
+  renderDemandesSection();
 
   // Badge sidebar
   if(document.getElementById('badge-maint')) document.getElementById('badge-maint').textContent = otUrgents||'';
@@ -5721,6 +5859,28 @@ function saveEvent(){
   ensureCalState();
   const motif=document.getElementById('evt-f-motif').value.trim();
   const evts=state[currentCompany].evenements;
+
+  // Vérifier les conflits de réservation
+  const conflits=[];
+  materielIds.forEach(function(mid,i){
+    const nom=materielNoms[i]||mid;
+    evts.forEach(function(e){
+      if(e.id===editingEventId) return; // ignorer l'événement en cours d'édition
+      const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
+      if(!ids.map(String).includes(String(mid))) return;
+      const eDeb=e.dateDebut||e.date||'';
+      const eFin=e.dateFin||e.dateDebut||e.date||'';
+      // Chevauchement si les périodes se croisent
+      if(dateDebut<=eFin && dateFin>=eDeb){
+        conflits.push(nom+' ('+eDeb+(eFin!==eDeb?' → '+eFin:'')+')');
+      }
+    });
+  });
+  if(conflits.length){
+    const msg='⚠️ Conflit de réservation :\n\n'+conflits.join('\n')+'\n\nVoulez-vous enregistrer quand même ?';
+    if(!confirm(msg)) return;
+  }
+
   const titre=materielNoms.join(', ')+(motif?' — '+motif:'');
   const couleur=(document.getElementById('evt-f-couleur')?.value)||'#a32d2d';
   const obj={id:editingEventId||('evt_'+Date.now()),titre,date:dateDebut,dateDebut,dateFin,materielIds,materielNoms,motif,couleur};
