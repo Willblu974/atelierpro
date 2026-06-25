@@ -5734,130 +5734,6 @@ function renderCalendrier(){
   else                        body.innerHTML=_calBuildAnnee();
 }
 
-function openCancelEvtModal(){
-  document.getElementById('cancel-evt-search').value='';
-  renderCancelEvtList('');
-  document.getElementById('modal-cancel-evt').classList.add('open');
-}
-
-function renderCancelEvtList(q){
-  ensureCalState();
-  const evts = (state[currentCompany].evenements||[])
-    .slice()
-    .sort((a,b)=>(a.dateDebut||'').localeCompare(b.dateDebut||''));
-  const ql = q.toLowerCase();
-  const filtered = ql ? evts.filter(e=>
-    (e.materielNoms||[e.materielNom]||[]).join(' ').toLowerCase().includes(ql) ||
-    (e.motif||'').toLowerCase().includes(ql) ||
-    (e.titre||'').toLowerCase().includes(ql)
-  ) : evts;
-
-  const el = document.getElementById('cancel-evt-list');
-  if(!filtered.length){
-    el.innerHTML=`<p style="text-align:center;color:var(--text3);padding:32px">Aucune immobilisation trouvée</p>`;
-    return;
-  }
-  el.innerHTML = filtered.map(e=>{
-    const noms = (e.materielNoms||[e.materielNom]).filter(Boolean).join(', ')||'—';
-    const debut = e.dateDebut||'—';
-    const fin = e.dateFin && e.dateFin!==e.dateDebut ? ` → ${e.dateFin}` : '';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)">
-      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${e.couleur||'#a32d2d'};flex-shrink:0"></span>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${noms}</div>
-        <div style="font-size:11px;color:var(--text3)">${debut}${fin}${e.motif?' · '+e.motif:''}</div>
-      </div>
-      <button class="btn btn-danger btn-sm" onclick="cancelEvt('${e.id}')">Annuler</button>
-    </div>`;
-  }).join('');
-}
-
-function filterCancelEvtList(q){ renderCancelEvtList(q); }
-
-function cancelEvt(id){
-  if(!confirm('Annuler cette immobilisation ?')) return;
-  ensureCalState();
-  const evts = state[currentCompany].evenements;
-  const i = evts.findIndex(x=>x.id===id);
-  if(i>=0) evts.splice(i,1);
-  saveToStorage();
-  renderCalendrier();
-  renderMatTable(COMPANIES[currentCompany], state[currentCompany]);
-  const q = document.getElementById('cancel-evt-search').value;
-  renderCancelEvtList(q);
-}
-
-function genererRapportCalPDF(){
-  const evts = getAllCalEvents()
-    .filter((e,i,arr)=>arr.findIndex(x=>x.id===e.id)===i) // dédoublonner
-    .sort((a,b)=>(a.dateDebut||'').localeCompare(b.dateDebut||''));
-
-  const co = COMPANIES[currentCompany];
-  const coNom = co ? co.name : 'Entreprise';
-  const now = new Date().toLocaleString('fr-FR');
-
-  // Regrouper par mois
-  const parMois = {};
-  evts.forEach(e=>{
-    const k = (e.dateDebut||'').slice(0,7);
-    if(!parMois[k]) parMois[k]=[];
-    parMois[k].push(e);
-  });
-
-  const couleurBadge = c => `background:${c||'#a32d2d'};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap`;
-
-  let rows = '';
-  Object.keys(parMois).sort().forEach(k=>{
-    const [y,m] = k.split('-');
-    const moisLabel = MOIS_FR[parseInt(m)-1]+' '+y;
-    rows += `<tr style="background:#f0efe9"><td colspan="5" style="padding:8px 10px;font-weight:700;font-size:13px;color:#0f6e56;border-top:2px solid #0f6e56">${moisLabel}</td></tr>`;
-    parMois[k].forEach(e=>{
-      const debut = e.dateDebut||'—';
-      const fin = e.dateFin && e.dateFin!==e.dateDebut ? e.dateFin : '—';
-      const ids = e.materielIds||(e.materielId?[e.materielId]:[]);
-      const noms = e.materielNoms||(e.materielNom?[e.materielNom]:[]);
-      const materiel = noms.length ? noms.join(', ') : (e.materielNom||'—');
-      rows += `<tr>
-        <td style="padding:7px 10px;border-bottom:1px solid #e2e0d8"><span style="${couleurBadge(e.couleur)}">${e.titre||'Immobilisation'}</span></td>
-        <td style="padding:7px 10px;border-bottom:1px solid #e2e0d8">${materiel}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #e2e0d8;white-space:nowrap">${debut}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #e2e0d8;white-space:nowrap">${fin}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #e2e0d8;color:#5c5a54">${e.motif||'—'}</td>
-      </tr>`;
-    });
-  });
-
-  if(!rows) rows = `<tr><td colspan="5" style="padding:32px;text-align:center;color:#9c9a94">Aucune immobilisation enregistrée</td></tr>`;
-
-  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
-  <title>Rapport immobilisations — ${coNom}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:system-ui,sans-serif;font-size:13px;color:#1a1917;padding:32px;}
-    h1{font-size:20px;color:#0f6e56;margin-bottom:4px;}
-    .sub{font-size:12px;color:#5c5a54;margin-bottom:24px;}
-    table{width:100%;border-collapse:collapse;}
-    thead tr{background:#0f6e56;color:#fff;}
-    thead th{padding:9px 10px;text-align:left;font-size:12px;font-weight:600;}
-    tr:hover{background:#f5f4f0;}
-    @media print{body{padding:16px;} button{display:none;}}
-  </style></head><body>
-  <h1>📋 Rapport des immobilisations — ${coNom}</h1>
-  <div class="sub">Généré le ${now} · ${evts.length} immobilisation(s)</div>
-  <table>
-    <thead><tr>
-      <th>Titre</th><th>Matériel</th><th>Début</th><th>Fin</th><th>Motif</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <script>window.onload=()=>{ window.print(); }<\/script>
-  </body></html>`;
-
-  const w = window.open('','_blank');
-  w.document.write(html);
-  w.document.close();
-}
-
 function _calLundi(d){
   const r=new Date(d);
   const day=r.getDay()||7;
@@ -5865,12 +5741,14 @@ function _calLundi(d){
   return r;
 }
 
+// Chip cliquable → ouvre la modale d'édition
 function _calChip(e){
-  return `<span class="cal-event-chip" style="background:${e.couleur||'#a32d2d'};cursor:pointer" onclick="openEventDetail('${e.id.split('_')[0]}')">${e.titre||'Immo'}</span>`;
+  const realId=e.id; // openImmobilisationModal gère le strip du suffixe _matId
+  return `<span class="cal-event-chip" style="background:${e.couleur||'#a32d2d'}" onclick="event.stopPropagation();openImmobilisationModal('${realId}')" title="Modifier">${e.titre||'Immo'}</span>`;
 }
 
-function calToggleDay(el, e){
-  e.stopPropagation();
+function calToggleDay(el,ev){
+  ev.stopPropagation();
   el.closest('.cal-month-day').classList.toggle('expanded');
 }
 
@@ -5924,7 +5802,7 @@ function _calBuildJour(){
   let h=`<div style="padding:16px">`;
   if(!evts.length) h+=`<p style="color:var(--text3);text-align:center;padding:32px">Aucune immobilisation ce jour</p>`;
   else evts.forEach(e=>{
-    h+=`<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openEventDetail('${e.id.split('_')[0]}')">
+    h+=`<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openImmobilisationModal('${e.id}')">
       <div class="card-body">
         <div style="font-weight:600;color:${e.couleur||'#a32d2d'}">${e.titre||'Immobilisation'}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:4px">${e.dateDebut} → ${e.dateFin||e.dateDebut}</div>
@@ -5944,7 +5822,7 @@ function _calBuildAnnee(){
     const nb=new Date(y,m+1,0).getDate();
     let cnt=0;
     for(let d=1;d<=nb;d++) cnt+=eventsOnDate(toDS(new Date(y,m,d))).length;
-    h+=`<div class="card" style="cursor:pointer;${cnt?'border-color:var(--company-color)':''}" onclick="calDate=new Date(${y},${m},1);calSetView('mois')"><div class="card-body" style="padding:12px;text-align:center"><div style="font-weight:600">${MOIS_FR[m]}</div>${cnt?`<div style="font-size:11px;color:var(--company-color);margin-top:4px">● ${cnt} immob.</div>`:""}</div></div>`;
+    h+=`<div class="card" style="cursor:pointer;${cnt?'border-color:var(--company-color)':''}" onclick="calDate=new Date(${y},${m},1);calSetView('mois')"><div class="card-body" style="padding:12px;text-align:center"><div style="font-weight:600">${MOIS_FR[m]}</div>${cnt?`<div style="font-size:11px;color:var(--company-color);margin-top:4px">● ${cnt} immob.</div>`:''}</div></div>`;
   }
   h+=`</div>`;
   return h;
