@@ -192,6 +192,8 @@ textarea{resize:vertical;min-height:80px;}
 .cal-month-day.clickable:hover{background:var(--bg);cursor:pointer;}
 .cal-day-num{font-weight:600;font-size:13px;color:var(--text2);line-height:1.6;}
 .cal-day-num.today-num{color:var(--company-color);}
+.couleur-preset{display:inline-block;width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .1s,border-color .1s;}
+.couleur-preset:hover,.couleur-preset.active{transform:scale(1.2);border-color:#fff;outline:2px solid var(--text2);}
 .cal-event-chip{display:block;padding:2px 6px;border-radius:4px;color:#fff;font-size:11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .1s;}
 .cal-event-chip:hover{opacity:.82;}
 /* ── Vue ANNÉE ── */
@@ -807,6 +809,21 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-group"><label>Date début *</label><input type="date" id="evt-f-date-debut"></div>
       <div class="form-group"><label>Date fin *</label><input type="date" id="evt-f-date-fin"></div>
       <div class="form-group full"><label>Motif</label><textarea id="evt-f-motif" rows="2" placeholder="Panne, révision, entretien..."></textarea></div>
+      <div class="form-group full"><label>Couleur</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="color" id="evt-f-couleur" value="#a32d2d" style="width:38px;height:32px;padding:2px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer">
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="evt-couleur-presets">
+            <span class="couleur-preset" data-c="#a32d2d" style="background:#a32d2d" title="Rouge"></span>
+            <span class="couleur-preset" data-c="#185fa5" style="background:#185fa5" title="Bleu"></span>
+            <span class="couleur-preset" data-c="#0f6e56" style="background:#0f6e56" title="Vert"></span>
+            <span class="couleur-preset" data-c="#854f0b" style="background:#854f0b" title="Orange"></span>
+            <span class="couleur-preset" data-c="#534ab7" style="background:#534ab7" title="Violet"></span>
+            <span class="couleur-preset" data-c="#1c6b6b" style="background:#1c6b6b" title="Bleu canard"></span>
+            <span class="couleur-preset" data-c="#5c5a54" style="background:#5c5a54" title="Gris"></span>
+            <span class="couleur-preset" data-c="#b45309" style="background:#b45309" title="Brun"></span>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="evt-delete-btn" onclick="deleteEvent()" style="margin-right:auto;display:none">🗑 Supprimer</button>
@@ -5618,7 +5635,24 @@ function isMatReserve(matId){
 
 let editingEventId=null;
 
+
+function initCouleurPresets(){
+  document.querySelectorAll('.couleur-preset').forEach(function(el){
+    el.addEventListener('click',function(){
+      const c=el.dataset.c;
+      document.getElementById('evt-f-couleur').value=c;
+      document.querySelectorAll('.couleur-preset').forEach(function(p){p.classList.remove('active');});
+      el.classList.add('active');
+    });
+  });
+  document.getElementById('evt-f-couleur').addEventListener('input',function(){
+    document.querySelectorAll('.couleur-preset').forEach(function(p){p.classList.remove('active');});
+  });
+}
 function openEventModal(){
+  initCouleurPresets();
+  document.getElementById('evt-f-couleur').value='#a32d2d';
+  document.querySelectorAll('.couleur-preset').forEach(function(p){p.classList.remove('active');});
   editingEventId=null;
   ensureCalState();
   const mats=state[currentCompany].materiels||[];
@@ -5652,6 +5686,7 @@ function openImmobilisationModal(id){
       document.getElementById('evt-f-date-debut').value=evt.dateDebut||evt.date||'';
       document.getElementById('evt-f-date-fin').value=evt.dateFin||evt.dateDebut||evt.date||'';
       document.getElementById('evt-f-motif').value=evt.motif||'';
+      const cpEl=document.getElementById('evt-f-couleur');if(cpEl) cpEl.value=evt.couleur||'#a32d2d';
       document.getElementById('evt-delete-btn').style.display='';
       document.getElementById('evt-modal-title').textContent='Modifier l\'immobilisation';
       editingEventId=realId;
@@ -5691,7 +5726,8 @@ function saveEvent(){
   const motif=document.getElementById('evt-f-motif').value.trim();
   const evts=state[currentCompany].evenements;
   const titre=materielNoms.join(', ')+(motif?' — '+motif:'');
-  const obj={id:editingEventId||('evt_'+Date.now()),titre,date:dateDebut,dateDebut,dateFin,materielIds,materielNoms,motif,couleur:'#a32d2d'};
+  const couleur=(document.getElementById('evt-f-couleur')?.value)||'#a32d2d';
+  const obj={id:editingEventId||('evt_'+Date.now()),titre,date:dateDebut,dateDebut,dateFin,materielIds,materielNoms,motif,couleur};
   if(editingEventId){const i=evts.findIndex(x=>x.id===editingEventId);if(i>=0)evts[i]=obj;}
   else evts.push(obj);
   saveToStorage();
