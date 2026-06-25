@@ -181,7 +181,12 @@ textarea{resize:vertical;min-height:80px;}
 .cal-month-head{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:2px;}
 .cal-month-head-cell{text-align:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:4px 0;}
 .cal-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-.cal-month-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 6px;min-height:88px;font-size:12px;overflow:hidden;display:flex;flex-direction:column;gap:2px;transition:background .1s;}
+.cal-month-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 6px;min-height:88px;font-size:12px;display:flex;flex-direction:column;gap:2px;transition:background .1s;}
+.cal-day-more{font-size:10px;color:var(--text3);cursor:pointer;padding:1px 4px;border-radius:3px;align-self:flex-start;line-height:1.6;}
+.cal-day-more:hover{background:var(--surface2);color:var(--text);}
+.cal-hidden-evts{display:none;flex-direction:column;gap:2px;}
+.cal-month-day.expanded .cal-hidden-evts{display:flex;}
+.cal-month-day.expanded .cal-day-more{display:none;}
 .cal-month-day.other-month{background:var(--bg);border-color:transparent;opacity:.5;}
 .cal-month-day.today{border-color:var(--company-color);background:var(--teal-light);}
 .cal-month-day.clickable:hover{background:var(--bg);cursor:pointer;}
@@ -5718,6 +5723,11 @@ function _calChip(e){
   return `<span class="cal-event-chip" style="background:${e.couleur||'#a32d2d'};cursor:pointer" onclick="openEventDetail('${e.id.split('_')[0]}')">${e.titre||'Immo'}</span>`;
 }
 
+function calToggleDay(el, e){
+  e.stopPropagation();
+  el.closest('.cal-month-day').classList.toggle('expanded');
+}
+
 function _calBuildMois(){
   const y=calDate.getFullYear(),m=calDate.getMonth();
   const premier=new Date(y,m,1), dernier=new Date(y,m+1,0);
@@ -5730,10 +5740,12 @@ function _calBuildMois(){
     const ds=toDS(new Date(y,m,d));
     const evts=eventsOnDate(ds);
     const isToday=ds===todayStr;
-    h+=`<div class="cal-month-day${isToday?' today':''}" onclick="calDayClick('${ds}')">
-      <div style="font-size:12px;font-weight:${isToday?700:400};color:${isToday?'var(--company-color)':'var(--text2)'};margin-bottom:3px">${d}</div>
-      ${evts.slice(0,2).map(_calChip).join('')}
-      ${evts.length>2?`<span style="font-size:10px;color:var(--text3)">+${evts.length-2}</span>`:''}
+    const visible=evts.slice(0,2);
+    const hidden=evts.slice(2);
+    h+=`<div class="cal-month-day${isToday?' today':''}">
+      <div style="font-size:12px;font-weight:${isToday?700:400};color:${isToday?'var(--company-color)':'var(--text2)'};margin-bottom:3px;cursor:pointer" onclick="calDayClick('${ds}')">${d}</div>
+      ${visible.map(_calChip).join('')}
+      ${hidden.length?`<div class="cal-hidden-evts">${hidden.map(_calChip).join('')}</div><span class="cal-day-more" onclick="calToggleDay(this,event)">+${hidden.length} voir tout</span>`:''}
     </div>`;
   }
   h+=`</div></div>`;
