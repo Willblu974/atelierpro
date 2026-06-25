@@ -757,35 +757,29 @@ textarea{resize:vertical;min-height:80px;}
     <div class="stat-mini"><div class="stat-mini-val" id="user-tech-kpi" style="color:var(--green)">—</div><div class="stat-mini-lbl">Techniciens</div></div>
   </div>
 
-  <!-- Tableaux côte à côte -->
-  <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:18px;align-items:start;margin-top:0">
-
-    <!-- Gauche : liste utilisateurs -->
-    <div class="card">
-      <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
-      <div class="card-body" style="overflow-x:auto">
-        <table>
-          <thead><tr>
-            <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
-          </tr></thead>
-          <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
-        </table>
-      </div>
+  <!-- Liste utilisateurs -->
+  <div class="card">
+    <div class="card-header"><strong>Comptes utilisateurs</strong><button class="btn btn-sm" onclick="loadUsers()">&#8635; Rafraîchir</button></div>
+    <div class="card-body">
+      <table>
+        <thead><tr>
+          <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
+        </tr></thead>
+        <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+      </table>
     </div>
-
-    <!-- Droite : codes d'invitation -->
-    <div class="card">
-      <div class="card-header"><strong>🎟 Codes d'invitation</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635; Rafraîchir</button></div>
-      <div class="card-body" style="overflow-x:auto;max-height:60vh;overflow-y:auto;padding:0">
-        <table style="font-size:12px">
-          <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th></th></tr></thead>
-          <tbody id="codes-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
   </div>
 
+  <!-- Codes d'invitation -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-header"><strong>🎟 Codes d'invitation actifs</strong><button class="btn btn-sm" onclick="loadInvitationCodes()">&#8635; Rafraîchir</button></div>
+    <div class="card-body">
+      <table>
+        <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th>Utilisé par</th><th></th></tr></thead>
+        <tbody id="codes-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL INVITATION -->
@@ -1179,26 +1173,6 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
-<!-- MODAL RESET PASSWORD ADMIN -->
-<div class="modal-bg" id="modal-admin-reset-pwd">
-  <div class="modal" style="width:520px">
-    <div class="modal-header"><strong>🔑 Mot de passe temporaire généré</strong><button class="btn btn-sm" onclick="closeModal('modal-admin-reset-pwd')">&#10005;</button></div>
-    <div style="padding:0 0 16px">
-      <div style="margin-bottom:14px;font-size:13px">Email envoyé à <strong id="reset-pwd-email"></strong>. Pour activer ce mot de passe, copiez et exécutez le SQL ci-dessous dans Supabase → SQL Editor :</div>
-      <div style="position:relative">
-        <textarea id="reset-pwd-sql" readonly rows="4" style="width:100%;font-family:monospace;font-size:12px;padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);resize:none;box-sizing:border-box"></textarea>
-        <button class="btn btn-sm btn-edit" id="reset-pwd-copy-btn" onclick="copyResetSql()" style="position:absolute;top:8px;right:8px">📋 Copier</button>
-      </div>
-      <div style="margin-top:12px;padding:10px;background:var(--amber-bg,#fef9ec);border-radius:6px;font-size:12px;color:var(--amber,#854f0b)">
-        ⚠️ Ce mot de passe est à usage unique. Demandez à l'utilisateur de le changer dès sa première connexion.
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-primary" onclick="closeModal('modal-admin-reset-pwd')">Fermer</button>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL SUIVI TRANSPORT -->
 <div class="modal-bg" id="modal-transport">
   <div class="modal" style="width:640px">
@@ -1320,31 +1294,8 @@ textarea{resize:vertical;min-height:80px;}
       </div>
     </div>
     <div class="modal-footer" style="flex-direction:column;gap:8px;align-items:stretch">
-      <button class="btn btn-edit" onclick="openChangePwdModal()">🔑 Changer mon mot de passe</button>
       <button class="btn btn-danger" id="btn-logout" onclick="doLogout()">Se d&eacute;connecter</button>
       <button class="btn btn-danger" id="btn-delete-account" onclick="doDeleteAccount()" style="display:none">Supprimer mon compte</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL CHANGEMENT MOT DE PASSE -->
-<div class="modal-bg" id="modal-change-pwd">
-  <div class="modal modal-sm">
-    <div class="modal-header"><strong>🔑 Changer mon mot de passe</strong><button class="btn btn-sm" onclick="closeModal('modal-change-pwd')">&#10005;</button></div>
-    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
-      <div class="form-group">
-        <label>Nouveau mot de passe *</label>
-        <input type="password" id="change-pwd-new" placeholder="Min. 6 caractères" oninput="updateChangePwdStrength()">
-      </div>
-      <div class="form-group">
-        <label>Confirmer le mot de passe *</label>
-        <input type="password" id="change-pwd-confirm" placeholder="Répétez le mot de passe">
-      </div>
-      <div id="change-pwd-msg" style="font-size:12px;min-height:18px"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-change-pwd')">Annuler</button>
-      <button class="btn btn-primary" onclick="doChangePwd()">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -4300,59 +4251,30 @@ async function doUpdatePassword(){
 // envoie un email de réinitialisation à cet utilisateur (la clé publique
 // ne permet pas de modifier directement le mot de passe d'un tiers).
 async function adminResetPassword(email){
-  if(!confirm(`Générer un mot de passe temporaire pour ${email} ?`)) return;
+  if(!confirm(`Envoyer un mot de passe temporaire à ${email} ?`)) return;
+  // Générer un mot de passe temporaire sécurisé
   const chars='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
   let tempPwd='';
   for(let i=0;i<10;i++) tempPwd+=chars[Math.floor(Math.random()*chars.length)];
 
-  let emailOk = false;
   try {
-    const session = await SB.auth.getSession();
-    const token = session?.data?.session?.access_token;
-    const res = await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/send-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        to: email,
-        subject: 'AtelierPro — Votre mot de passe temporaire',
-        html: `<p>Bonjour,</p>
-<p>Un administrateur a réinitialisé votre mot de passe AtelierPro.</p>
-<p><strong>Mot de passe temporaire : ${tempPwd}</strong></p>
-<p>Connectez-vous avec ce mot de passe et changez-le dès votre première connexion.</p>
-<p>— L'équipe AtelierPro</p>`,
-      }),
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+    await emailjs.send(EMAILJS_SERVICE_ID, 'template_u0gptcs', {
+      to_email: email,
+      temp_password: tempPwd,
     });
-    if(res.ok) emailOk = true;
-    else console.warn('[adminResetPassword] Erreur envoi:', await res.text());
+    // Afficher le mot de passe dans une alerte pour que l'admin puisse le saisir dans Supabase
+    alert(
+      `✅ Email envoyé à ${email}\n\n`+
+      `Mot de passe temporaire : ${tempPwd}\n\n`+
+      `⚠️ Action requise :\n`+
+      `Allez dans Supabase → Authentication → Users\n`+
+      `→ trouvez ${email} → modifiez le mot de passe\n`+
+      `→ saisissez : ${tempPwd}`
+    );
   } catch(err){
-    console.warn('[adminResetPassword] Erreur réseau:', err);
+    alert('Erreur envoi email : '+(err?.text||err?.message||JSON.stringify(err)));
   }
-
-  // Afficher le modal avec le SQL prêt à copier dans tous les cas
-  const sql = `UPDATE auth.users\nSET encrypted_password = crypt('${tempPwd}', gen_salt('bf'))\nWHERE email = '${email}';`;
-  document.getElementById('reset-pwd-email').textContent = email + (emailOk ? '' : ' ⚠️ (email non envoyé)');
-  document.getElementById('reset-pwd-sql').value = sql;
-  document.getElementById('reset-pwd-copy-btn').textContent = '📋 Copier';
-  document.getElementById('modal-admin-reset-pwd').classList.add('open');
-}
-
-function copyResetSql(){
-  const sql = document.getElementById('reset-pwd-sql').value;
-  navigator.clipboard.writeText(sql).then(()=>{
-    const btn = document.getElementById('reset-pwd-copy-btn');
-    btn.textContent = '✅ Copié !';
-    setTimeout(()=>{ btn.textContent = '📋 Copier'; }, 2000);
-  }).catch(()=>{
-    // Fallback pour les navigateurs sans clipboard API
-    document.getElementById('reset-pwd-sql').select();
-    document.execCommand('copy');
-    const btn = document.getElementById('reset-pwd-copy-btn');
-    btn.textContent = '✅ Copié !';
-    setTimeout(()=>{ btn.textContent = '📋 Copier'; }, 2000);
-  });
 }
 
 async function checkSession(){
@@ -4495,8 +4417,9 @@ async function doDeleteAccount(targetUserId){
   if(!confirm(`Supprimer définitivement le compte ${email} ? Cette action est irréversible.`)) return;
 
   try {
-    // Supprimer le profil dans la table profiles
-    await SB.from('profiles').delete().eq('id', uid);
+    // Appel RPC SECURITY DEFINER : supprime profil + auth.users côté serveur
+    const { error } = await SB.rpc('delete_user_account', { target_id: uid });
+    if(error) throw error;
 
     if(!targetUserId){
       // L'utilisateur supprime son propre compte → déconnexion
@@ -4508,11 +4431,12 @@ async function doDeleteAccount(targetUserId){
       setLoginMsg('✅ Compte supprimé avec succès.','var(--teal)');
     } else {
       // Admin supprime un autre compte → rafraîchir la liste
-      alert('Compte supprimé.');
-      openUserMenu();
+      alert('✅ Compte supprimé (profil + authentification).');
+      closeModal('modal-user-menu');
+      renderAll();
     }
   } catch(e){
-    alert('Erreur lors de la suppression : '+e.message);
+    alert('Erreur lors de la suppression : '+(e.message||JSON.stringify(e)));
   }
 }
 
@@ -4530,45 +4454,6 @@ function openUserMenu(){
 
   document.getElementById('modal-user-menu').classList.add('open');
 }
-
-function openChangePwdModal(){
-  closeModal('modal-user-menu');
-  document.getElementById('change-pwd-new').value='';
-  document.getElementById('change-pwd-confirm').value='';
-  document.getElementById('change-pwd-msg').textContent='';
-  document.getElementById('modal-change-pwd').classList.add('open');
-  setTimeout(()=>document.getElementById('change-pwd-new').focus(), 100);
-}
-
-function updateChangePwdStrength(){
-  const pwd = document.getElementById('change-pwd-new').value;
-  const msg = document.getElementById('change-pwd-msg');
-  if(!pwd){ msg.textContent=''; return; }
-  if(pwd.length < 6){ msg.style.color='var(--red)'; msg.textContent='❌ Trop court (min. 6 caractères)'; return; }
-  const strong = pwd.length >= 10 && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && /[^a-zA-Z0-9]/.test(pwd);
-  const medium = pwd.length >= 8;
-  if(strong){ msg.style.color='var(--teal)'; msg.textContent='✅ Mot de passe fort'; }
-  else if(medium){ msg.style.color='var(--amber)'; msg.textContent='⚠️ Mot de passe moyen'; }
-  else{ msg.style.color='var(--amber)'; msg.textContent='⚠️ Mot de passe faible'; }
-}
-
-async function doChangePwd(){
-  const pwd1 = document.getElementById('change-pwd-new').value;
-  const pwd2 = document.getElementById('change-pwd-confirm').value;
-  const msg  = document.getElementById('change-pwd-msg');
-  if(!pwd1 || pwd1.length < 6){ msg.style.color='var(--red)'; msg.textContent='❌ Le mot de passe doit faire au moins 6 caractères.'; return; }
-  if(pwd1 !== pwd2){ msg.style.color='var(--red)'; msg.textContent='❌ Les deux mots de passe ne correspondent pas.'; return; }
-  msg.style.color='var(--text3)'; msg.textContent='Enregistrement en cours...';
-  try {
-    const { error } = await SB.auth.updateUser({ password: pwd1 });
-    if(error) throw error;
-    msg.style.color='var(--teal)'; msg.textContent='✅ Mot de passe modifié avec succès !';
-    setTimeout(()=>closeModal('modal-change-pwd'), 1500);
-  } catch(err){
-    msg.style.color='var(--red)'; msg.textContent='❌ Erreur : '+(err.message||JSON.stringify(err));
-  }
-}
-
 
 function updateUserBadge(email,profile){
   const nom=profile?.nom||email?.split('@')[0]||'—';
@@ -4711,23 +4596,24 @@ async function loadInvitationCodes(){
   try {
     const {data,error}=await SB.from('invitation_codes').select('*').order('created_at',{ascending:false}).limit(20);
     if(error) return;
-    const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien',resp_travaux:'Resp. travaux'};
-    const coNames={A:'Sarl Ocetra',B:'TSMOI',C:'Mayotte'};
+    const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien'};
+    const coNames={A:'Sarl Ocetra',B:'TSMOI',C:'Ocetra Mayotte'};
     let html='';
     (data||[]).forEach(c=>{
-      const statut=c.used?`<span class="badge badge-warn" title="Utilisé par ${c.used_by||'—'}">Utilisé</span>`:`<span class="badge badge-ok">Dispo</span>`;
+      const statut=c.used?`<span class="badge badge-warn">Utilisé</span>`:`<span class="badge badge-ok">Disponible</span>`;
       html+=`<tr>
-        <td style="font-weight:700;letter-spacing:1px;color:var(--teal);font-size:11px">${c.code}</td>
-        <td style="font-size:11px">${roleLabels[c.role]||c.role||'—'}</td>
-        <td style="font-size:11px">${coNames[c.entreprise_id]||c.entreprise_id||'—'}</td>
+        <td style="font-weight:700;letter-spacing:1px;color:var(--teal)">${c.code}</td>
+        <td>${roleLabels[c.role]||c.role||'—'}</td>
+        <td>${coNames[c.entreprise_id]||'—'}</td>
         <td>${statut}</td>
-        <td style="white-space:nowrap;display:flex;gap:2px">
-          ${c.used?`<button class="btn btn-sm" onclick="reinitialiserCode('${c.id}')" title="Remettre disponible">♻️</button>`:''}
+        <td style="font-size:11px;color:var(--text3)">${c.used_by||'—'}</td>
+        <td style="white-space:nowrap;display:flex;gap:4px">
+          ${c.used?`<button class="btn btn-sm" onclick="reinitialiserCode('${c.id}')" title="Remettre disponible">♻️ Réinitialiser</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="supprimerCode('${c.id}')" title="Supprimer">🗑</button>
         </td>
       </tr>`;
     });
-    if(!html) html='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Aucun code</td></tr>';
+    if(!html) html='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Aucun code</td></tr>';
     document.getElementById('codes-tbody').innerHTML=html;
   } catch(e){}
 }
