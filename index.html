@@ -2290,8 +2290,8 @@ function renderDemandesSection(){
     if(d.statut==='en_attente'){
       var coEnc=currentCompany;
       var did=d.id;
-      actions='<button class="btn btn-sm" style="background:var(--teal-light);color:var(--teal)" onclick="traiterDemandePret('+JSON.stringify(coEnc)+','+JSON.stringify(did)+',\'acceptee\')">✅ Accepter</button>'+
-              ' <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="traiterDemandePret('+JSON.stringify(coEnc)+','+JSON.stringify(did)+',\'refusee\')">❌ Refuser</button>';
+      actions='<button class="btn btn-sm" style="background:var(--teal-light);color:var(--teal)" onclick="traiterDemandePret(\''+coEnc+'\',\''+did+'\',\'acceptee\')">✅ Accepter</button>'+
+              ' <button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="traiterDemandePret(\''+coEnc+'\',\''+did+'\',\'refusee\')">❌ Refuser</button>';
     }
     return '<tr><td><strong>'+d.matLabel+'</strong></td>'+
       '<td>'+(coNoms[d.entrepriseSource]||d.entrepriseSource)+'<div style="font-size:11px;color:var(--text3)">'+d.nomSource+'</div></td>'+
