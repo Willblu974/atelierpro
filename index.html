@@ -807,6 +807,19 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-group"><label>Date début *</label><input type="date" id="evt-f-date-debut"></div>
       <div class="form-group"><label>Date fin *</label><input type="date" id="evt-f-date-fin"></div>
       <div class="form-group full"><label>Motif</label><textarea id="evt-f-motif" rows="2" placeholder="Panne, révision, entretien..."></textarea></div>
+      <div class="form-group full">
+        <label>Couleur</label>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="color" id="evt-f-couleur" value="#a32d2d" style="width:36px;height:36px;border:none;border-radius:6px;cursor:pointer;padding:2px">
+          <button class="couleur-preset" data-c="#0f6e56" style="background:#e1f5ee;color:#0f6e56;border:none;padding:3px 10px;border-radius:12px;font-size:12px;cursor:pointer">Vert</button>
+          <button class="couleur-preset" data-c="#185fa5" style="background:#e6f1fb;color:#185fa5;border:none;padding:3px 10px;border-radius:12px;font-size:12px;cursor:pointer">Bleu</button>
+          <button class="couleur-preset" data-c="#854f0b" style="background:#faeeda;color:#854f0b;border:none;padding:3px 10px;border-radius:12px;font-size:12px;cursor:pointer">Ambre</button>
+          <button class="couleur-preset" data-c="#a32d2d" style="background:#fcebeb;color:#a32d2d;border:none;padding:3px 10px;border-radius:12px;font-size:12px;cursor:pointer">Rouge</button>
+          <button class="couleur-preset" data-c="#534ab7" style="background:#eeedfe;color:#534ab7;border:none;padding:3px 10px;border-radius:12px;font-size:12px;cursor:pointer">Violet</button>
+          <button class="couleur-preset" data-c="#3b6d11" style="background:#eaf3de;color:#3b6d11;border:none;padding:3px 10px;border-radius:12px;font-size:12px;cursor:pointer">Vert c.</button>
+          <button class="couleur-preset" data-c="#993556" style="background:#fbeaf0;color:#993556;border:none;padding:3px 10px;border-radius:12px;font-size:12px;cursor:pointer">Rose</button>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="evt-delete-btn" onclick="deleteEvent()" style="margin-right:auto;display:none">🗑 Supprimer</button>
