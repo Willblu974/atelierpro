@@ -2244,9 +2244,40 @@ function traiterDemandePret(coId, demandeId, action){
   ensureDemandesState(coId);
   const d=state[coId].demandesPret.find(function(x){return x.id===demandeId;});
   if(!d) return;
-  d.statut=action; // 'acceptee' ou 'refusee'
+  d.statut=action;
+
+  if(action==='acceptee'){
+    // Créer une immobilisation "Prêté" dans les événements du matériel
+    if(!state[coId].evenements) state[coId].evenements=[];
+    // Calculer la date de fin : dateSouhaitee + duree jours
+    var debut=d.dateSouhaitee||new Date().toISOString().split('T')[0];
+    var fin=new Date(debut);
+    fin.setDate(fin.getDate()+(parseInt(d.duree)||1)-1);
+    var finStr=fin.toISOString().split('T')[0];
+    var coNom=(COMPANIES[d.entrepriseSource]||{}).name||d.entrepriseSource||'?';
+    // Supprimer l'ancienne entrée si re-acceptation
+    state[coId].evenements=state[coId].evenements.filter(function(e){return e.id!=='pret_'+demandeId;});
+    state[coId].evenements.push({
+      id:'pret_'+demandeId,
+      titre:'🤝 Prêté — '+coNom,
+      date:debut,
+      dateDebut:debut,
+      dateFin:finStr,
+      materielIds:[String(d.matCode)],
+      materielNoms:[d.matLabel||d.matCode],
+      motif:'Demande de prêt acceptée ('+d.nomSource+')',
+      couleur:{bg:'#fef3c7',text:'#92400e'}
+    });
+  } else if(action==='refusee'){
+    // Supprimer l'immobilisation si elle existait
+    if(state[coId].evenements){
+      state[coId].evenements=state[coId].evenements.filter(function(e){return e.id!=='pret_'+demandeId;});
+    }
+  }
+
   saveToStorage();
   renderDashboard(COMPANIES[currentCompany]);
+  renderCalendrier();
 }
 
 function renderDemandesSection(){
