@@ -181,15 +181,12 @@ textarea{resize:vertical;min-height:80px;}
 .cal-month-head{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:2px;}
 .cal-month-head-cell{text-align:center;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;padding:4px 0;}
 .cal-month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-.cal-month-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 6px;min-height:72px;font-size:12px;display:flex;flex-direction:column;gap:2px;transition:background .1s;}
-
+.cal-month-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px 6px;min-height:88px;font-size:12px;overflow:hidden;display:flex;flex-direction:column;gap:2px;transition:background .1s;}
 .cal-month-day.other-month{background:var(--bg);border-color:transparent;opacity:.5;}
 .cal-month-day.today{border-color:var(--company-color);background:var(--teal-light);}
 .cal-month-day.clickable:hover{background:var(--bg);cursor:pointer;}
 .cal-day-num{font-weight:600;font-size:13px;color:var(--text2);line-height:1.6;}
 .cal-day-num.today-num{color:var(--company-color);}
-.couleur-preset{display:inline-block;width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .1s,border-color .1s;}
-.couleur-preset:hover,.couleur-preset.active{transform:scale(1.2);border-color:#fff;outline:2px solid var(--text2);}
 .cal-event-chip{display:block;padding:2px 6px;border-radius:4px;color:#fff;font-size:11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .1s;}
 .cal-event-chip:hover{opacity:.82;}
 /* ── Vue ANNÉE ── */
@@ -212,7 +209,7 @@ textarea{resize:vertical;min-height:80px;}
 .cal-tg-cell.clickable:hover{background:var(--teal-light);cursor:pointer;}
 .cal-tg-evt{background:var(--company-color);color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cal-tg-evt:hover{opacity:.82;}
-@media(max-width:900px){.cal-year-grid{grid-template-columns:repeat(2,1fr);} .cal-month-day{min-height:48px;}}
+@media(max-width:900px){.cal-year-grid{grid-template-columns:repeat(2,1fr);} .cal-month-day{min-height:60px;}}
 
 
 /* ── Sélecteur multi-matériels ── */
@@ -419,6 +416,7 @@ textarea{resize:vertical;min-height:80px;}
           <button class="cal-view-btn" id="calv-semaine" onclick="calSetView('semaine')">Semaine</button>
           <button class="cal-view-btn" id="calv-jour" onclick="calSetView('jour')">Jour</button>
         </div>
+
         <button id="btn-cal-new-evt" class="btn btn-sm btn-primary btn-edit" onclick="openEventModal()">+ &Eacute;v&eacute;nement</button>
         <button class="btn btn-sm" onclick="genererRapportCalPDF()" title="Rapport PDF des immobilisations">&#128196; Rapport PDF</button>
         <button id="btn-cal-cancel-evt" class="btn btn-sm btn-danger" onclick="openCancelEvtModal()" title="Annuler des immobilisations">&#10006; Annuler immobilisation</button>
@@ -809,21 +807,6 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-group"><label>Date début *</label><input type="date" id="evt-f-date-debut"></div>
       <div class="form-group"><label>Date fin *</label><input type="date" id="evt-f-date-fin"></div>
       <div class="form-group full"><label>Motif</label><textarea id="evt-f-motif" rows="2" placeholder="Panne, révision, entretien..."></textarea></div>
-      <div class="form-group full"><label>Couleur</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input type="color" id="evt-f-couleur" value="#a32d2d" style="width:38px;height:32px;padding:2px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer">
-          <div style="display:flex;gap:6px;flex-wrap:wrap" id="evt-couleur-presets">
-            <span class="couleur-preset" data-c="#a32d2d" style="background:#a32d2d" title="Rouge"></span>
-            <span class="couleur-preset" data-c="#185fa5" style="background:#185fa5" title="Bleu"></span>
-            <span class="couleur-preset" data-c="#0f6e56" style="background:#0f6e56" title="Vert"></span>
-            <span class="couleur-preset" data-c="#854f0b" style="background:#854f0b" title="Orange"></span>
-            <span class="couleur-preset" data-c="#534ab7" style="background:#534ab7" title="Violet"></span>
-            <span class="couleur-preset" data-c="#1c6b6b" style="background:#1c6b6b" title="Bleu canard"></span>
-            <span class="couleur-preset" data-c="#5c5a54" style="background:#5c5a54" title="Gris"></span>
-            <span class="couleur-preset" data-c="#b45309" style="background:#b45309" title="Brun"></span>
-          </div>
-        </div>
-      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="evt-delete-btn" onclick="deleteEvent()" style="margin-right:auto;display:none">🗑 Supprimer</button>
@@ -1299,7 +1282,10 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
-<!-- MODAL ANNULER IMMOBILISATION -->
+<!-- MODAL STATUT -->
+
+
+
 <div class="modal-bg" id="modal-cancel-evt">
   <div class="modal" style="max-width:640px;width:100%">
     <div class="modal-header">
@@ -1313,8 +1299,6 @@ textarea{resize:vertical;min-height:80px;}
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-cancel-evt')">Fermer</button></div>
   </div>
 </div>
-
-<!-- MODAL DEMANDE PRET -->
 <div class="modal-bg" id="modal-demande-pret">
   <div class="modal modal-sm">
     <div class="modal-header">
@@ -1353,8 +1337,6 @@ textarea{resize:vertical;min-height:80px;}
     </div>
   </div>
 </div>
-
-<!-- MODAL USER MENU -->
 <div class="modal-bg" id="modal-user-menu">
   <div class="modal modal-sm">
     <div class="modal-header"><strong>Mon compte</strong><button class="btn btn-sm" onclick="closeModal('modal-user-menu')">&#10005;</button></div>
@@ -1378,8 +1360,6 @@ textarea{resize:vertical;min-height:80px;}
     </div>
   </div>
 </div>
-
-<!-- MODAL STATUT -->
 <div class="modal-bg" id="modal-statut">
   <div class="modal modal-sm">
     <div class="modal-header"><strong id="statut-modal-title">Nouveau statut</strong><button class="btn btn-sm" onclick="closeModal('modal-statut')">&#10005;</button></div>
@@ -1681,9 +1661,11 @@ function renderMatTable(co, st){
         <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
+          ${currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id)?`
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
           <button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
+          `:''}
           ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${m.id||m.code}','${m.code} — ${m.nom}')">🤝 Demander</button>`:''}
         </td>
       </tr>`).join('')
