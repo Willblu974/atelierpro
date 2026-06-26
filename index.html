@@ -2784,9 +2784,9 @@ function openOTModal(id=null){
   const existingCodes=(existingOT?.matCodes||[existingOT?.mat?.split(' — ')[0]]).map(String);
   document.getElementById('ot-f-materiels-list').innerHTML=mats.map(m=>{
     const checked=existingCodes.includes(String(m.code))||existingCodes.includes(m.id)?'checked':'';
-    return `<label style="display:flex;align-items:center;gap:8px;padding:4px 6px;cursor:pointer;border-radius:4px;hover:background:var(--bg)">
-      <input type="checkbox" value="${m.code}" data-nom="${m.code} — ${m.nom}" ${checked} onchange="updateOTMatCount()">
-      <span style="font-size:13px">${m.code} — ${m.nom}</span></label>`;
+    return `<label style="display:flex;align-items:flex-start;gap:8px;padding:5px 6px;cursor:pointer;border-radius:4px;background:transparent;width:100%;box-sizing:border-box">
+      <input type="checkbox" value="${m.code}" data-nom="${m.code} — ${m.nom}" ${checked} onchange="updateOTMatCount()" style="margin-top:2px;flex-shrink:0">
+      <span style="font-size:13px;line-height:1.4;word-break:break-word">${m.code} — ${m.nom}</span></label>`;
   }).join('');
   updateOTMatCount();
   document.getElementById('ot-mat-search').value='';
