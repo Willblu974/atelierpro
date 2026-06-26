@@ -826,6 +826,7 @@ textarea{resize:vertical;min-height:80px;}
           <option value="technicien">Technicien</option>
           <option value="responsable">Responsable</option>
           <option value="resp_travaux">Responsable travaux</option>
+          <option value="chef_de_chantier">Chef de chantier</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -866,6 +867,7 @@ textarea{resize:vertical;min-height:80px;}
           <option value="technicien">Technicien</option>
           <option value="responsable">Responsable</option>
           <option value="resp_travaux">Responsable travaux</option>
+          <option value="chef_de_chantier">Chef de chantier</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -4583,7 +4585,7 @@ function getUserRole(){
 // ET seulement sur son propre entreprise
 function canEditCalendar(){
   const role = getUserRole();
-  const canRole = ['admin','technicien','resp_travaux'].includes(role);
+  const canRole = ['admin','technicien','resp_travaux','chef_de_chantier'].includes(role);
   const ownCompany = (SB_PROFILE?.entreprise_id||'A') === currentCompany;
   return canRole && ownCompany;
 }
@@ -4601,7 +4603,7 @@ function applyRoles(){
   document.querySelectorAll('.nav-item').forEach(n=>{
     const txt = n.textContent.trim();
     if(txt.includes('Paramètres') || txt.includes('Utilisateurs')){
-      n.style.display = (role==='technicien' || role==='visiteur' || role==='resp_travaux') ? 'none' : '';
+      n.style.display = (role==='technicien' || role==='visiteur' || role==='resp_travaux' || role==='chef_de_chantier') ? 'none' : '';
     }
   });
 
@@ -4618,8 +4620,8 @@ function applyRoles(){
     roleFooter.style.cssText = 'margin-left:8px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;';
     footer.appendChild(roleFooter);
   }
-  const roleColors = {admin:'background:#534ab7;color:#fff', responsable:'background:#185fa5;color:#fff', resp_travaux:'background:#b45309;color:#fff', technicien:'background:#3b6d11;color:#fff', visiteur:'background:#9c9a94;color:#fff'};
-  const roleLabels = {admin:'Admin', responsable:'Responsable', resp_travaux:'Resp. Travaux', technicien:'Technicien', visiteur:'Visiteur'};
+  const roleColors = {admin:'background:#534ab7;color:#fff', responsable:'background:#185fa5;color:#fff', resp_travaux:'background:#b45309;color:#fff', technicien:'background:#3b6d11;color:#fff', chef_de_chantier:'background:#0f6e56;color:#fff', visiteur:'background:#9c9a94;color:#fff'};
+  const roleLabels = {admin:'Admin', responsable:'Responsable', resp_travaux:'Resp. Travaux', technicien:'Technicien', chef_de_chantier:'Chef de chantier', visiteur:'Visiteur'};
   roleFooter.style.cssText += ';' + (roleColors[role]||roleColors.technicien);
   roleFooter.textContent = roleLabels[role]||role;
 }
