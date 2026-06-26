@@ -2317,13 +2317,26 @@ function renderDemandesSection(){
 }
 
 
+function supprimerDemandePret(coCible, demandeId){
+  if(!confirm('Supprimer cette demande ?')) return;
+  ensureDemandesState(coCible);
+  state[coCible].demandesPret=state[coCible].demandesPret.filter(function(x){return x.id!==demandeId;});
+  // Supprimer aussi l'immobilisation associée si elle existait
+  if(state[coCible].evenements){
+    state[coCible].evenements=state[coCible].evenements.filter(function(e){return e.id!=='pret_'+demandeId;});
+  }
+  saveToStorage();
+  renderDashboard(COMPANIES[currentCompany]);
+  renderCalendrier();
+}
+
 function renderDemandesEnvoyeesSection(){
   const tbody=document.getElementById('dash-demandes-env-tbody');
   if(!tbody) return;
   const ownCo=SB_PROFILE?.entreprise_id||currentCompany;
   const header=document.getElementById('dash-demandes-env-header');
   const card=document.getElementById('dash-demandes-env-card');
-  // Collecter toutes les demandes émises par mon entreprise, dans toutes les cibles
+  const today=new Date().toISOString().split('T')[0];
   const coNoms={};
   Object.keys(COMPANIES).forEach(function(k){coNoms[k]=COMPANIES[k].name;});
   const df=function(s){return s?new Date(s).toLocaleDateString('fr-FR'):'—';};
@@ -2331,9 +2344,19 @@ function renderDemandesEnvoyeesSection(){
   Object.keys(state).forEach(function(co){
     if(!state[co].demandesPret) return;
     state[co].demandesPret.forEach(function(d){
-      if(d.entrepriseSource===ownCo){
-        toutes.push(Object.assign({},d,{_coCible:co}));
+      if(d.entrepriseSource!==ownCo) return;
+      // Masquer les demandes acceptées dont la période est terminée
+      if(d.statut==='acceptee'){
+        var debut=d.dateSouhaitee||'';
+        var fin=debut;
+        if(debut && d.duree){
+          var fd=new Date(debut);
+          fd.setDate(fd.getDate()+(parseInt(d.duree)||1)-1);
+          fin=fd.toISOString().split('T')[0];
+        }
+        if(fin && fin<today) return; // période expirée → on saute
       }
+      toutes.push(Object.assign({},d,{_coCible:co}));
     });
   });
   toutes.sort(function(a,b){return (b.dateCreation||'').localeCompare(a.dateCreation||'');});
@@ -2346,12 +2369,16 @@ function renderDemandesEnvoyeesSection(){
       :d.statut==='acceptee'
         ?'<span class="badge badge-ok">✅ Acceptée</span>'
         :'<span class="badge" style="background:var(--red-light);color:var(--red)">❌ Refusée</span>';
+    var co=d._coCible;
+    var did=d.id;
+    var delBtn='<button class="btn btn-sm btn-danger" style="margin-left:4px" onclick="supprimerDemandePret(\''+co+'\',\''+did+'\')">🗑</button>';
     return '<tr><td><strong>'+d.matLabel+'</strong></td>'+
       '<td>'+(coNoms[d._coCible]||d._coCible)+'</td>'+
       '<td>'+df(d.dateSouhaitee)+'</td>'+
       '<td>'+d.duree+' j</td>'+
       '<td style="font-size:12px">'+d.motif+'</td>'+
-      '<td>'+badge+'</td></tr>';
+      '<td>'+badge+'</td>'+
+      '<td>'+delBtn+'</td></tr>';
   }).join('');
 }
 
