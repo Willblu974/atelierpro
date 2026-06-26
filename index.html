@@ -886,7 +886,11 @@ textarea{resize:vertical;min-height:80px;}
     <div class="form-grid">
       <input type="hidden" id="ot-edit-id">
       <div class="form-group"><label>N° OT</label><input id="ot-f-num" placeholder="OT-0001" readonly style="background:var(--surface2)"></div>
-      <div class="form-group"><label>Matériel *</label><select id="ot-f-mat"></select></div>
+      <div class="form-group full">
+        <label>Matériels * <span id="ot-mat-count" style="font-weight:400;color:var(--text3);font-size:12px"></span></label>
+        <input type="text" id="ot-mat-search" placeholder="Rechercher un matériel..." style="margin-bottom:6px;width:100%;box-sizing:border-box" oninput="filterOTMats()">
+        <div id="ot-f-materiels-list" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--surface2)"></div>
+      </div>
       <div class="form-group"><label>Type *</label><select id="ot-f-type"><option value="Correctif">Correctif</option><option value="Préventif">Préventif</option><option value="Amélioratif">Amélioratif</option></select></div>
       <div class="form-group"><label>Priorité</label><select id="ot-f-prio"><option value="info">Normale</option><option value="warn">Élevée</option><option value="alert">Urgente</option></select></div>
       <div class="form-group"><label>Technicien</label><input id="ot-f-tech" placeholder="Nom du technicien"></div>
@@ -2757,19 +2761,41 @@ function otNextNum(){
   const nums=ots.map(o=>parseInt((o.num||'').replace(/\D/g,''))||0);
   return 'OT-'+(String(Math.max(0,...nums)+1)).padStart(4,'0');
 }
+function updateOTMatCount(){
+  const n=document.querySelectorAll('#ot-f-materiels-list input[type=checkbox]:checked').length;
+  const el=document.getElementById('ot-mat-count');
+  if(el) el.textContent=n?'('+n+' sélectionné'+(n>1?'s':'')+')'  :'';
+}
+function filterOTMats(){
+  const q=document.getElementById('ot-mat-search').value.toLowerCase();
+  document.querySelectorAll('#ot-f-materiels-list label').forEach(function(lbl){
+    const txt=lbl.textContent.toLowerCase();
+    lbl.style.display=(!q||txt.includes(q))?'':'none';
+  });
+}
+
 function openOTModal(id=null){
   editingOTId=id;
   ensureOTState(COMPANIES[currentCompany]);
   ensureMatState(COMPANIES[currentCompany]);
   const mats=state[currentCompany].materiels||[];
-  document.getElementById('ot-f-mat').innerHTML=mats.map(m=>`<option value="${m.code}">${m.code} — ${m.nom}</option>`).join('');
+  // Populate multi-select checkbox list
+  const existingOT=id?(state[currentCompany].ots||[]).find(o=>o.id===id):null;
+  const existingCodes=(existingOT?.matCodes||[existingOT?.mat?.split(' — ')[0]]).map(String);
+  document.getElementById('ot-f-materiels-list').innerHTML=mats.map(m=>{
+    const checked=existingCodes.includes(String(m.code))||existingCodes.includes(m.id)?'checked':'';
+    return `<label style="display:flex;align-items:center;gap:8px;padding:4px 6px;cursor:pointer;border-radius:4px;hover:background:var(--bg)">
+      <input type="checkbox" value="${m.code}" data-nom="${m.code} — ${m.nom}" ${checked} onchange="updateOTMatCount()">
+      <span style="font-size:13px">${m.code} — ${m.nom}</span></label>`;
+  }).join('');
+  updateOTMatCount();
+  document.getElementById('ot-mat-search').value='';
   // Populate OT select for mvt
   const otSel=document.getElementById('mvt-f-ot');
   if(otSel) otSel.innerHTML='<option value="">— Aucun —</option>'+(state[currentCompany].ots||[]).map(o=>`<option value="${o.num}">${o.num} — ${o.mat}</option>`).join('');
-  const ot=id?(state[currentCompany].ots||[]).find(o=>o.id===id):null;
+  const ot=existingOT;
   document.getElementById('ot-modal-title').textContent=id?'Modifier OT':'Nouvel ordre de travail';
   document.getElementById('ot-f-num').value=ot?.num||otNextNum();
-  document.getElementById('ot-f-mat').value=ot?.mat?.split(' ')[0]||'';
   document.getElementById('ot-f-type').value=ot?.type||'Correctif';
   document.getElementById('ot-f-prio').value=ot?.prio||'info';
   document.getElementById('ot-f-tech').value=ot?.tech||'';
@@ -2783,14 +2809,16 @@ function openOTModal(id=null){
 function openOTEdit(id){openOTModal(id);}
 function saveOT(){
   const num=document.getElementById('ot-f-num').value;
-  const matVal=document.getElementById('ot-f-mat').value;
-  if(!matVal){alert('Sélectionnez un matériel.');return;}
+  const checkedMats=[...document.querySelectorAll('#ot-f-materiels-list input[type=checkbox]:checked')];
+  if(!checkedMats.length){alert('Sélectionnez au moins un matériel.');return;}
+  const matCodes=checkedMats.map(cb=>cb.value);
+  const matLabels=checkedMats.map(cb=>cb.dataset.nom||cb.value);
+  const matStr=matLabels.join(', ');
+  const matVal=matCodes[0]; // premier matériel pour compat. statut
   const mats=state[currentCompany].materiels||[];
-  const mat=mats.find(m=>m.code===matVal);
-  const matStr=mat?`${mat.code} — ${mat.nom}`:matVal;
   const ots=state[currentCompany].ots;
   const rec={
-    id:num, num, mat:matStr, type:document.getElementById('ot-f-type').value,
+    id:num, num, mat:matStr, matCodes, type:document.getElementById('ot-f-type').value,
     prio:document.getElementById('ot-f-prio').value, tech:document.getElementById('ot-f-tech').value,
     dur:document.getElementById('ot-f-dur').value, statut:document.getElementById('ot-f-statut').value,
     date:document.getElementById('ot-f-date').value, desc:document.getElementById('ot-f-desc').value,
