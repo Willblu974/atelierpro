@@ -2507,9 +2507,9 @@ function openMatDetail(id){
 function saveToStorage(){
   try {
     localStorage.setItem('atelierPro_state', JSON.stringify({
-      A:{ familles:state.A.familles, statuts:state.A.statuts, materiels:state.A.materiels, evenements:state.A.evenements||[] },
-      B:{ familles:state.B.familles, statuts:state.B.statuts, materiels:state.B.materiels, evenements:state.B.evenements||[] },
-      C:{ familles:state.C.familles, statuts:state.C.statuts, materiels:state.C.materiels, evenements:state.C.evenements||[] },
+      A:{ familles:state.A.familles, statuts:state.A.statuts, materiels:state.A.materiels, evenements:state.A.evenements||[], demandesPret:state.A.demandesPret||[] },
+      B:{ familles:state.B.familles, statuts:state.B.statuts, materiels:state.B.materiels, evenements:state.B.evenements||[], demandesPret:state.B.demandesPret||[] },
+      C:{ familles:state.C.familles, statuts:state.C.statuts, materiels:state.C.materiels, evenements:state.C.evenements||[], demandesPret:state.C.demandesPret||[] },
     }));
     // Sauvegarder infos entreprises séparément (logo en base64 peut être volumineux)
     ['A','B','C'].forEach(id=>{
@@ -2526,10 +2526,11 @@ function loadFromStorage(){
     if(saved){
       const data = JSON.parse(saved);
       ['A','B','C'].forEach(id=>{
-        if(data[id]?.familles)  state[id].familles  = data[id].familles;
-        if(data[id]?.statuts)   state[id].statuts   = data[id].statuts;
-        if(data[id]?.materiels)  state[id].materiels  = data[id].materiels;
-        if(data[id]?.evenements) state[id].evenements = data[id].evenements;
+        if(data[id]?.familles)    state[id].familles    = data[id].familles;
+        if(data[id]?.statuts)     state[id].statuts     = data[id].statuts;
+        if(data[id]?.materiels)   state[id].materiels   = data[id].materiels;
+        if(data[id]?.evenements)  state[id].evenements  = data[id].evenements;
+        if(data[id]?.demandesPret) state[id].demandesPret = data[id].demandesPret;
       });
     }
     // Charger infos entreprises
