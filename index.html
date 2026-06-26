@@ -2130,6 +2130,9 @@ function saveMat(){
     });
   }
   saveToStorage();
+  // Sync Supabase
+  const savedMat = state[currentCompany].materiels.find(m=>m.code===code||m.id===(editingMatId||code));
+  if(savedMat) syncMaterielToSupabase(savedMat);
   closeModal('modal-materiel');
   const co = COMPANIES[currentCompany], st = state[currentCompany];
   renderMateriels(co, st);
