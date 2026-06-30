@@ -523,7 +523,7 @@ textarea{resize:vertical;min-height:80px;}
       <!-- Archives mouvements pièces détachées -->
       <div class="section-header" style="margin-top:18px">
         <div class="section-title">📦 Archives mouvements pièces détachées</div>
-        <button class="btn btn-sm btn-edit" onclick="checkAndAutoArchiveMvt()">🔄 Archiver maintenant</button>
+        <button class="btn btn-sm btn-edit" onclick="forceArchiveMvtNow()">🔄 Archiver maintenant</button>
       </div>
       <div class="card">
         <div class="card-body" id="archives-mvt-section" style="padding:4px 0">
@@ -5421,6 +5421,41 @@ function checkAndAutoArchiveMvt(){
   if(archived.length){
     saveArchivesMvt(currentCompany,archives);
     if(typeof showToast==='function') showToast('📦 Mouvements archivés : '+archived.join(', '),'success');
+  }
+  renderArchivesMvtSection();
+}
+function forceArchiveMvtNow(){
+  const now=new Date();
+  const curMois=now.getMonth()+1;
+  const curAnnee=now.getFullYear();
+  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const archives=getArchivesMvt(currentCompany);
+  // Archive tous les mois qui ont des mouvements, y compris le mois en cours
+  let archived=[];
+  for(let i=0;i<=12;i++){
+    let m=curMois-i, y=curAnnee;
+    if(m<=0){m+=12;y--;}
+    if(y<curAnnee-1) break;
+    const key=y+'-'+String(m).padStart(2,'0');
+    const mvts=getMvtsPourMoisPieces(currentCompany,m,y);
+    if(!mvts.length) continue;
+    archives[key]={
+      moisNom:moisNoms[m-1], annee:y,
+      mvts:[...mvts],
+      nbEntrees:mvts.filter(function(mv){return mv.type==='in';}).length,
+      nbSorties:mvts.filter(function(mv){return mv.type==='out';}).length,
+      nbAjust:mvts.filter(function(mv){return mv.type!=='in'&&mv.type!=='out';}).length,
+      dateArchive:toDS(now)
+    };
+    archived.push(moisNoms[m-1]+' '+y);
+  }
+  if(archived.length){
+    saveArchivesMvt(currentCompany,archives);
+    if(typeof showToast==='function') showToast('📦 Archivé : '+archived.join(', '),'success');
+    else alert('Archivé : '+archived.join(', '));
+  } else {
+    if(typeof showToast==='function') showToast('Aucun mouvement à archiver','info');
+    else alert('Aucun mouvement à archiver.');
   }
   renderArchivesMvtSection();
 }
