@@ -451,6 +451,7 @@ textarea{resize:vertical;min-height:80px;}
         <div class="tab active" onclick="switchTab(this,'maint-ot')">Ordres de travail</div>
         <div class="tab" onclick="switchTab(this,'maint-plan')">Plans préventifs</div>
         <div class="tab" onclick="switchTab(this,'maint-histo')">Historique</div>
+        <div class="tab" onclick="switchTab(this,'maint-archives-ot')">📦 Archives OT</div>
       </div>
       <div id="maint-ot">
         <div class="stat-row" id="ot-stats">
@@ -487,6 +488,20 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div id="maint-histo" style="display:none">
         <div class="card"><div class="card-body"><table><thead><tr><th>Date</th><th>Matériel</th><th>Opération</th><th>Technicien</th><th>Durée</th><th>Coût pièces</th><th>Coût MO</th><th>OT lié</th></tr></thead><tbody id="histo-tbody"></tbody></table></div></div>
+      </div>
+      <div id="maint-archives-ot" style="display:none">
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-body" style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <strong style="font-size:14px">📦 Archives OT mensuels</strong>
+            <span style="color:var(--text3);font-size:13px">Archivage automatique chaque mois</span>
+            <button class="btn btn-sm btn-edit" style="margin-left:auto" onclick="checkAndAutoArchiveOT()">🔄 Archiver maintenant</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body" id="archives-ot-section" style="padding:4px 0">
+            <p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive OT disponible</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2011,7 +2026,7 @@ const PAGE_TITLES={dashboard:'Tableau de bord',materiels:'Matériels',maintenanc
 function switchTab(el,targetId){
   el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  ['maint-ot','maint-plan','maint-histo'].forEach(id=>document.getElementById(id).style.display='none');
+  ['maint-ot','maint-plan','maint-histo','maint-archives-ot'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById(targetId).style.display='block';
 }
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -2835,11 +2850,13 @@ function saveOT(){
     prio:document.getElementById('ot-f-prio').value, tech:document.getElementById('ot-f-tech').value,
     dur:document.getElementById('ot-f-dur').value, statut:document.getElementById('ot-f-statut').value,
     date:document.getElementById('ot-f-date').value, desc:document.getElementById('ot-f-desc').value,
+    dateMaj:toDS(new Date()),
   };
   if(editingOTId){
     const idx=ots.findIndex(o=>o.id===editingOTId);
-    if(idx>=0) ots[idx]={...ots[idx],...rec};
+    if(idx>=0){const existing=ots[idx];rec.dateCreation=existing.dateCreation||toDS(new Date());ots[idx]={...existing,...rec};}
   } else {
+    rec.dateCreation=toDS(new Date());
     ots.push(rec);
     // Update matériel statut if OT en cours
     if(rec.statut==='encours'||rec.statut==='bloque'){
@@ -2849,6 +2866,7 @@ function saveOT(){
   }
   saveToStorage(); closeModal('modal-ot');
   renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
+  renderArchivesOTSection();
   renderMateriels(COMPANIES[currentCompany],state[currentCompany]);
 }
 async function deleteOT(id){
@@ -4716,7 +4734,7 @@ function enterApp(){
   loadNotifConfig();
   startNotifTimer();
   // Vérifier et archiver les journaux des mois passés
-  setTimeout(()=>{ checkAndAutoArchive(); renderArchivesSection(); }, 800);
+  setTimeout(()=>{ checkAndAutoArchive(); renderArchivesSection(); checkAndAutoArchiveOT(); }, 800);
 }
 
 async function doLogout(){
@@ -5347,6 +5365,153 @@ function getArchivesJournal(companyId){
 function saveArchivesJournal(companyId,archives){
   try{ localStorage.setItem('atelierPro_archives_'+companyId,JSON.stringify(archives)); }catch(e){}
 }
+
+function getArchivesOT(companyId){
+  try{const s=localStorage.getItem('atelierPro_archives_ot_'+companyId);return s?JSON.parse(s):{};}
+  catch(e){return {};}
+}
+function saveArchivesOT(companyId,archives){
+  try{localStorage.setItem('atelierPro_archives_ot_'+companyId,JSON.stringify(archives));}catch(e){}
+}
+function getOTsPourMois(companyId,mois,annee){
+  const ots=state[companyId]?.ots||[];
+  return ots.filter(function(o){
+    const d=new Date(o.dateCreation||o.dateMaj||o.date||'');
+    if(isNaN(d)) return false;
+    return d.getMonth()+1===mois && d.getFullYear()===annee;
+  });
+}
+function checkAndAutoArchiveOT(){
+  const now=new Date();
+  const curMois=now.getMonth()+1;
+  const curAnnee=now.getFullYear();
+  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const archives=getArchivesOT(currentCompany);
+  const archived=[];
+  for(let i=1;i<=12;i++){
+    let m=curMois-i, y=curAnnee;
+    if(m<=0){m+=12;y--;}
+    if(y<curAnnee-1||(y===curAnnee-1&&m<curMois)) break;
+    const key=y+'-'+String(m).padStart(2,'0');
+    if(archives[key]) continue;
+    const ots=getOTsPourMois(currentCompany,m,y);
+    if(!ots.length) continue;
+    archives[key]={
+      moisNom:moisNoms[m-1], annee:y,
+      ots:[...ots],
+      nbPlanifie:ots.filter(function(o){return o.statut==='planifie';}).length,
+      nbEncours:ots.filter(function(o){return o.statut==='encours';}).length,
+      nbTermine:ots.filter(function(o){return o.statut==='termine';}).length,
+      nbBloque:ots.filter(function(o){return o.statut==='bloque';}).length,
+      dateArchive:toDS(now)
+    };
+    archived.push(moisNoms[m-1]+' '+y);
+  }
+  if(archived.length){
+    saveArchivesOT(currentCompany,archives);
+    if(typeof showToast==='function') showToast('📦 OT archivés : '+archived.join(', '),'success');
+  }
+  renderArchivesOTSection();
+}
+function renderArchivesOTSection(){
+  const el=document.getElementById('archives-ot-section');
+  if(!el) return;
+  const archives=getArchivesOT(currentCompany);
+  const keys=Object.keys(archives).sort().reverse();
+  if(!keys.length){
+    el.innerHTML='<p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive OT disponible</p>';
+    return;
+  }
+  // Grouper par année
+  const byYear={};
+  keys.forEach(function(key){
+    const y=key.split('-')[0];
+    if(!byYear[y]) byYear[y]=[];
+    byYear[y].push(key);
+  });
+  let html='';
+  Object.keys(byYear).sort().reverse().forEach(function(y){
+    html+='<div style="padding:8px 16px;font-weight:600;color:var(--text3);font-size:12px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)">📅 '+y+'</div>';
+    html+='<table class="archive-table"><thead><tr><th>Période</th><th>Total OT</th><th>Planifiés</th><th>En cours</th><th>Terminés</th><th>Bloqués</th><th>Archivé le</th><th></th></tr></thead><tbody>';
+    byYear[y].forEach(function(key){
+      const a=archives[key];
+      const total=(a.ots||[]).length;
+      html+='<tr>'+
+        '<td style="font-weight:600">'+a.moisNom+' '+a.annee+'</td>'+
+        '<td><strong>'+total+'</strong></td>'+
+        '<td><span style="background:#e0f2fe;color:#075985;padding:2px 8px;border-radius:4px;font-size:11px">'+( a.nbPlanifie||0)+'</span></td>'+
+        '<td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbEncours||0)+'</span></td>'+
+        '<td><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbTermine||0)+'</span></td>'+
+        '<td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbBloque||0)+'</span></td>'+
+        '<td style="color:#999;font-size:12px">'+(a.dateArchive||'—')+'</td>'+
+        '<td><button class="btn btn-sm btn-edit" onclick="printArchivedOT(\''+key+'\')">📄 PDF</button></td>'+
+        '</tr>';
+    });
+    html+='</tbody></table>';
+  });
+  el.innerHTML=html;
+}
+function printArchivedOT(key){
+  const archives=getArchivesOT(currentCompany);
+  const a=archives[key];
+  if(!a){alert('Archive introuvable.');return;}
+  const co=state[currentCompany];
+  const coInfo=COMPANIES[currentCompany];
+  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const header=buildPDFHeader(co,coInfo,now);
+  const ots=a.ots||[];
+  const PRIO={info:'Normale',warn:'Élevée',alert:'Urgente'};
+  const STATUT={planifie:'Planifié',encours:'En cours',bloque:'Bloqué',termine:'Terminé'};
+  const STATUT_COLOR={planifie:'#075985',encours:'#92400e',bloque:'#991b1b',termine:'#065f46'};
+  const STATUT_BG={planifie:'#e0f2fe',encours:'#fef3c7',bloque:'#fee2e2',termine:'#d1fae5'};
+  let rows='';
+  if(ots.length){
+    ots.forEach(function(o,i){
+      const bg=i%2===0?'#f9f9f7':'#fff';
+      const statLabel=STATUT[o.statut]||o.statut;
+      const statColor=STATUT_COLOR[o.statut]||'#555';
+      const statBg=STATUT_BG[o.statut]||'#eee';
+      rows+='<tr style="background:'+bg+'">'+
+        '<td style="padding:7px 10px;font-weight:600;color:'+coInfo.color+'">'+o.num+'</td>'+
+        '<td style="padding:7px 10px">'+o.mat+'</td>'+
+        '<td style="padding:7px 10px">'+o.type+'</td>'+
+        '<td style="padding:7px 10px"><span style="background:'+statBg+';color:'+statColor+';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">'+statLabel+'</span></td>'+
+        '<td style="padding:7px 10px">'+(PRIO[o.prio]||o.prio||'—')+'</td>'+
+        '<td style="padding:7px 10px">'+(o.tech||'—')+'</td>'+
+        '<td style="padding:7px 10px">'+(o.date||'—')+'</td>'+
+        '<td style="padding:7px 10px;font-size:11px;color:#555">'+(o.desc||'—')+'</td>'+
+        '</tr>';
+    });
+  } else {
+    rows='<tr><td colspan="8" style="padding:24px;text-align:center;color:#999">Aucun OT pour cette période</td></tr>';
+  }
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+    '<title>Rapport OT '+a.moisNom+' '+a.annee+'</title>'+
+    '<style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:12px}table{width:100%;border-collapse:collapse}th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600}td{border-bottom:1px solid #eee}@media print{body{padding:10px}}</style>'+
+    '</head><body>'+
+    header+
+    '<div style="margin-bottom:18px">'+
+      '<h2 style="font-size:16px;font-weight:700;color:'+coInfo.color+';margin:0 0 4px">🔧 Rapport Ordres de Travail</h2>'+
+      '<div style="font-size:13px;color:#555">Période : <strong>'+a.moisNom+' '+a.annee+'</strong> — Archive automatique mensuelle</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">'+
+      '<div style="background:#f3f4f6;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#374151">'+ots.length+'</div><div style="font-size:11px;color:#555">Total OT</div></div>'+
+      '<div style="background:#e0f2fe;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#075985">'+(a.nbPlanifie||0)+'</div><div style="font-size:11px;color:#075985">Planifiés</div></div>'+
+      '<div style="background:#fef3c7;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#92400e">'+(a.nbEncours||0)+'</div><div style="font-size:11px;color:#92400e">En cours</div></div>'+
+      '<div style="background:#d1fae5;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#065f46">'+(a.nbTermine||0)+'</div><div style="font-size:11px;color:#065f46">Terminés</div></div>'+
+      '<div style="background:#fee2e2;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#991b1b">'+(a.nbBloque||0)+'</div><div style="font-size:11px;color:#991b1b">Bloqués</div></div>'+
+    '</div>'+
+    '<table><thead><tr style="background:'+coInfo.color+';color:#fff">'+
+      '<th>N° OT</th><th>Matériel(s)</th><th>Type</th><th>Statut</th><th>Priorité</th><th>Technicien</th><th>Date prévue</th><th>Description</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999">'+
+      '<span>AtelierPro — Archive générée le '+now+'</span>'+
+      '<span>'+coInfo.name+' — '+a.moisNom+' '+a.annee+'</span>'+
+    '</div>'+
+    '</body></html>';
+  printHTMLDocument(html);
+}
+
 
 function getMvtsPourMois(companyId,mois,annee){
   const co=state[companyId];
