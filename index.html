@@ -3429,10 +3429,11 @@ function saveMvt(){
   // Enregistrer mouvement
   if(!state[currentCompany].mouvements) state[currentCompany].mouvements=[];
   const d=new Date();
+  const otLieVal=document.getElementById('mvt-f-ot')?.value||'';
   state[currentCompany].mouvements.unshift({
     date:d.toLocaleDateString('fr-FR'),isoDate:d.toISOString().slice(0,10),ref:p.ref,nom:p.nom,
     type,qte:type==='in'?'+'+qte:type==='out'?'-'+qte:'='+qte,
-    motif,apres:String(newStock),
+    motif,otLie:otLieVal,apres:String(newStock),
     utilisateur:SB_PROFILE?.nom||'Local'
   });
   saveToStorage(); closeModal('modal-mvt'); renderPieces(COMPANIES[currentCompany]); renderStock(COMPANIES[currentCompany]);
@@ -3989,7 +3990,11 @@ function renderCouts(co){
 
   // Pièces depuis mouvements de stock liés à un OT
   mvts.filter(m=>m.type==='out').forEach(m=>{
-    const ot = ots.find(o=>o.num===m.motif||m.motif?.includes(o.num));
+    // Chercher l'OT via otLie (champ dédié) en priorité, sinon via motif
+    const ot = ots.find(o=>
+      (m.otLie && (o.num===m.otLie || m.otLie.includes(o.num))) ||
+      (!m.otLie && (o.num===m.motif || m.motif?.includes(o.num)))
+    );
     const code = ot ? ot.mat.split(' ')[0] : null;
     if(!code || !coutParMat[code]) return;
     const p = pieces.find(x=>x.ref===m.ref);
