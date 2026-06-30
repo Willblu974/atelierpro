@@ -1361,8 +1361,9 @@ textarea{resize:vertical;min-height:80px;}
     </div>
     <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
       <div class="form-group">
-        <label>Matériel</label>
-        <input id="dp-mat" readonly style="background:var(--surface2)">
+        <label>Matériels * <span id="dp-mat-count" style="font-weight:400;color:var(--text3);font-size:12px"></span></label>
+        <input type="text" id="dp-mat-search" placeholder="Rechercher..." oninput="filterDPMats()" style="margin-bottom:6px">
+        <div id="dp-mat-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--surface2)"></div>
       </div>
       <div class="form-group">
         <label>Entreprise propriétaire</label>
@@ -2258,16 +2259,35 @@ function ensureDemandesState(co){
 }
 
 function openDemandePret(matId, matLabel){
-  document.getElementById('dp-mat').value=matLabel;
-  document.getElementById('dp-co-cible').value=COMPANIES[currentCompany]?.name||currentCompany;
+  const coCible=currentCompany;
+  document.getElementById('dp-co-cible').value=COMPANIES[coCible]?.name||coCible;
   document.getElementById('dp-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('dp-duree').value='';
   document.getElementById('dp-motif').value='';
   document.getElementById('dp-contact').value=SB_PROFILE?.nom||'';
-  document.getElementById('modal-demande-pret').dataset.matId=matId;
-  document.getElementById('modal-demande-pret').dataset.matLabel=matLabel;
-  document.getElementById('modal-demande-pret').dataset.coCible=currentCompany;
-  document.getElementById('modal-demande-pret').classList.add('open');
+  document.getElementById('dp-mat-search').value='';
+  const modal=document.getElementById('modal-demande-pret');
+  modal.dataset.coCible=coCible;
+  const mats=state[coCible]?.materiels||[];
+  const list=document.getElementById('dp-mat-list');
+  list.innerHTML=mats.map(function(m){
+    const mid=m.id||m.code;
+    const checked=(String(mid)===String(matId))?'checked':'';
+    return '<label class="mat-check-item"><input type="checkbox" class="dp-mat-cb" value="'+mid+'" data-code="'+m.code+'" data-nom="'+m.nom+'" '+checked+' onchange="dpUpdateMatCount()"> <strong>'+m.code+'</strong> — '+m.nom+'</label>';
+  }).join('');
+  dpUpdateMatCount();
+  modal.classList.add('open');
+}
+function filterDPMats(){
+  const q=(document.getElementById('dp-mat-search')?.value||'').toLowerCase();
+  document.querySelectorAll('#dp-mat-list .mat-check-item').forEach(function(el){
+    el.style.display=(!q||el.textContent.toLowerCase().includes(q))?'':'none';
+  });
+}
+function dpUpdateMatCount(){
+  const n=document.querySelectorAll('.dp-mat-cb:checked').length;
+  const el=document.getElementById('dp-mat-count');
+  if(el) el.textContent=n>0?n+' sélectionné'+(n>1?'s':''):'';
 }
 
 function saveDemandePret(){
@@ -2275,13 +2295,17 @@ function saveDemandePret(){
   const duree=document.getElementById('dp-duree').value;
   const motif=document.getElementById('dp-motif').value.trim();
   if(!date||!duree||!motif){alert('Date, durée et motif sont obligatoires.');return;}
+  const cbs=document.querySelectorAll('.dp-mat-cb:checked');
+  if(!cbs.length){alert('Sélectionnez au moins un matériel.');return;}
   const modal=document.getElementById('modal-demande-pret');
   const coCible=modal.dataset.coCible;
   ensureDemandesState(coCible);
+  const matCodes=[],matLabels=[];
+  cbs.forEach(function(cb){matCodes.push(cb.value);matLabels.push(cb.dataset.code+' — '+cb.dataset.nom);});
   const rec={
     id:'DEMANDE-'+Date.now(),
-    matCode:modal.dataset.matId,
-    matLabel:modal.dataset.matLabel,
+    matCode:matCodes[0], matLabel:matLabels[0],
+    matCodes:matCodes, matLabels:matLabels,
     entrepriseSource:SB_PROFILE?.entreprise_id||'A',
     nomSource:SB_PROFILE?.nom||'—',
     coCibleId:coCible,
@@ -2295,7 +2319,7 @@ function saveDemandePret(){
   state[coCible].demandesPret.push(rec);
   saveToStorage();
   closeModal('modal-demande-pret');
-  alert('✅ Demande envoyée à '+( COMPANIES[coCible]?.name||coCible)+' !');
+  alert('✅ Demande de '+matCodes.length+' matériel(s) envoyée à '+(COMPANIES[coCible]?.name||coCible)+' !');
 }
 
 function traiterDemandePret(coId, demandeId, action){
@@ -2315,14 +2339,16 @@ function traiterDemandePret(coId, demandeId, action){
     var coNom=(COMPANIES[d.entrepriseSource]||{}).name||d.entrepriseSource||'?';
     // Supprimer l'ancienne entrée si re-acceptation
     state[coId].evenements=state[coId].evenements.filter(function(e){return e.id!=='pret_'+demandeId;});
+    var mIds=d.matCodes||[String(d.matCode)];
+    var mNoms=d.matLabels||[d.matLabel||d.matCode];
     state[coId].evenements.push({
       id:'pret_'+demandeId,
       titre:'🤝 Prêté — '+coNom,
       date:debut,
       dateDebut:debut,
       dateFin:finStr,
-      materielIds:[String(d.matCode)],
-      materielNoms:[d.matLabel||d.matCode],
+      materielIds:mIds,
+      materielNoms:mNoms,
       motif:'Demande de prêt acceptée ('+d.nomSource+')',
       couleur:{bg:'#fef3c7',text:'#92400e'}
     });
