@@ -2600,9 +2600,14 @@ function generatePretPDF(rec){
   const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
   const header=buildPDFHeader(co,coInfo,now);
   // Supporte multi-matériels
+  const allCodes=rec.matCodes||[rec.matCode];
   const allLabels=rec.matLabels||[rec.matLabel||rec.matCode];
+  const mats=state[currentCompany]?.materiels||[];
   const matListHTML=allLabels.map(function(l,i){
-    return '<tr style="background:'+(i%2===0?'#f9f9f7':'#fff')+'"><td style="padding:7px 10px;font-weight:600;color:'+coInfo.color+'">'+(i+1)+'</td><td style="padding:7px 10px">'+l+'</td></tr>';
+    const mc=allCodes[i];
+    const mat=mats.find(function(m){return (m.id||m.code)===mc||m.code===mc;});
+    const serie=mat?.serie||'—';
+    return '<tr style="background:'+(i%2===0?'#f9f9f7':'#fff')+'"><td style="padding:7px 10px;font-weight:600;color:'+coInfo.color+'">'+(i+1)+'</td><td style="padding:7px 10px">'+l+'</td><td style="padding:7px 10px;color:#555;font-size:12px">'+serie+'</td></tr>';
   }).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>Fiche de prêt</title>
@@ -2622,7 +2627,7 @@ function generatePretPDF(rec){
 
   <div style="margin-bottom:18px">
     <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Matériels prêtés (${allLabels.length})</div>
-    <table><thead><tr style="background:${coInfo.color};color:#fff"><th>#</th><th>Désignation</th></tr></thead>
+    <table><thead><tr style="background:${coInfo.color};color:#fff"><th>#</th><th>Désignation</th><th>N° Série</th></tr></thead>
     <tbody>${matListHTML}</tbody></table>
   </div>
 
