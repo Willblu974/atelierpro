@@ -589,6 +589,16 @@ textarea{resize:vertical;min-height:80px;}
         <select id="bdc-st-filter" onchange="renderBDCTable()" style="max-width:180px"><option value="">Tous statuts</option><option value="encours">En cours</option><option value="transit">En transit</option><option value="bloque">Douane bloquée</option><option value="livre">Livré</option></select>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>N° BDC</th><th>Fournisseur</th><th>Date</th><th>Articles</th><th>Montant HT</th><th>Mode</th><th>Statut</th><th></th></tr></thead><tbody id="cmd-tbody"></tbody></table></div></div>
+      <!-- Archives BDC -->
+      <div class="section-header" style="margin-top:18px">
+        <div class="section-title">📦 Archives bons de commande</div>
+        <button class="btn btn-sm btn-edit" onclick="forceArchiveBDCNow()">🔄 Archiver maintenant</button>
+      </div>
+      <div class="card">
+        <div class="card-body" id="archives-bdc-section" style="padding:4px 0">
+          <p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive disponible</p>
+        </div>
+      </div>
     </div>
 
     <div class="page" id="page-transport">
@@ -3543,7 +3553,9 @@ function saveBDC(){
     art:document.getElementById('bdc-f-art').value,
     statut:document.getElementById('bdc-f-statut').value,
     livraison:document.getElementById('bdc-f-livraison').value,
-    articles:document.getElementById('bdc-f-articles').value.trim()
+    articles:document.getElementById('bdc-f-articles').value.trim(),
+    utilisateur:SB_PROFILE?.nom||'Local',
+    dateCreation:editingBDCId?undefined:new Date().toISOString().slice(0,10)
   };
   if(editingBDCId){
     const idx=bdcs.findIndex(b=>b.id===editingBDCId);
@@ -4746,7 +4758,7 @@ function enterApp(){
   loadNotifConfig();
   startNotifTimer();
   // Vérifier et archiver les journaux des mois passés
-  setTimeout(()=>{ checkAndAutoArchive(); renderArchivesSection(); checkAndAutoArchiveOT(); checkAndAutoArchiveMvt(); }, 800);
+  setTimeout(()=>{ checkAndAutoArchive(); renderArchivesSection(); checkAndAutoArchiveOT(); checkAndAutoArchiveMvt(); checkAndAutoArchiveBDC(); }, 800);
 }
 
 async function doLogout(){
@@ -5545,6 +5557,194 @@ function printArchivedMvt(key){
     '</div>'+
     '<table><thead><tr style="background:'+coInfo.color+';color:#fff">'+
       '<th>Date</th><th>Référence</th><th>Désignation</th><th>Type</th><th>Qté</th><th>Motif</th><th>Stock après</th><th>Utilisateur</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999">'+
+      '<span>AtelierPro — Archive générée le '+now+'</span>'+
+      '<span>'+coInfo.name+' — '+a.moisNom+' '+a.annee+'</span>'+
+    '</div>'+
+    '</body></html>';
+  printHTMLDocument(html);
+}
+
+
+function getArchivesBDC(companyId){
+  try{const s=localStorage.getItem('atelierPro_archives_bdc_'+companyId);return s?JSON.parse(s):{};}
+  catch(e){return {};}
+}
+function saveArchivesBDC(companyId,archives){
+  try{localStorage.setItem('atelierPro_archives_bdc_'+companyId,JSON.stringify(archives));}catch(e){}
+}
+function getBDCsForKey(companyId,key){
+  // key = YYYY-MM
+  const [y,m]=key.split('-').map(Number);
+  const bdcs=state[companyId]?.bdcs||[];
+  return bdcs.filter(function(b){
+    const raw=b.date||b.dateCreation||'';
+    let d;
+    // Support dd/mm/yyyy or yyyy-mm-dd
+    if(raw.includes('/')){const p=raw.split('/');d=new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));}
+    else d=new Date(raw);
+    if(isNaN(d)) return false;
+    return d.getMonth()+1===m && d.getFullYear()===y;
+  });
+}
+function checkAndAutoArchiveBDC(){
+  const now=new Date();
+  const curMois=now.getMonth()+1;
+  const curAnnee=now.getFullYear();
+  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const archives=getArchivesBDC(currentCompany);
+  const archived=[];
+  for(let i=1;i<=12;i++){
+    let m=curMois-i, y=curAnnee;
+    if(m<=0){m+=12;y--;}
+    if(y<curAnnee-1) break;
+    const key=y+'-'+String(m).padStart(2,'0');
+    if(archives[key]) continue;
+    const bdcs=getBDCsForKey(currentCompany,key);
+    if(!bdcs.length) continue;
+    archives[key]={
+      moisNom:moisNoms[m-1], annee:y, bdcs:[...bdcs],
+      nbEncours:bdcs.filter(function(b){return b.statut==='encours';}).length,
+      nbTransit:bdcs.filter(function(b){return b.statut==='transit';}).length,
+      nbLivre:bdcs.filter(function(b){return b.statut==='livre';}).length,
+      nbBloque:bdcs.filter(function(b){return b.statut==='bloque';}).length,
+      dateArchive:toDS(now)
+    };
+    archived.push(moisNoms[m-1]+' '+y);
+  }
+  if(archived.length){ saveArchivesBDC(currentCompany,archives); }
+  renderArchivesBDCSection();
+}
+function forceArchiveBDCNow(){
+  const now=new Date();
+  const curMois=now.getMonth()+1;
+  const curAnnee=now.getFullYear();
+  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const archives=getArchivesBDC(currentCompany);
+  // Regrouper tous les BDC par mois/année
+  const bdcsAll=state[currentCompany]?.bdcs||[];
+  const byKey={};
+  bdcsAll.forEach(function(b){
+    const raw=b.date||b.dateCreation||'';
+    let d;
+    if(raw.includes('/')){const p=raw.split('/');d=new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));}
+    else d=new Date(raw);
+    if(isNaN(d)) return;
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    if(!byKey[key]) byKey[key]=[];
+    byKey[key].push(b);
+  });
+  const archived=[];
+  Object.keys(byKey).forEach(function(key){
+    const [y,m]=key.split('-').map(Number);
+    const bdcs=byKey[key];
+    archives[key]={
+      moisNom:moisNoms[m-1], annee:y, bdcs:[...bdcs],
+      nbEncours:bdcs.filter(function(b){return b.statut==='encours';}).length,
+      nbTransit:bdcs.filter(function(b){return b.statut==='transit';}).length,
+      nbLivre:bdcs.filter(function(b){return b.statut==='livre';}).length,
+      nbBloque:bdcs.filter(function(b){return b.statut==='bloque';}).length,
+      dateArchive:toDS(now)
+    };
+    archived.push(moisNoms[m-1]+' '+y);
+  });
+  if(archived.length){
+    saveArchivesBDC(currentCompany,archives);
+    if(typeof showToast==='function') showToast('📦 BDC archivés : '+archived.join(', '),'success');
+    else alert('Archivé : '+archived.join(', '));
+  } else {
+    if(typeof showToast==='function') showToast('Aucun bon de commande à archiver','info');
+    else alert('Aucun bon de commande à archiver.');
+  }
+  renderArchivesBDCSection();
+}
+function renderArchivesBDCSection(){
+  const el=document.getElementById('archives-bdc-section');
+  if(!el) return;
+  const archives=getArchivesBDC(currentCompany);
+  const keys=Object.keys(archives).sort().reverse();
+  if(!keys.length){
+    el.innerHTML='<p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive disponible</p>';
+    return;
+  }
+  const byYear={};
+  keys.forEach(function(key){const y=key.split('-')[0];if(!byYear[y])byYear[y]=[];byYear[y].push(key);});
+  let html='';
+  Object.keys(byYear).sort().reverse().forEach(function(y){
+    html+='<div style="padding:8px 16px;font-weight:600;color:var(--text3);font-size:12px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)">📅 '+y+'</div>';
+    html+='<table class="archive-table"><thead><tr><th>Période</th><th>Total BDC</th><th>En cours</th><th>En transit</th><th>Livrés</th><th>Bloqués</th><th>Archivé le</th><th></th></tr></thead><tbody>';
+    byYear[y].forEach(function(key){
+      const a=archives[key];
+      const total=(a.bdcs||[]).length;
+      html+='<tr>'+
+        '<td style="font-weight:600">'+a.moisNom+' '+a.annee+'</td>'+
+        '<td><strong>'+total+'</strong></td>'+
+        '<td><span style="background:#e0f2fe;color:#075985;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbEncours||0)+'</span></td>'+
+        '<td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbTransit||0)+'</span></td>'+
+        '<td><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbLivre||0)+'</span></td>'+
+        '<td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbBloque||0)+'</span></td>'+
+        '<td style="color:#999;font-size:12px">'+(a.dateArchive||'—')+'</td>'+
+        '<td><button class="btn btn-sm btn-edit" onclick="printArchivedBDC(\''+key+'\')">📄 PDF</button></td>'+
+        '</tr>';
+    });
+    html+='</tbody></table>';
+  });
+  el.innerHTML=html;
+}
+function printArchivedBDC(key){
+  const archives=getArchivesBDC(currentCompany);
+  const a=archives[key];
+  if(!a){alert('Archive introuvable.');return;}
+  const co=state[currentCompany];
+  const coInfo=COMPANIES[currentCompany];
+  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const header=buildPDFHeader(co,coInfo,now);
+  const bdcs=a.bdcs||[];
+  const STAT_LABEL={encours:'En cours',transit:'En transit',livre:'Livré',bloque:'Douane bloquée'};
+  const STAT_BG={encours:'#e0f2fe',transit:'#fef3c7',livre:'#d1fae5',bloque:'#fee2e2'};
+  const STAT_COLOR={encours:'#075985',transit:'#92400e',livre:'#065f46',bloque:'#991b1b'};
+  let rows='';
+  if(bdcs.length){
+    bdcs.forEach(function(b,i){
+      const bg=i%2===0?'#f9f9f7':'#fff';
+      const sl=STAT_LABEL[b.statut]||b.statut||'—';
+      const sb=STAT_BG[b.statut]||'#eee';
+      const sc=STAT_COLOR[b.statut]||'#555';
+      rows+='<tr style="background:'+bg+'">'+
+        '<td style="padding:7px 10px;font-weight:600;color:'+coInfo.color+'">'+b.num+'</td>'+
+        '<td style="padding:7px 10px">'+b.fourn+'</td>'+
+        '<td style="padding:7px 10px">'+b.date+'</td>'+
+        '<td style="padding:7px 10px">'+b.mode+'</td>'+
+        '<td style="padding:7px 10px;font-weight:600">'+b.mont+'</td>'+
+        '<td style="padding:7px 10px">'+b.art+'</td>'+
+        '<td style="padding:7px 10px"><span style="background:'+sb+';color:'+sc+';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">'+sl+'</span></td>'+
+        '<td style="padding:7px 10px;font-size:12px;color:#555">'+(b.utilisateur||'—')+'</td>'+
+        '</tr>';
+    });
+  } else {
+    rows='<tr><td colspan="8" style="padding:24px;text-align:center;color:#999">Aucun BDC pour cette période</td></tr>';
+  }
+  const montantTotal=bdcs.reduce(function(s,b){return s+parseFloat((b.mont||'0').replace(/[^0-9,.-]/g,'').replace(',','.'))||0;},0);
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+    '<title>BDC '+a.moisNom+' '+a.annee+'</title>'+
+    '<style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:12px}table{width:100%;border-collapse:collapse}th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600}td{border-bottom:1px solid #eee}@media print{body{padding:10px}}</style>'+
+    '</head><body>'+
+    header+
+    '<div style="margin-bottom:18px">'+
+      '<h2 style="font-size:16px;font-weight:700;color:'+coInfo.color+';margin:0 0 4px">📋 Rapport Bons de Commande</h2>'+
+      '<div style="font-size:13px;color:#555">Période : <strong>'+a.moisNom+' '+a.annee+'</strong></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">'+
+      '<div style="background:#f3f4f6;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#374151">'+bdcs.length+'</div><div style="font-size:11px;color:#555">Total BDC</div></div>'+
+      '<div style="background:#e0f2fe;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#075985">'+(a.nbEncours||0)+'</div><div style="font-size:11px;color:#075985">En cours</div></div>'+
+      '<div style="background:#fef3c7;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#92400e">'+(a.nbTransit||0)+'</div><div style="font-size:11px;color:#92400e">En transit</div></div>'+
+      '<div style="background:#d1fae5;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#065f46">'+(a.nbLivre||0)+'</div><div style="font-size:11px;color:#065f46">Livrés</div></div>'+
+      '<div style="background:#fee2e2;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#991b1b">'+(a.nbBloque||0)+'</div><div style="font-size:11px;color:#991b1b">Bloqués</div></div>'+
+      (montantTotal>0?'<div style="background:#ede9fe;border-radius:8px;padding:10px 16px;text-align:center;min-width:100px"><div style="font-size:16px;font-weight:700;color:#5b21b6">'+montantTotal.toLocaleString('fr-FR')+' €</div><div style="font-size:11px;color:#5b21b6">Montant total</div></div>':'')+
+    '</div>'+
+    '<table><thead><tr style="background:'+coInfo.color+';color:#fff">'+
+      '<th>N° BDC</th><th>Fournisseur</th><th>Date</th><th>Mode</th><th>Montant HT</th><th>Articles</th><th>Statut</th><th>Créé par</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999">'+
       '<span>AtelierPro — Archive générée le '+now+'</span>'+
