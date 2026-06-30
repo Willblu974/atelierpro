@@ -440,7 +440,7 @@ textarea{resize:vertical;min-height:80px;}
         <button class="btn btn-sm" onclick="openPretsListModal()">📄 Fiches de prêt (PDF)</button>
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()">📥 Importer un fichier</button>
       </div>
-      <div class="card"><div class="card-body"><table><thead><tr><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th style="width:28px"><input type="checkbox" id="mat-select-all" onchange="toggleSelectAllMats(this)" title="Tout sélectionner" style="cursor:pointer"></th><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
 
       <div class="section-header" style="margin-top:24px"><div class="section-title">🔄 Prêts de matériels</div></div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>Téléphone</th><th>Date prêt</th><th>Retour prévu</th><th>Statut</th><th></th></tr></thead><tbody id="pret-tbody"></tbody></table></div></div>
@@ -1702,6 +1702,7 @@ function renderMatTable(co, st){
   }).sort((a,b) => a.nom.localeCompare(b.nom, 'fr'));
   document.getElementById('mat-tbody').innerHTML = rows.length
     ? rows.map(m=>`<tr>
+        <td style="text-align:center">${currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<input type="checkbox" class="mat-select-cb" data-id="${m.id||m.code}" data-code="${m.code}" data-nom="${m.nom}" onchange="onMatSelectChange()">`:''}</td>
         <td><strong>${m.code}</strong></td>
         <td>${m.nom}</td>
         <td style="font-size:12px">${m.serie}</td>
@@ -6881,6 +6882,130 @@ function calDayClick(ds){
   },50);
 }
 
+// ── Sélection multi-matériels pour prêt ───────────────────────────────
+function onMatSelectChange(){
+  const cbs=document.querySelectorAll('.mat-select-cb:checked');
+  const bar=document.getElementById('mat-pret-bar');
+  const cnt=document.getElementById('mat-pret-bar-count');
+  if(!bar)return;
+  if(cbs.length>0){
+    bar.style.display='flex';
+    cnt.textContent=cbs.length+' matériel'+(cbs.length>1?'s':'')+' sélectionné'+(cbs.length>1?'s':'');
+  }else{
+    bar.style.display='none';
+  }
+  const all=document.querySelectorAll('.mat-select-cb');
+  const allCb=document.getElementById('mat-select-all');
+  if(allCb) allCb.checked=all.length>0&&cbs.length===all.length;
+}
+function toggleSelectAllMats(cb){
+  document.querySelectorAll('.mat-select-cb').forEach(function(el){el.checked=cb.checked;});
+  onMatSelectChange();
+}
+function deselectAllMats(){
+  document.querySelectorAll('.mat-select-cb').forEach(function(el){el.checked=false;});
+  const allCb=document.getElementById('mat-select-all');
+  if(allCb) allCb.checked=false;
+  const bar=document.getElementById('mat-pret-bar');
+  if(bar) bar.style.display='none';
+}
+function ouvrirPretMulti(){
+  const cbs=document.querySelectorAll('.mat-select-cb:checked');
+  if(!cbs.length)return;
+  const list=document.getElementById('pret-multi-mat-list');
+  list.innerHTML=Array.from(cbs).map(function(cb){
+    return '<div style="padding:2px 0">📦 <strong>'+cb.dataset.code+'</strong> — '+cb.dataset.nom+'</div>';
+  }).join('');
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('pret-multi-debut').value=today;
+  document.getElementById('pret-multi-fin').value='';
+  document.getElementById('pret-multi-benef').value='';
+  document.getElementById('pret-multi-motif').value='';
+  document.getElementById('modal-pret-multi').classList.add('open');
+}
+function confirmerPretMulti(){
+  const benef=document.getElementById('pret-multi-benef').value.trim();
+  const debut=document.getElementById('pret-multi-debut').value;
+  const fin=document.getElementById('pret-multi-fin').value;
+  const motif=document.getElementById('pret-multi-motif').value.trim();
+  if(!benef||!debut||!fin){alert('Bénéficiaire, date de départ et date de retour sont obligatoires.');return;}
+  if(fin<debut){alert('La date de retour doit être après la date de départ.');return;}
+  const cbs=document.querySelectorAll('.mat-select-cb:checked');
+  if(!cbs.length){alert('Aucun matériel sélectionné.');return;}
+  const mats=state[currentCompany].materiels||[];
+  if(!state[currentCompany].evenements) state[currentCompany].evenements=[];
+  const pretId='pret_multi_'+Date.now();
+  const matIds=[], matNoms=[];
+  Array.from(cbs).forEach(function(cb){
+    const matId=cb.dataset.id;
+    const mat=mats.find(function(m){return (m.id||m.code)===matId;});
+    if(!mat)return;
+    matIds.push(String(matId));
+    matNoms.push(cb.dataset.code+' — '+cb.dataset.nom);
+    mat._statutAvantPret=mat.statut;
+    mat.statut='pret';
+  });
+  state[currentCompany].evenements.push({
+    id:pretId, titre:'📤 Prêté — '+benef,
+    date:debut, dateDebut:debut, dateFin:fin,
+    materielIds:matIds, materielNoms:matNoms,
+    motif:motif||('Prêt à '+benef),
+    couleur:{bg:'#fef3c7',text:'#92400e'},
+    isPret:true, beneficiaire:benef,
+    utilisateur:SB_PROFILE?.nom||'Local'
+  });
+  saveToStorage();
+  closeModal('modal-pret-multi');
+  deselectAllMats();
+  renderMat(COMPANIES[currentCompany],state[currentCompany]);
+  if(typeof showToast==='function') showToast('📤 '+matIds.length+' matériel(s) passé(s) en statut Prêté','success');
+  else alert('✅ '+matIds.length+' matériel(s) passé(s) en statut Prêté jusqu\'au '+fin+'.');
+}
+
+
+
 </script>
+<!-- Barre flottante sélection matériels -->
+<div id="mat-pret-bar" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;border-radius:12px;padding:10px 20px;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;white-space:nowrap">
+  <span id="mat-pret-bar-count" style="font-weight:600"></span>
+  <button class="btn btn-sm" style="background:#fff;color:var(--teal);font-weight:600" onclick="ouvrirPretMulti()">📤 Prêter la sélection</button>
+  <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff" onclick="deselectAllMats()">✕ Annuler</button>
+</div>
+
+<!-- Modal prêt multi-matériels -->
+<div class="modal-bg" id="modal-pret-multi">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <strong>📤 Prêt de matériels</strong>
+      <button class="btn btn-sm" onclick="closeModal('modal-pret-multi')">&#10005;</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div id="pret-multi-mat-list" style="background:var(--surface2);border-radius:8px;padding:10px 14px;font-size:13px;max-height:120px;overflow-y:auto"></div>
+      <div class="form-group">
+        <label>Bénéficiaire *</label>
+        <input id="pret-multi-benef" placeholder="Nom de l'entreprise ou du responsable">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group">
+          <label>Date de départ *</label>
+          <input type="date" id="pret-multi-debut">
+        </div>
+        <div class="form-group">
+          <label>Date de retour *</label>
+          <input type="date" id="pret-multi-fin">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Motif</label>
+        <textarea id="pret-multi-motif" rows="2" placeholder="Raison du prêt..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-pret-multi')">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmerPretMulti()">✅ Confirmer le prêt</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
