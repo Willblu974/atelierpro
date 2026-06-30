@@ -2599,8 +2599,13 @@ function generatePretPDF(rec){
   const coInfo=COMPANIES[currentCompany];
   const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
   const header=buildPDFHeader(co,coInfo,now);
+  // Supporte multi-matériels
+  const allLabels=rec.matLabels||[rec.matLabel||rec.matCode];
+  const matListHTML=allLabels.map(function(l,i){
+    return '<tr style="background:'+(i%2===0?'#f9f9f7':'#fff')+'"><td style="padding:7px 10px;font-weight:600;color:'+coInfo.color+'">'+(i+1)+'</td><td style="padding:7px 10px">'+l+'</td></tr>';
+  }).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Fiche de prêt — ${rec.matLabel}</title>
+  <title>Fiche de prêt</title>
   <style>
     body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:13px}
     .field{margin-bottom:14px}
@@ -2609,19 +2614,26 @@ function generatePretPDF(rec){
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}
     .sign-row{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:60px}
     .sign-box{border-top:1px solid #999;padding-top:8px;font-size:11px;color:#666}
+    table{width:100%;border-collapse:collapse}th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
     @media print{body{padding:10px}}
   </style></head><body>
   ${header}
   <h2 style="font-size:18px;font-weight:700;color:${coInfo.color};margin:0 0 20px">📤 Fiche de prêt de matériel</h2>
+
+  <div style="margin-bottom:18px">
+    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Matériels prêtés (${allLabels.length})</div>
+    <table><thead><tr style="background:${coInfo.color};color:#fff"><th>#</th><th>Désignation</th></tr></thead>
+    <tbody>${matListHTML}</tbody></table>
+  </div>
+
   <div class="grid">
-    <div class="field"><div class="field-label">Matériel</div><div class="field-value">${rec.matLabel||'—'}</div></div>
     <div class="field"><div class="field-label">Entreprise emprunteuse</div><div class="field-value">${rec.entreprise||'—'}</div></div>
+    <div class="field"><div class="field-label">Nom du convoyeur</div><div class="field-value">${rec.convoyeur||'—'}</div></div>
     <div class="field"><div class="field-label">Date du prêt</div><div class="field-value">${rec.datePret?new Date(rec.datePret).toLocaleDateString('fr-FR'):'—'}</div></div>
     <div class="field"><div class="field-label">Date de retour prévue</div><div class="field-value">${rec.dateRetour?new Date(rec.dateRetour).toLocaleDateString('fr-FR'):'—'}</div></div>
-    <div class="field"><div class="field-label">Nom du convoyeur</div><div class="field-value">${rec.convoyeur||'—'}</div></div>
     <div class="field"><div class="field-label">Téléphone du convoyeur</div><div class="field-value">${rec.tel||'—'}</div></div>
   </div>
-  ${rec.notes?`<div class="field" style="margin-top:14px"><div class="field-label">Notes</div><div style="font-size:13px;white-space:pre-wrap">${rec.notes}</div></div>`:''}
+  ${rec.notes?`<div class="field" style="margin-top:14px"><div class="field-label">Notes / État du matériel</div><div style="font-size:13px;white-space:pre-wrap;border:1px solid #eee;padding:10px;border-radius:6px">${rec.notes}</div></div>`:''}
   <div class="sign-row">
     <div class="sign-box">Signature du responsable atelier</div>
     <div class="sign-box">Signature du convoyeur / emprunteur</div>
