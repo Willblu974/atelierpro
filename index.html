@@ -1265,7 +1265,7 @@ textarea{resize:vertical;min-height:80px;}
     <div class="modal-header"><strong id="pret-modal-title">Prêt de matériel</strong><button class="btn btn-sm" onclick="closeModal('modal-pret')">&#10005;</button></div>
     <div class="form-grid">
       <input type="hidden" id="pret-edit-id">
-      <div class="form-group full"><label>Matériel *</label><select id="pret-f-mat"></select></div>
+      <div class="form-group full"><label>Matériels * <span id="pret-mat-count" style="font-weight:400;color:var(--text3);font-size:12px"></span></label><input type="text" id="pret-mat-search" placeholder="Rechercher un matériel..." oninput="filterPretMats()" style="margin-bottom:6px"><div id="pret-f-mat-list" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--surface2)"></div></div>
       <div class="form-group"><label>Date du prêt *</label><input type="date" id="pret-f-date"></div>
       <div class="form-group"><label>Date de retour prévue</label><input type="date" id="pret-f-retour"></div>
       <div class="form-group"><label>Entreprise emprunteuse *</label><input id="pret-f-entreprise" placeholder="Nom de l'entreprise"></div>
@@ -2242,8 +2242,14 @@ function openPretModal(id=null){
   const mats = state[currentCompany].materiels||[];
   document.getElementById('pret-modal-title').textContent = id ? 'Modifier le prêt' : 'Prêt de matériel';
   document.getElementById('pret-edit-id').value = id||'';
-  document.getElementById('pret-f-mat').innerHTML = mats.map(m=>`<option value="${m.id||m.code}">${m.code} — ${m.nom}</option>`).join('');
-  if(p) document.getElementById('pret-f-mat').value = p.matCode;
+  document.getElementById('pret-mat-search').value='';
+  const pretMatCodes = p ? (p.matCodes||[p.matCode]) : [];
+  document.getElementById('pret-f-mat-list').innerHTML = mats.map(function(m){
+    const mid = m.id||m.code;
+    const checked = pretMatCodes.includes(String(mid)) ? 'checked' : '';
+    return '<label class="mat-check-item"><input type="checkbox" class="pret-mat-cb" value="'+mid+'" data-code="'+m.code+'" data-nom="'+m.nom+'" '+checked+' onchange="updatePretMatCount()"> <strong>'+m.code+'</strong> — '+m.nom+'</label>';
+  }).join('');
+  updatePretMatCount();
   document.getElementById('pret-f-date').value = p?.datePret || new Date().toISOString().split('T')[0];
   document.getElementById('pret-f-retour').value = p?.dateRetour || '';
   document.getElementById('pret-f-entreprise').value = p?.entreprise || '';
@@ -2251,6 +2257,17 @@ function openPretModal(id=null){
   document.getElementById('pret-f-tel').value = p?.tel || '';
   document.getElementById('pret-f-notes').value = p?.notes || '';
   document.getElementById('modal-pret').classList.add('open');
+}
+function filterPretMats(){
+  const q=(document.getElementById('pret-mat-search')?.value||'').toLowerCase();
+  document.querySelectorAll('#pret-f-mat-list .mat-check-item').forEach(function(el){
+    el.style.display=(!q||el.textContent.toLowerCase().includes(q))?'':'none';
+  });
+}
+function updatePretMatCount(){
+  const n=document.querySelectorAll('.pret-mat-cb:checked').length;
+  const el=document.getElementById('pret-mat-count');
+  if(el) el.textContent=n>0?n+' sélectionné'+(n>1?'s':''):'';
 }
 
 function ensureDemandesState(co){
@@ -2268,7 +2285,7 @@ function openDemandePret(matId, matLabel){
   document.getElementById('dp-mat-search').value='';
   const modal=document.getElementById('modal-demande-pret');
   modal.dataset.coCible=coCible;
-  const mats=state[coCible]?.materiels||[];
+  const mats=(state[coCible]?.materiels?.length?state[coCible].materiels:null)||(COMPANIES[coCible]?.materiels)||[];
   const list=document.getElementById('dp-mat-list');
   list.innerHTML=mats.map(function(m){
     const mid=m.id||m.code;
@@ -2468,11 +2485,15 @@ function renderDemandesEnvoyeesSection(){
 
 
 async function savePret(){
-  const matCode = document.getElementById('pret-f-mat').value;
+  const cbs=document.querySelectorAll('.pret-mat-cb:checked');
+  if(!cbs.length){ alert('Sélectionnez au moins un matériel.'); return; }
+  const matCodes=[],matLabels=[];
+  cbs.forEach(function(cb){matCodes.push(cb.value);matLabels.push(cb.dataset.code+' — '+cb.dataset.nom);});
+  const matCode=matCodes[0];
   const datePret = document.getElementById('pret-f-date').value;
   const entreprise = document.getElementById('pret-f-entreprise').value.trim();
   const convoyeur = document.getElementById('pret-f-convoyeur').value.trim();
-  if(!matCode || !datePret || !entreprise || !convoyeur){ alert('Matériel, date du prêt, entreprise emprunteuse et nom du convoyeur sont obligatoires.'); return; }
+  if(!datePret || !entreprise || !convoyeur){ alert('Date du prêt, entreprise emprunteuse et nom du convoyeur sont obligatoires.'); return; }
   ensurePretState(COMPANIES[currentCompany]);
   const mats = state[currentCompany].materiels||[];
   const mat = mats.find(m=>(m.id||m.code)===matCode);
@@ -2480,7 +2501,7 @@ async function savePret(){
   const existing = editingPretId ? prets.find(x=>x.id===editingPretId) : null;
   const rec = {
     id: editingPretId || ('PRET-'+Date.now()),
-    matCode, matLabel: mat ? (mat.code+' — '+mat.nom) : matCode,
+    matCode, matCodes, matLabel: mat ? (mat.code+' — '+mat.nom) : matCode, matLabels,
     datePret, dateRetour: document.getElementById('pret-f-retour').value||null,
     entreprise, convoyeur,
     tel: document.getElementById('pret-f-tel').value.trim(),
@@ -2494,13 +2515,15 @@ async function savePret(){
   } else {
     prets.push(rec);
   }
-  // Bascule le matériel sur le statut "Prêté" tant que le prêt est en cours
+  // Bascule TOUS les matériels sur le statut "Prêté"
   const pretStatutId = findPretStatutId();
-  if(mat && rec.statut!=='retourne' && pretStatutId && mat.statut!==pretStatutId){
-    mat.statut = pretStatutId;
-    await syncMaterielToSupabase(mat);
-  } else if(mat && !pretStatutId){
-    alert('⚠️ Le prêt a été enregistré, mais aucun statut nommé "Prêté" n\'a été trouvé dans Paramètres → Statuts personnalisés. Le statut du matériel n\'a donc pas été changé automatiquement.');
+  if(pretStatutId && rec.statut!=='retourne'){
+    matCodes.forEach(function(mc){
+      const m2=mats.find(function(x){return (x.id||x.code)===mc;});
+      if(m2 && m2.statut!==pretStatutId){ m2.statut=pretStatutId; syncMaterielToSupabase(m2); }
+    });
+  } else if(!pretStatutId){
+    alert('⚠️ Le prêt a été enregistré, mais aucun statut "Prêté" trouvé dans Paramètres → Statuts.');
   }
   saveToStorage();
   if(SB && SB_MODE==='online'){
@@ -2520,12 +2543,15 @@ async function marquerRetourPret(id){
   prets[idx].statut = 'retourne';
   // Restaure le statut du matériel d'avant le prêt (ou "Actif" par défaut)
   const mats = state[currentCompany].materiels||[];
-  const mat = mats.find(m=>(m.id||m.code)===prets[idx].matCode);
   const pretStatutId = findPretStatutId();
-  if(mat && pretStatutId && mat.statut===pretStatutId){
-    mat.statut = prets[idx].matStatutAvant || 'ok';
-    await syncMaterielToSupabase(mat);
-  }
+  const allMatCodes = prets[idx].matCodes || [prets[idx].matCode];
+  allMatCodes.forEach(function(mc){
+    const m2=mats.find(function(x){return (x.id||x.code)===mc;});
+    if(m2 && pretStatutId && m2.statut===pretStatutId){
+      m2.statut = prets[idx].matStatutAvant || 'ok';
+      syncMaterielToSupabase(m2);
+    }
+  });
   saveToStorage();
   if(SB && SB_MODE==='online'){
     await saveToSupabase('prets_materiels',{id:prets[idx].id,entreprise_id:currentCompany,statut:'retourne'});
