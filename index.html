@@ -520,6 +520,16 @@ textarea{resize:vertical;min-height:80px;}
         <button class="btn btn-sm btn-edit" onclick="openImportPiecesModal()">📥 Importer un fichier</button>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilités matériels</th><th>Fournisseur</th><th>Prix unitaire (€)</th><th>Stock</th><th>Seuil min</th><th></th></tr></thead><tbody id="pieces-tbody"></tbody></table></div></div>
+      <!-- Archives mouvements pièces détachées -->
+      <div class="section-header" style="margin-top:18px">
+        <div class="section-title">📦 Archives mouvements pièces détachées</div>
+        <button class="btn btn-sm btn-edit" onclick="checkAndAutoArchiveMvt()">🔄 Archiver maintenant</button>
+      </div>
+      <div class="card">
+        <div class="card-body" id="archives-mvt-section" style="padding:4px 0">
+          <p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive disponible</p>
+        </div>
+      </div>
     </div>
 
     <div class="page" id="page-stock">
@@ -2923,6 +2933,7 @@ function renderPieces(co){
   ensurePieceState(co);
   renderPiecesTable();
   renderMvtTable();
+  renderArchivesMvtSection();
 }
 function renderPiecesTable(){
   const pieces=state[currentCompany].pieces||[];
@@ -3411,7 +3422,8 @@ function saveMvt(){
   state[currentCompany].mouvements.unshift({
     date:d.toLocaleDateString('fr-FR'),isoDate:d.toISOString().slice(0,10),ref:p.ref,nom:p.nom,
     type,qte:type==='in'?'+'+qte:type==='out'?'-'+qte:'='+qte,
-    motif,apres:String(newStock)
+    motif,apres:String(newStock),
+    utilisateur:SB_PROFILE?.nom||'Local'
   });
   saveToStorage(); closeModal('modal-mvt'); renderPieces(COMPANIES[currentCompany]); renderStock(COMPANIES[currentCompany]);
 }
@@ -4734,7 +4746,7 @@ function enterApp(){
   loadNotifConfig();
   startNotifTimer();
   // Vérifier et archiver les journaux des mois passés
-  setTimeout(()=>{ checkAndAutoArchive(); renderArchivesSection(); checkAndAutoArchiveOT(); }, 800);
+  setTimeout(()=>{ checkAndAutoArchive(); renderArchivesSection(); checkAndAutoArchiveOT(); checkAndAutoArchiveMvt(); }, 800);
 }
 
 async function doLogout(){
@@ -5365,6 +5377,148 @@ function getArchivesJournal(companyId){
 function saveArchivesJournal(companyId,archives){
   try{ localStorage.setItem('atelierPro_archives_'+companyId,JSON.stringify(archives)); }catch(e){}
 }
+
+function getArchivesMvt(companyId){
+  try{const s=localStorage.getItem('atelierPro_archives_mvt_'+companyId);return s?JSON.parse(s):{};}
+  catch(e){return {};}
+}
+function saveArchivesMvt(companyId,archives){
+  try{localStorage.setItem('atelierPro_archives_mvt_'+companyId,JSON.stringify(archives));}catch(e){}
+}
+function getMvtsPourMoisPieces(companyId,mois,annee){
+  const mvts=(state[companyId]?.mouvements||[]);
+  return mvts.filter(function(m){
+    const d=new Date(m.isoDate||m.date||'');
+    if(isNaN(d)) return false;
+    return d.getMonth()+1===mois && d.getFullYear()===annee;
+  });
+}
+function checkAndAutoArchiveMvt(){
+  const now=new Date();
+  const curMois=now.getMonth()+1;
+  const curAnnee=now.getFullYear();
+  const moisNoms=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const archives=getArchivesMvt(currentCompany);
+  const archived=[];
+  for(let i=1;i<=12;i++){
+    let m=curMois-i, y=curAnnee;
+    if(m<=0){m+=12;y--;}
+    if(y<curAnnee-1||(y===curAnnee-1&&m<curMois)) break;
+    const key=y+'-'+String(m).padStart(2,'0');
+    if(archives[key]) continue;
+    const mvts=getMvtsPourMoisPieces(currentCompany,m,y);
+    if(!mvts.length) continue;
+    archives[key]={
+      moisNom:moisNoms[m-1], annee:y,
+      mvts:[...mvts],
+      nbEntrees:mvts.filter(function(mv){return mv.type==='in';}).length,
+      nbSorties:mvts.filter(function(mv){return mv.type==='out';}).length,
+      nbAjust:mvts.filter(function(mv){return mv.type!=='in'&&mv.type!=='out';}).length,
+      dateArchive:toDS(now)
+    };
+    archived.push(moisNoms[m-1]+' '+y);
+  }
+  if(archived.length){
+    saveArchivesMvt(currentCompany,archives);
+    if(typeof showToast==='function') showToast('📦 Mouvements archivés : '+archived.join(', '),'success');
+  }
+  renderArchivesMvtSection();
+}
+function renderArchivesMvtSection(){
+  const el=document.getElementById('archives-mvt-section');
+  if(!el) return;
+  const archives=getArchivesMvt(currentCompany);
+  const keys=Object.keys(archives).sort().reverse();
+  if(!keys.length){
+    el.innerHTML='<p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive disponible</p>';
+    return;
+  }
+  const byYear={};
+  keys.forEach(function(key){
+    const y=key.split('-')[0];
+    if(!byYear[y]) byYear[y]=[];
+    byYear[y].push(key);
+  });
+  let html='';
+  Object.keys(byYear).sort().reverse().forEach(function(y){
+    html+='<div style="padding:8px 16px;font-weight:600;color:var(--text3);font-size:12px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)">📅 '+y+'</div>';
+    html+='<table class="archive-table"><thead><tr><th>Période</th><th>Total mvts</th><th>Entrées</th><th>Sorties</th><th>Ajustements</th><th>Archivé le</th><th></th></tr></thead><tbody>';
+    byYear[y].forEach(function(key){
+      const a=archives[key];
+      const total=(a.mvts||[]).length;
+      html+='<tr>'+
+        '<td style="font-weight:600">'+a.moisNom+' '+a.annee+'</td>'+
+        '<td><strong>'+total+'</strong></td>'+
+        '<td><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbEntrees||0)+'</span></td>'+
+        '<td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbSorties||0)+'</span></td>'+
+        '<td><span style="background:#e0f2fe;color:#075985;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbAjust||0)+'</span></td>'+
+        '<td style="color:#999;font-size:12px">'+(a.dateArchive||'—')+'</td>'+
+        '<td><button class="btn btn-sm btn-edit" onclick="printArchivedMvt(\''+key+'\')">📄 PDF</button></td>'+
+        '</tr>';
+    });
+    html+='</tbody></table>';
+  });
+  el.innerHTML=html;
+}
+function printArchivedMvt(key){
+  const archives=getArchivesMvt(currentCompany);
+  const a=archives[key];
+  if(!a){alert('Archive introuvable.');return;}
+  const co=state[currentCompany];
+  const coInfo=COMPANIES[currentCompany];
+  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const header=buildPDFHeader(co,coInfo,now);
+  const mvts=a.mvts||[];
+  const nbEntrees=mvts.filter(function(m){return m.type==='in';}).length;
+  const nbSorties=mvts.filter(function(m){return m.type==='out';}).length;
+  const qteTotEntree=mvts.filter(function(m){return m.type==='in';}).reduce(function(s,m){return s+Math.abs(parseInt(m.qte)||0);},0);
+  const qteTotSortie=mvts.filter(function(m){return m.type==='out';}).reduce(function(s,m){return s+Math.abs(parseInt(m.qte)||0);},0);
+  let rows='';
+  if(mvts.length){
+    mvts.forEach(function(m,i){
+      const bg=i%2===0?'#f9f9f7':'#fff';
+      const typeLabel=m.type==='in'?'Entrée':m.type==='out'?'Sortie':'Ajust.';
+      const typeBg=m.type==='in'?'#d1fae5':m.type==='out'?'#fee2e2':'#e0f2fe';
+      const typeColor=m.type==='in'?'#065f46':m.type==='out'?'#991b1b':'#075985';
+      rows+='<tr style="background:'+bg+'">'+
+        '<td style="padding:7px 10px">'+m.date+'</td>'+
+        '<td style="padding:7px 10px;font-weight:600">'+m.ref+'</td>'+
+        '<td style="padding:7px 10px">'+m.nom+'</td>'+
+        '<td style="padding:7px 10px"><span style="background:'+typeBg+';color:'+typeColor+';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">'+typeLabel+'</span></td>'+
+        '<td style="padding:7px 10px;font-weight:700;color:'+(m.type==='in'?'#065f46':'#991b1b')+'">'+m.qte+'</td>'+
+        '<td style="padding:7px 10px">'+m.motif+'</td>'+
+        '<td style="padding:7px 10px;font-size:12px">'+m.apres+'</td>'+
+        '<td style="padding:7px 10px;font-size:12px;color:#555">'+( m.utilisateur||'—')+'</td>'+
+        '</tr>';
+    });
+  } else {
+    rows='<tr><td colspan="8" style="padding:24px;text-align:center;color:#999">Aucun mouvement pour cette période</td></tr>';
+  }
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+    '<title>Mouvements Pièces — '+a.moisNom+' '+a.annee+'</title>'+
+    '<style>body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:12px}table{width:100%;border-collapse:collapse}th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600}td{border-bottom:1px solid #eee}@media print{body{padding:10px}}</style>'+
+    '</head><body>'+
+    header+
+    '<div style="margin-bottom:18px">'+
+      '<h2 style="font-size:16px;font-weight:700;color:'+coInfo.color+';margin:0 0 4px">🔩 Rapport Mouvements Pièces Détachées</h2>'+
+      '<div style="font-size:13px;color:#555">Période : <strong>'+a.moisNom+' '+a.annee+'</strong> — Archive automatique mensuelle</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">'+
+      '<div style="background:#f3f4f6;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#374151">'+mvts.length+'</div><div style="font-size:11px;color:#555">Total</div></div>'+
+      '<div style="background:#d1fae5;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#065f46">'+nbEntrees+'</div><div style="font-size:11px;color:#065f46">Entrées ('+qteTotEntree+' u.)</div></div>'+
+      '<div style="background:#fee2e2;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px"><div style="font-size:20px;font-weight:700;color:#991b1b">'+nbSorties+'</div><div style="font-size:11px;color:#991b1b">Sorties ('+qteTotSortie+' u.)</div></div>'+
+    '</div>'+
+    '<table><thead><tr style="background:'+coInfo.color+';color:#fff">'+
+      '<th>Date</th><th>Référence</th><th>Désignation</th><th>Type</th><th>Qté</th><th>Motif</th><th>Stock après</th><th>Utilisateur</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999">'+
+      '<span>AtelierPro — Archive générée le '+now+'</span>'+
+      '<span>'+coInfo.name+' — '+a.moisNom+' '+a.annee+'</span>'+
+    '</div>'+
+    '</body></html>';
+  printHTMLDocument(html);
+}
+
 
 function getArchivesOT(companyId){
   try{const s=localStorage.getItem('atelierPro_archives_ot_'+companyId);return s?JSON.parse(s):{};}
