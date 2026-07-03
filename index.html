@@ -1720,7 +1720,7 @@ function renderMatTable(co, st){
         <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
-          ${getUserRole()==='admin'?`
+          ${canModifyMat()?`
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
           <button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
@@ -2151,7 +2151,7 @@ function openMatEdit(id){
 }
 
 function saveMat(){
-  if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut créer ou modifier un matériel.');return;}
+  if(!canModifyMat()){alert('❌ Vous ne pouvez pas modifier les matériels d\'une autre entreprise.');return;}
   const code = document.getElementById('mat-f-code').value.trim();
   const nom  = document.getElementById('mat-f-nom').value.trim();
   if(!code||!nom){ alert('Le code et la désignation sont obligatoires.'); return; }
@@ -2197,19 +2197,24 @@ function saveMat(){
 }
 
 async function deleteMat(id){
-  if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut supprimer un matériel.');return;}
+  if(!canModifyMat()){alert('❌ Vous ne pouvez pas supprimer de matériels dans une autre entreprise.');return;}
   if(!confirm('Supprimer ce matériel ? Cette action est irréversible.')) return;
   ensureMatState(COMPANIES[currentCompany]);
-  // Suppression locale immédiate (admin a tous les droits)
+  // Retrouver l'UUID pour le tombstone
+  const mat=state[currentCompany].materiels.find(m=>m.id===id||m.code===id);
+  const matUUID=mat?.id||id;
+  // Suppression locale immédiate
   state[currentCompany].materiels = state[currentCompany].materiels.filter(m=>m.id!==id&&m.code!==id);
+  // Tombstone : empêche la réapparition depuis Supabase
+  addDeletedMatId(currentCompany, matUUID);
   saveToStorage();
   closeModal('modal-mat-detail');
   renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
   if(typeof showToast==='function') showToast('🗑 Matériel supprimé','success');
-  // Suppression Supabase en arrière-plan (best-effort)
+  // Suppression Supabase en arrière-plan (best-effort, peut échouer si cross-entreprise)
   if(SB && SB_MODE==='online'){
-    const err = await deleteFromSupabase('materiels', id);
-    if(err) console.warn('[deleteMat] Supabase non synchronisé:', err.message);
+    const err = await deleteFromSupabase('materiels', matUUID);
+    if(err) console.warn('[deleteMat] Supabase non synchronisé (suppression locale conservée):', err.message);
   }
 }
 
@@ -2694,7 +2699,7 @@ function openMatDetail(id){
   document.getElementById('detail-notes-block').innerHTML = mat.notes
     ? `<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Notes</div><div style="font-size:13px;white-space:pre-wrap">${mat.notes}</div></div>`
     : '';
-  const canEditMat = getUserRole()==='admin';
+  const canEditMat = canModifyMat();
   const editBtn=document.getElementById('detail-edit-btn');
   const delBtn=document.getElementById('detail-delete-btn');
   if(editBtn){ editBtn.style.display=canEditMat?'':'none'; editBtn.onclick=()=>openMatEdit(id); }
@@ -4755,6 +4760,23 @@ function doLocalLogin(){
 function getUserRole(){
   return (SB_PROFILE?.role||'technicien').toLowerCase();
 }
+// Peut-on modifier les matériels de l'entreprise courante ?
+// Admin : toutes entreprises. Autres rôles actifs : seulement leur entreprise.
+function canModifyMat(){
+  const role = getUserRole();
+  if(role==='admin') return true;
+  if(role==='visiteur'||role==='responsable') return false;
+  return currentCompany===(SB_PROFILE?.entreprise_id||currentCompany);
+}
+// Tombstone : liste des IDs matériels supprimés localement (pour éviter la réapparition depuis Supabase)
+function getDeletedMatIds(coId){
+  try{return JSON.parse(localStorage.getItem('ap_deleted_mat_'+coId)||'[]');}catch(e){return [];}
+}
+function addDeletedMatId(coId, id){
+  if(!id) return;
+  const ids=getDeletedMatIds(coId);
+  if(!ids.includes(id)){ids.push(id);localStorage.setItem('ap_deleted_mat_'+coId,JSON.stringify(ids));}
+}
 
 // Peut modifier/annuler les immobilisations : admin, technicien, resp_travaux
 // ET seulement sur son propre entreprise
@@ -4932,7 +4954,8 @@ async function loadFromSupabase(){
     ]);
     state[co].familles=(familles||[]).map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
     state[co].statuts=(statuts||[]).map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
-    state[co].materiels=(materiels||[]).map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));
+    const _delIds=getDeletedMatIds(co);
+    state[co].materiels=(materiels||[]).filter(m=>!_delIds.includes(m.id)).map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));
     state[co].ots=(ots||[]).map(o=>({id:o.id,num:o.num,mat:o.mat_label,type:o.type_ot,prio:o.prio,tech:o.tech,dur:o.dur,statut:o.statut,date:o.date_prevue,desc:o.desc_}));
     state[co].pieces=(pieces||[]).map(p=>({id:p.id,ref:p.ref,nom:p.nom,compat:p.compat,prix:p.prix,stock:p.stock,seuil:p.seuil,notes:p.notes,fourn:p.fournisseur||'',st:p.stock===0?'alert':p.stock<=p.seuil?'warn':'ok'}));
     state[co].mouvements=(mvts||[]).map(m=>({date:new Date(m.created_at).toLocaleDateString('fr-FR'),ref:m.ref_piece,nom:m.nom_piece,type:m.type_mvt,qte:(m.type_mvt==='in'?'+':m.type_mvt==='out'?'-':'=')+m.qte,motif:m.motif||'',apres:String(m.stock_apres||0)}));
@@ -4968,7 +4991,7 @@ async function loadMaterielsPourConsultation(){
       ]);
       if(fam && fam.length) state[co].familles=fam.map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
       if(stat && stat.length) state[co].statuts=stat.map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
-      if(mat && mat.length) state[co].materiels=mat.map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));
+      if(mat && mat.length){const _dIds=getDeletedMatIds(co);state[co].materiels=mat.filter(m=>!_dIds.includes(m.id)).map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));}
     }catch(e){
       console.warn('loadMaterielsPourConsultation: erreur pour '+co, e.message);
     }
@@ -6360,17 +6383,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const b=state[currentCompany].bdcs.find(x=>x.num===num); if(!b) return;
     await saveToSupabase('bons_commande',{id:b.id,entreprise_id:currentCompany,num:b.num,fourn_nom:b.fourn,date_cmd:b.date||null,mode:b.mode,montant:b.mont,nb_articles:parseInt(b.art)||1,statut:b.statut,date_livraison:b.livraison||null,articles:b.articles});
   };
-  // Patch deleteMat → Supabase
-  const _dm=window.deleteMat; window.deleteMat=async function(id){
-    const mat=state[currentCompany].materiels.find(m=>m.id===id||m.code===id);
-    const sbId=mat?.id;
-    _dm(id);
-    const stillExists=state[currentCompany].materiels.find(m=>m.id===id||m.code===id);
-    if(!stillExists && sbId && SB_MODE==='online'){
-      const {error}=await SB.from('materiels').delete().eq('id',sbId);
-      if(error) console.error('Erreur suppression matériel Supabase:',error.message);
-    }
-  };
+  // deleteMat gère déjà Supabase via deleteFromSupabase + tombstone
   // Patch deletePiece → Supabase
   const _dp=window.deletePiece; window.deletePiece=async function(id){
     const piece=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
