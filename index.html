@@ -2195,11 +2195,24 @@ function saveMat(){
 async function deleteMat(id){
   if(!confirm('Supprimer ce matériel ? Cette action est irréversible.')) return;
   ensureMatState(COMPANIES[currentCompany]);
+  const backup = [...state[currentCompany].materiels];
   state[currentCompany].materiels = state[currentCompany].materiels.filter(m=>m.id!==id&&m.code!==id);
   saveToStorage();
-  if(SB && SB_MODE==='online') await deleteFromSupabase('materiels', id);
+  if(SB && SB_MODE==='online'){
+    const err = await deleteFromSupabase('materiels', id);
+    if(err){
+      // Rollback si Supabase refuse
+      state[currentCompany].materiels = backup;
+      saveToStorage();
+      if(typeof showToast==='function') showToast('❌ Suppression refusée par le serveur : '+err.message,'error');
+      else alert('❌ Suppression refusée par le serveur.\nVérifiez vos droits Supabase.');
+      renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
+      return;
+    }
+  }
   closeModal('modal-mat-detail');
   renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
+  if(typeof showToast==='function') showToast('🗑 Matériel supprimé','success');
 }
 
 /* ── PRÊTS DE MATÉRIELS ──────────────────────────────────── */
@@ -2683,8 +2696,11 @@ function openMatDetail(id){
   document.getElementById('detail-notes-block').innerHTML = mat.notes
     ? `<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Notes</div><div style="font-size:13px;white-space:pre-wrap">${mat.notes}</div></div>`
     : '';
-  document.getElementById('detail-edit-btn').onclick   = ()=>openMatEdit(id);
-  document.getElementById('detail-delete-btn').onclick = ()=>deleteMat(id);
+  const canEditMat = currentCompany===(SB_PROFILE?.entreprise_id||'A');
+  const editBtn=document.getElementById('detail-edit-btn');
+  const delBtn=document.getElementById('detail-delete-btn');
+  if(editBtn){ editBtn.style.display=canEditMat?'':'none'; editBtn.onclick=()=>openMatEdit(id); }
+  if(delBtn){ delBtn.style.display=canEditMat?'':'none'; delBtn.onclick=()=>deleteMat(id); }
   document.getElementById('modal-mat-detail').classList.add('open');
 }
 
@@ -6282,9 +6298,10 @@ async function saveToSupabase(table, record){
   if(error) console.warn('[saveToSupabase]', table, error);
 }
 async function deleteFromSupabase(table, id){
-  if(!SB||SB_MODE!=='online') return;
+  if(!SB||SB_MODE!=='online') return null;
   const { error } = await secureWrite(table, 'delete', null, id);
   if(error) console.warn('[deleteFromSupabase]', table, id, error);
+  return error||null;
 }
 async function syncMaterielToSupabase(mat){
   if(!SB||SB_MODE!=='online'||!mat) return;
