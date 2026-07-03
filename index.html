@@ -438,7 +438,7 @@ textarea{resize:vertical;min-height:80px;}
         <select style="max-width:180px" id="mat-statut-filter" onchange="applyMatFilters()"></select>
         <button class="btn btn-sm btn-edit" onclick="openPretModal()" style="margin-left:auto">🔄 Prêt matériel</button>
         <button class="btn btn-sm" onclick="openPretsListModal()">📄 Fiches de prêt (PDF)</button>
-        <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()">📥 Importer un fichier</button>
+        <button class="btn btn-sm btn-edit" id="btn-import-mat" onclick="openImportMaterielsModal()">📥 Importer un fichier</button>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th style="width:28px"><input type="checkbox" id="mat-select-all" onchange="toggleSelectAllMats(this)" title="Tout sélectionner" style="cursor:pointer"></th><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
 
@@ -1669,6 +1669,9 @@ function renderMateriels(co,st){
   updateMatKpis();
   ensurePretState(co);
   renderPretsTable();
+  const isAdmin=getUserRole()==='admin';
+  const btnImp=document.getElementById('btn-import-mat');
+  if(btnImp) btnImp.style.display=isAdmin?'':'none';
 }
 function revisionStatus(mat){
   if(!mat.revision) return null;
@@ -1717,7 +1720,7 @@ function renderMatTable(co, st){
         <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
-          ${currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id)?`
+          ${getUserRole()==='admin'?`
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
           <button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
@@ -2148,6 +2151,7 @@ function openMatEdit(id){
 }
 
 function saveMat(){
+  if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut créer ou modifier un matériel.');return;}
   const code = document.getElementById('mat-f-code').value.trim();
   const nom  = document.getElementById('mat-f-nom').value.trim();
   if(!code||!nom){ alert('Le code et la désignation sont obligatoires.'); return; }
@@ -2193,6 +2197,7 @@ function saveMat(){
 }
 
 async function deleteMat(id){
+  if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut supprimer un matériel.');return;}
   if(!confirm('Supprimer ce matériel ? Cette action est irréversible.')) return;
   ensureMatState(COMPANIES[currentCompany]);
   const backup = [...state[currentCompany].materiels];
@@ -2696,7 +2701,7 @@ function openMatDetail(id){
   document.getElementById('detail-notes-block').innerHTML = mat.notes
     ? `<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Notes</div><div style="font-size:13px;white-space:pre-wrap">${mat.notes}</div></div>`
     : '';
-  const canEditMat = currentCompany===(SB_PROFILE?.entreprise_id||'A');
+  const canEditMat = getUserRole()==='admin';
   const editBtn=document.getElementById('detail-edit-btn');
   const delBtn=document.getElementById('detail-delete-btn');
   if(editBtn){ editBtn.style.display=canEditMat?'':'none'; editBtn.onclick=()=>openMatEdit(id); }
