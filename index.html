@@ -1717,7 +1717,7 @@ function renderMatTable(co, st){
         <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
-          ${currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id)?`
+          ${(getUserRole()==='admin'||currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id))?`
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
           <button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
@@ -3078,8 +3078,8 @@ function renderPiecesTable(){
           <td>${p.seuil}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm btn-edit" onclick="openMvtModal('${p.ref}')" title="Mouvement stock">📦</button>
-            <button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref}')" style="margin-left:4px">✏️</button>
-            <button class="btn btn-sm btn-danger" onclick="deletePiece('${p.ref}')" style="margin-left:4px">🗑</button>
+            ${canModifyMat()?`<button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref}')" style="margin-left:4px">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deletePiece('${p.ref}')" style="margin-left:4px">🗑</button>`:''}
           </td>
         </tr>`;
       }).join('')
@@ -3127,11 +3127,19 @@ function savePiece(){
   saveToStorage(); closeModal('modal-piece'); renderPieces(COMPANIES[currentCompany]);
 }
 async function deletePiece(id){
-  if(!confirm('Supprimer cette pièce ?'))return;
+  if(!canModifyMat()){alert('❌ Vous ne pouvez pas supprimer les pièces d\'une autre entreprise.');return;}
+  const confirmed=await customConfirm('Supprimer cette pièce ? Cette action est irréversible.');
+  if(!confirmed) return;
+  const piece=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
+  const pieceUUID=piece?.id||id;
   state[currentCompany].pieces=state[currentCompany].pieces.filter(p=>p.id!==id&&p.ref!==id);
   saveToStorage();
-  if(SB && SB_MODE==='online') await deleteFromSupabase('pieces', id);
   renderPieces(COMPANIES[currentCompany]);
+  if(typeof showToast==='function') showToast('🗑 Pièce supprimée','success');
+  if(SB&&SB_MODE==='online'){
+    const err=await deleteFromSupabase('pieces',pieceUUID);
+    if(err) console.warn('[deletePiece] Supabase non synchronisé:',err.message);
+  }
 }
 
 /* ── IMPORT CSV DE PIECES DETACHEES ──────────────────────── */
@@ -4999,13 +5007,24 @@ async function loadMaterielsPourConsultation(){
   const autres = Object.keys(COMPANIES).filter(k=>k!==ownCo);
   for(const co of autres){
     try{
-      const [{data:fam},{data:stat},{data:mat}] = await Promise.all([
+      const isAdmin=getUserRole()==='admin';
+      const queries=[
         SB.from('familles').select('*').eq('entreprise_id',co),
         SB.from('statuts').select('*').eq('entreprise_id',co),
         SB.from('materiels').select('*').eq('entreprise_id',co),
-      ]);
+        ...(isAdmin?[
+          SB.from('pieces').select('*').eq('entreprise_id',co),
+          SB.from('fournisseurs').select('*').eq('entreprise_id',co),
+        ]:[]),
+      ];
+      const results2=await Promise.all(queries);
+      const [{data:fam},{data:stat},{data:mat}]=results2;
+      const pieces2=isAdmin?results2[3]?.data:null;
+      const fourns2=isAdmin?results2[4]?.data:null;
       if(fam && fam.length) state[co].familles=fam.map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
       if(stat && stat.length) state[co].statuts=stat.map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
+      if(pieces2&&pieces2.length) state[co].pieces=pieces2.map(p=>({id:p.id,ref:p.ref,nom:p.nom,compat:p.compat,prix:p.prix,stock:p.stock,seuil:p.seuil,notes:p.notes,fourn:p.fournisseur||'',st:p.stock===0?'alert':p.stock<=p.seuil?'warn':'ok'}));
+      if(fourns2&&fourns2.length) state[co].fournisseurs=fourns2.map(f=>({id:f.id,nom:f.nom,pays:f.pays,spec:f.spec,delai:f.delai,contact:f.contact,tel:f.tel,fret:f.fret,mode:f.mode,total:f.total_achats,notes:f.notes}));
       if(mat && mat.length){const _dI=getDeletedMatIds(co);state[co].materiels=mat.filter(m=>!_dI.includes(m.id)).map(m=>({id:m.id,code:m.code,nom:m.nom,famille:m.famille_id,serie:m.serie,statut:m.statut_id,maint:m.maint,cout:m.cout,dateMS:m.date_ms,notes:m.notes,revision:m.revision_date||null,fourn:m.fournisseur||'',prixAchat:m.prix_achat||'',dateAchat:m.date_achat||null}));}
     }catch(e){
       console.warn('loadMaterielsPourConsultation: erreur pour '+co, e.message);
@@ -6408,17 +6427,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     await saveToSupabase('bons_commande',{id:b.id,entreprise_id:currentCompany,num:b.num,fourn_nom:b.fourn,date_cmd:b.date||null,mode:b.mode,montant:b.mont,nb_articles:parseInt(b.art)||1,statut:b.statut,date_livraison:b.livraison||null,articles:b.articles});
   };
   // deleteMat gère déjà Supabase via deleteFromSupabase + tombstone
-  // Patch deletePiece → Supabase
-  const _dp=window.deletePiece; window.deletePiece=async function(id){
-    const piece=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
-    const sbId=piece?.id;
-    _dp(id);
-    const stillExists=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
-    if(!stillExists && sbId && SB_MODE==='online'){
-      const {error}=await SB.from('pieces').delete().eq('id',sbId);
-      if(error) console.error('Erreur suppression pièce Supabase:',error.message);
-    }
-  };
+  // deletePiece gère déjà Supabase via deleteFromSupabase
 });
 
 
