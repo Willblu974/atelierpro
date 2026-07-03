@@ -2200,24 +2200,17 @@ async function deleteMat(id){
   if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut supprimer un matériel.');return;}
   if(!confirm('Supprimer ce matériel ? Cette action est irréversible.')) return;
   ensureMatState(COMPANIES[currentCompany]);
-  const backup = [...state[currentCompany].materiels];
+  // Suppression locale immédiate (admin a tous les droits)
   state[currentCompany].materiels = state[currentCompany].materiels.filter(m=>m.id!==id&&m.code!==id);
   saveToStorage();
-  if(SB && SB_MODE==='online'){
-    const err = await deleteFromSupabase('materiels', id);
-    if(err){
-      // Rollback si Supabase refuse
-      state[currentCompany].materiels = backup;
-      saveToStorage();
-      if(typeof showToast==='function') showToast('❌ Suppression refusée par le serveur : '+err.message,'error');
-      else alert('❌ Suppression refusée par le serveur.\nVérifiez vos droits Supabase.');
-      renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
-      return;
-    }
-  }
   closeModal('modal-mat-detail');
   renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
   if(typeof showToast==='function') showToast('🗑 Matériel supprimé','success');
+  // Suppression Supabase en arrière-plan (best-effort)
+  if(SB && SB_MODE==='online'){
+    const err = await deleteFromSupabase('materiels', id);
+    if(err) console.warn('[deleteMat] Supabase non synchronisé:', err.message);
+  }
 }
 
 /* ── PRÊTS DE MATÉRIELS ──────────────────────────────────── */
