@@ -6336,7 +6336,16 @@ async function saveToSupabase(table, record){
 async function deleteFromSupabase(table, id){
   if(!SB||SB_MODE!=='online') return null;
   const { error } = await secureWrite(table, 'delete', null, id);
-  if(error) console.warn('[deleteFromSupabase]', table, id, error);
+  if(error){
+    // secureWrite enforce entreprise_id — pour l'admin, essayer en direct via RLS
+    if(getUserRole()==='admin'){
+      const {error:err2} = await SB.from(table).delete().eq('id',id);
+      if(!err2) return null; // succès via RLS
+      console.warn('[deleteFromSupabase] admin direct aussi échoué:', err2.message);
+      return err2;
+    }
+    console.warn('[deleteFromSupabase]', table, id, error);
+  }
   return error||null;
 }
 async function syncMaterielToSupabase(mat){
