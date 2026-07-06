@@ -960,7 +960,11 @@ textarea{resize:vertical;min-height:80px;}
     <div class="modal-header"><strong id="plan-modal-title">Nouveau plan préventif</strong><button class="btn btn-sm" onclick="closeModal('modal-plan')">&#10005;</button></div>
     <div class="form-grid">
       <input type="hidden" id="plan-edit-id">
-      <div class="form-group full"><label>Matériel *</label><select id="plan-f-mat"></select></div>
+      <div class="form-group full">
+        <label>Matériels * <span id="plan-mat-count" style="font-weight:400;color:var(--text3);font-size:12px"></span></label>
+        <input type="text" id="plan-mat-search" placeholder="Rechercher un matériel..." style="margin-bottom:6px;width:100%;box-sizing:border-box" oninput="filterPlanMats()">
+        <div id="plan-f-materiels-list" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:6px;background:var(--surface2)"></div>
+      </div>
       <div class="form-group full"><label>Opération *</label><input id="plan-f-op" placeholder="ex: Vidange moteur + filtres"></div>
       <div class="form-group"><label>Périodicité — valeur</label><input type="number" min="1" id="plan-f-period-val" placeholder="ex: 500"></div>
       <div class="form-group"><label>Périodicité — unité</label><select id="plan-f-period-unite">
@@ -970,6 +974,7 @@ textarea{resize:vertical;min-height:80px;}
         <option value="semaines">Semaines</option>
         <option value="mois">Mois</option>
       </select></div>
+      <div class="form-group full" style="margin-top:-8px"><span style="font-size:11px;color:var(--text3)">📌 Si l'unité est Jours, Semaines ou Mois et qu'une "Dernière fois" est renseignée, la date de révision des matériels sélectionnés (onglet Matériels) sera calculée et mise à jour automatiquement. Pour Heures/km, la révision n'est pas calculable automatiquement (compteur non suivi).</span></div>
       <div class="form-group full"><label>Pièces liées</label><input id="plan-f-pieces" placeholder="ex: Filtre huile, huile 15W-40"></div>
       <div class="form-group"><label>Dernière fois (date)</label><input type="date" id="plan-f-last"></div>
       <div class="form-group full"><label>Notes</label><textarea id="plan-f-notes" placeholder="Remarques éventuelles..."></textarea></div>
@@ -2940,9 +2945,15 @@ function openPlanModal(id=null){
   ensureMatState(COMPANIES[currentCompany]);
   const mats=state[currentCompany].materiels||[];
   const existing=id?(state[currentCompany].plans||[]).find(p=>p.id===id):null;
-  const matSel=document.getElementById('plan-f-mat');
-  matSel.innerHTML = mats.map(m=>`<option value="${m.code}">${m.code} — ${m.nom}</option>`).join('');
-  if(existing?.matCode) matSel.value=existing.matCode;
+  const existingCodes=(existing?.matCodes||(existing?.matCode?[existing.matCode]:[])).map(String);
+  document.getElementById('plan-f-materiels-list').innerHTML=mats.map(m=>{
+    const checked=existingCodes.includes(String(m.code))?'checked':'';
+    return `<label class="mat-check-item">
+      <input type="checkbox" value="${m.code}" data-nom="${m.code} — ${m.nom}" ${checked} onchange="updatePlanMatCount()">
+      <span><strong>${m.code}</strong> — ${m.nom}</span></label>`;
+  }).join('');
+  updatePlanMatCount();
+  document.getElementById('plan-mat-search').value='';
   document.getElementById('plan-modal-title').textContent = id?'Modifier le plan préventif':'Nouveau plan préventif';
   document.getElementById('plan-f-op').value = existing?.op||'';
   document.getElementById('plan-f-period-val').value = existing?.periodValeur||'';
@@ -2952,15 +2963,29 @@ function openPlanModal(id=null){
   document.getElementById('plan-f-notes').value = existing?.notes||'';
   document.getElementById('modal-plan').classList.add('open');
 }
+function updatePlanMatCount(){
+  const n=document.querySelectorAll('#plan-f-materiels-list input[type=checkbox]:checked').length;
+  const el=document.getElementById('plan-mat-count');
+  if(el) el.textContent=n?'('+n+' sélectionné'+(n>1?'s':'')+')':'';
+}
+function filterPlanMats(){
+  const q=document.getElementById('plan-mat-search').value.toLowerCase();
+  document.querySelectorAll('#plan-f-materiels-list label').forEach(function(lbl){
+    const txt=lbl.textContent.toLowerCase();
+    lbl.style.display=(!q||txt.includes(q))?'':'none';
+  });
+}
 function savePlan(){
-  const matSel=document.getElementById('plan-f-mat');
-  const matCode=matSel.value;
-  const matLabel=matSel.options[matSel.selectedIndex]?.textContent||matCode;
+  const checkedMats=[...document.querySelectorAll('#plan-f-materiels-list input[type=checkbox]:checked')];
+  if(!checkedMats.length){alert('Sélectionnez au moins un matériel.');return;}
+  const matCodes=checkedMats.map(cb=>cb.value);
+  const matLabels=checkedMats.map(cb=>cb.dataset.nom||cb.value);
+  const matStr=matLabels.join(', ');
   const op=document.getElementById('plan-f-op').value.trim();
-  if(!matCode||!op){alert('Matériel et opération sont obligatoires.');return;}
+  if(!op){alert("L'opération est obligatoire.");return;}
   const plans = state[currentCompany].plans || (state[currentCompany].plans=[]);
   const rec={
-    matCode, mat:matLabel, op,
+    matCodes, mat:matStr, op,
     periodValeur: document.getElementById('plan-f-period-val').value ? Number(document.getElementById('plan-f-period-val').value) : null,
     periodUnite: document.getElementById('plan-f-period-unite').value,
     pieces: document.getElementById('plan-f-pieces').value.trim(),
@@ -2977,12 +3002,29 @@ function savePlan(){
     rec.id='PLAN-'+Date.now();
     plans.push(rec);
   }
+  // Répercute la périodicité sur la date de révision des matériels
+  // sélectionnés (onglet Matériels), uniquement calculable si l'unité
+  // est jours/semaines/mois et qu'une "dernière fois" est renseignée —
+  // pour heures/km, pas de calendrier possible sans compteur du matériel.
+  const facteursJours={jours:1,semaines:7,mois:30};
+  if(rec.last && rec.periodValeur && facteursJours[rec.periodUnite]){
+    const joursTotal=Number(rec.periodValeur)*facteursJours[rec.periodUnite];
+    const revisionISO=toDS(new Date(new Date(rec.last).getTime()+joursTotal*86400000));
+    const mats=state[currentCompany].materiels||[];
+    matCodes.forEach(code=>{
+      const mat=mats.find(m=>String(m.code)===String(code));
+      if(mat){
+        mat.revision=revisionISO;
+        if(SB && SB_MODE==='online') syncMaterielToSupabase(mat);
+      }
+    });
+  }
   saveToStorage();
   closeModal('modal-plan');
-  renderPlanTable();
+  renderAll();
   if(SB && SB_MODE==='online'){
     saveToSupabase('plans_preventifs',{
-      id:rec.id, entreprise_id:currentCompany, materiel_code:rec.matCode, materiel_label:rec.mat,
+      id:rec.id, entreprise_id:currentCompany, materiel_code:matCodes.join(','), materiel_label:rec.mat,
       operation:rec.op, periodicite_valeur:rec.periodValeur, periodicite_unite:rec.periodUnite,
       pieces_liees:rec.pieces, derniere_fois:rec.last, notes:rec.notes
     });
