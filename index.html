@@ -484,7 +484,11 @@ textarea{resize:vertical;min-height:80px;}
         </div>
       </div>
       <div id="maint-plan" style="display:none">
-        <div class="card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>Opération</th><th>Périodicité</th><th>Pièces liées</th><th>Dernière fois</th><th>Prochaine</th></tr></thead><tbody id="plan-tbody"></tbody></table></div></div>
+        <div style="display:flex;gap:10px;margin-bottom:16px">
+          <div style="flex:1"></div>
+          <button class="btn btn-sm btn-edit" onclick="openPlanModal()">+ Nouveau plan</button>
+        </div>
+        <div class="card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>Opération</th><th>Périodicité</th><th>Pièces liées</th><th>Dernière fois</th><th>Prochaine</th><th></th></tr></thead><tbody id="plan-tbody"></tbody></table></div></div>
       </div>
       <div id="maint-histo" style="display:none">
         <div class="card"><div class="card-body"><table><thead><tr><th>Date</th><th>Matériel</th><th>Opération</th><th>Technicien</th><th>Durée</th><th>Coût pièces</th><th>Coût MO</th><th>OT lié</th></tr></thead><tbody id="histo-tbody"></tbody></table></div></div>
@@ -948,6 +952,29 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-group full"><label>Description / Travaux à effectuer</label><textarea id="ot-f-desc" placeholder="Décrivez les travaux, pièces nécessaires..."></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-ot')">Annuler</button><button class="btn btn-primary" onclick="saveOT()">Enregistrer</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-plan">
+  <div class="modal">
+    <div class="modal-header"><strong id="plan-modal-title">Nouveau plan préventif</strong><button class="btn btn-sm" onclick="closeModal('modal-plan')">&#10005;</button></div>
+    <div class="form-grid">
+      <input type="hidden" id="plan-edit-id">
+      <div class="form-group full"><label>Matériel *</label><select id="plan-f-mat"></select></div>
+      <div class="form-group full"><label>Opération *</label><input id="plan-f-op" placeholder="ex: Vidange moteur + filtres"></div>
+      <div class="form-group"><label>Périodicité — valeur</label><input type="number" min="1" id="plan-f-period-val" placeholder="ex: 500"></div>
+      <div class="form-group"><label>Périodicité — unité</label><select id="plan-f-period-unite">
+        <option value="heures">Heures</option>
+        <option value="km">Kilomètres</option>
+        <option value="jours">Jours</option>
+        <option value="semaines">Semaines</option>
+        <option value="mois">Mois</option>
+      </select></div>
+      <div class="form-group full"><label>Pièces liées</label><input id="plan-f-pieces" placeholder="ex: Filtre huile, huile 15W-40"></div>
+      <div class="form-group"><label>Dernière fois (date)</label><input type="date" id="plan-f-last"></div>
+      <div class="form-group full"><label>Notes</label><textarea id="plan-f-notes" placeholder="Remarques éventuelles..."></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-plan')">Annuler</button><button class="btn btn-primary" onclick="savePlan()">Enregistrer</button></div>
   </div>
 </div>
 
@@ -2846,62 +2873,134 @@ const OT_STATUT_MAP = {
 };
 const OT_PRIO_MAP = {info:'Normale',warn:'Élevée',alert:'Urgente'};
 
-/* Construit les lignes du tableau "Plans préventifs" à partir des OT
-   de type "Préventif". Un plan = un couple (matériel, opération). Pour
-   chaque plan : "Dernière fois" = OT terminé le plus récent, "Prochaine"
-   = OT planifié/en cours le plus proche, "Périodicité" estimée à partir
-   de l'écart entre les 2 dernières interventions terminées. */
-function extraitPiecesDesc(desc){
-  if(!desc) return '—';
-  const m = desc.match(/pi[eè]ces?\s*(?:n[ée]cessaires?)?\s*:\s*([^\n\r]+)/i);
-  return m ? m[1].trim() : '—';
+/* ══════════════════════════════════════════════════════════
+   PLANS PRÉVENTIFS — entité gérée (CRUD + synchro Supabase)
+   Chaque plan est saisi manuellement : Matériel, Opération,
+   Périodicité (valeur + unité), Pièces liées, Dernière fois.
+   La colonne "Prochaine" est calculée côté client à partir de
+   la dernière intervention + la périodicité (quand l'unité est
+   jours/semaines/mois ; pour heures/km, affiche "selon compteur"
+   car on ne peut pas prédire une date sans le compteur du matériel).
+   ══════════════════════════════════════════════════════════ */
+const PLAN_UNITE_LABEL = {heures:'heures',km:'km',jours:'jours',semaines:'semaines',mois:'mois'};
+function ensurePlanState(co){
+  if(!state[currentCompany].plans){
+    // Reprend les anciens plans de démo (si présents) pour ne rien casser
+    // à l'affichage tant qu'aucun vrai plan n'a été créé ; ils restent
+    // modifiables/supprimables (id LEGACY-) et se transforment en vrai
+    // plan synchronisé dès qu'on les modifie.
+    state[currentCompany].plans = (co.plans||[]).map((p,i)=>({...p, id:p.id||('LEGACY-'+i)}));
+  }
 }
-function buildPlansPreventifs(ots){
-  const groupes={};
-  (ots||[]).forEach(o=>{
-    if(o.type!=='Préventif') return;
-    const opLabel=(o.desc||'').trim()||'Opération non précisée';
-    const key=(o.mat||'—')+'||'+opLabel;
-    if(!groupes[key]) groupes[key]={mat:o.mat||'—', op:opLabel, items:[]};
-    groupes[key].items.push(o);
-  });
-  return Object.values(groupes).map(g=>{
-    const avecDate=g.items.filter(o=>o.date);
-    const termines=avecDate.filter(o=>o.statut==='termine').sort((a,b)=>new Date(b.date)-new Date(a.date));
-    const aVenir=avecDate.filter(o=>o.statut!=='termine').sort((a,b)=>new Date(a.date)-new Date(b.date));
-    const dernier=termines[0], prochain=aVenir[0];
-    let period='Non renseignée';
-    if(termines.length>=2){
-      const jours=Math.round((new Date(termines[0].date)-new Date(termines[1].date))/86400000);
-      if(jours>0) period='~ tous les '+jours+' jours (estimé)';
-    }
-    let proch='ok', prochTxt='Aucune planifiée';
-    if(prochain){
-      const today=new Date(); today.setHours(0,0,0,0);
-      const diff=Math.round((new Date(prochain.date)-today)/86400000);
-      proch = diff<0 ? 'alert' : (diff<=7 ? 'warn' : 'ok');
-      prochTxt = diff<0 ? ('En retard de '+(-diff)+' j') : (diff===0 ? "Aujourd'hui" : ('Dans '+diff+' j'));
-    }
-    return {
-      mat:g.mat,
-      op:g.op,
-      period,
-      pieces: extraitPiecesDesc(dernier?.desc) !== '—' ? extraitPiecesDesc(dernier?.desc) : extraitPiecesDesc(prochain?.desc),
-      last: dernier ? new Date(dernier.date).toLocaleDateString('fr-FR') : '—',
-      proch, prochTxt
-    };
-  }).sort((a,b)=> a.mat.localeCompare(b.mat));
+function formatPlanPeriodicite(p){
+  if(p.periodUnite) return p.periodValeur ? ('Toutes les '+p.periodValeur+' '+(PLAN_UNITE_LABEL[p.periodUnite]||p.periodUnite)) : '—';
+  return p.period || '—'; // compat anciennes entrées de démo (texte libre)
+}
+function computePlanProchaine(p){
+  if(!p.periodUnite) return {cls:p.proch||'ok', txt:p.prochTxt||'—'}; // compat démo
+  if(!p.last) return {cls:'info', txt:'Dernière intervention non renseignée'};
+  if(p.periodUnite==='heures'||p.periodUnite==='km'){
+    return {cls:'info', txt:'Selon compteur ('+(p.periodValeur||'?')+' '+PLAN_UNITE_LABEL[p.periodUnite]+')'};
+  }
+  const facteurs={jours:1,semaines:7,mois:30};
+  const joursTotal=(Number(p.periodValeur)||0)*(facteurs[p.periodUnite]||1);
+  const dLast=new Date(p.last);
+  const today=new Date(); today.setHours(0,0,0,0);
+  const prochaineDate=new Date(dLast.getTime()+joursTotal*86400000);
+  const diff=Math.round((prochaineDate-today)/86400000);
+  const cls = diff<0 ? 'alert' : (diff<=7 ? 'warn' : 'ok');
+  const txt = (diff<0 ? ('En retard de '+(-diff)+' j') : (diff===0 ? "Aujourd'hui" : ('Dans '+diff+' j'))) + ' ('+prochaineDate.toLocaleDateString('fr-FR')+')';
+  return {cls, txt};
+}
+function renderPlanTable(){
+  const plans=state[currentCompany].plans||[];
+  document.getElementById('plan-tbody').innerHTML = plans.length
+    ? plans.map(p=>{
+        const proch=computePlanProchaine(p);
+        const lastDisplay = p.periodUnite ? (p.last? new Date(p.last).toLocaleDateString('fr-FR') : '—') : (p.last||'—');
+        return `<tr>
+          <td>${p.mat||'—'}</td>
+          <td>${p.op||'—'}</td>
+          <td>${formatPlanPeriodicite(p)}</td>
+          <td>${p.pieces||'—'}</td>
+          <td>${lastDisplay}</td>
+          <td>${bdg(proch.cls,proch.txt)}</td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm btn-edit" onclick="openPlanModal('${p.id}')">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deletePlan('${p.id}')" style="margin-left:4px">🗑</button>
+          </td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">Aucun plan préventif — cliquez sur « + Nouveau plan » pour en créer un</td></tr>`;
+}
+let editingPlanId=null;
+function openPlanModal(id=null){
+  editingPlanId=id;
+  ensurePlanState(COMPANIES[currentCompany]);
+  ensureMatState(COMPANIES[currentCompany]);
+  const mats=state[currentCompany].materiels||[];
+  const existing=id?(state[currentCompany].plans||[]).find(p=>p.id===id):null;
+  const matSel=document.getElementById('plan-f-mat');
+  matSel.innerHTML = mats.map(m=>`<option value="${m.code}">${m.code} — ${m.nom}</option>`).join('');
+  if(existing?.matCode) matSel.value=existing.matCode;
+  document.getElementById('plan-modal-title').textContent = id?'Modifier le plan préventif':'Nouveau plan préventif';
+  document.getElementById('plan-f-op').value = existing?.op||'';
+  document.getElementById('plan-f-period-val').value = existing?.periodValeur||'';
+  document.getElementById('plan-f-period-unite').value = existing?.periodUnite||'heures';
+  document.getElementById('plan-f-pieces').value = existing?.pieces||'';
+  document.getElementById('plan-f-last').value = (existing?.periodUnite && existing?.last) ? existing.last : '';
+  document.getElementById('plan-f-notes').value = existing?.notes||'';
+  document.getElementById('modal-plan').classList.add('open');
+}
+function savePlan(){
+  const matSel=document.getElementById('plan-f-mat');
+  const matCode=matSel.value;
+  const matLabel=matSel.options[matSel.selectedIndex]?.textContent||matCode;
+  const op=document.getElementById('plan-f-op').value.trim();
+  if(!matCode||!op){alert('Matériel et opération sont obligatoires.');return;}
+  const plans = state[currentCompany].plans || (state[currentCompany].plans=[]);
+  const rec={
+    matCode, mat:matLabel, op,
+    periodValeur: document.getElementById('plan-f-period-val').value ? Number(document.getElementById('plan-f-period-val').value) : null,
+    periodUnite: document.getElementById('plan-f-period-unite').value,
+    pieces: document.getElementById('plan-f-pieces').value.trim(),
+    last: document.getElementById('plan-f-last').value || null,
+    notes: document.getElementById('plan-f-notes').value.trim(),
+  };
+  if(editingPlanId && !editingPlanId.startsWith('LEGACY-')){
+    rec.id=editingPlanId;
+    const idx=plans.findIndex(p=>p.id===editingPlanId);
+    if(idx>=0) plans[idx]={...plans[idx],...rec};
+  } else {
+    // Nouveau plan, ou "conversion" d'une ancienne ligne de démo en vrai plan
+    if(editingPlanId){ const idx=plans.findIndex(p=>p.id===editingPlanId); if(idx>=0) plans.splice(idx,1); }
+    rec.id='PLAN-'+Date.now();
+    plans.push(rec);
+  }
+  saveToStorage();
+  closeModal('modal-plan');
+  renderPlanTable();
+  if(SB && SB_MODE==='online'){
+    saveToSupabase('plans_preventifs',{
+      id:rec.id, entreprise_id:currentCompany, materiel_code:rec.matCode, materiel_label:rec.mat,
+      operation:rec.op, periodicite_valeur:rec.periodValeur, periodicite_unite:rec.periodUnite,
+      pieces_liees:rec.pieces, derniere_fois:rec.last, notes:rec.notes
+    });
+  }
+}
+async function deletePlan(id){
+  if(!confirm('Supprimer ce plan préventif ?'))return;
+  state[currentCompany].plans=(state[currentCompany].plans||[]).filter(p=>p.id!==id);
+  saveToStorage();
+  renderPlanTable();
+  if(!id.startsWith('LEGACY-') && SB && SB_MODE==='online') await deleteFromSupabase('plans_preventifs', id);
 }
 function renderMaintenance(co,st){
   ensureOTState(co);
   renderOTTable();
-  // Plans préventifs — générés automatiquement à partir des OT de type "Préventif"
-  const plansPreventifs = buildPlansPreventifs(st.ots||[]);
-  document.getElementById('plan-tbody').innerHTML = plansPreventifs.length
-    ? plansPreventifs.map(p=>
-        `<tr><td>${p.mat}</td><td>${p.op}</td><td>${p.period}</td><td>${p.pieces}</td><td>${p.last}</td><td>${bdg(p.proch,p.prochTxt)}</td></tr>`
-      ).join('')
-    : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Aucun plan préventif — créez un OT de type "Préventif" pour générer une entrée ici</td></tr>`;
+  // Plans préventifs
+  ensurePlanState(co);
+  renderPlanTable();
   // Histo
   renderHistoTable();
 }
@@ -5038,6 +5137,17 @@ async function loadFromSupabase(){
     state[co].transport = trRow
       ? {bdc:trRow.bdc||'—',fourn:trRow.fournisseur||'Aucune expédition en cours',mode:trRow.mode||'—',progress:trRow.progress||0,progressColor:trRow.progress_color||'#9c9a94',progressTxt:trRow.progress_txt||'—',alert:trRow.alert||null,rows:(()=>{try{return JSON.parse(trRow.rows||'[]')}catch(e){return []}})(),surcout:trRow.surcout||'—'}
       : {bdc:'—',fourn:'Aucune expédition en cours',mode:'—',progress:0,progressColor:'#9c9a94',progressTxt:'—',alert:null,rows:[],surcout:'—'};
+    // Chargée séparément (try/catch dédié) : si la table n'existe pas encore
+    // côté Supabase, on ne casse pas le reste du chargement, on garde les
+    // plans déjà en mémoire (démo ou précédemment chargés).
+    try{
+      const {data:plans, error:plansErr} = await SB.from('plans_preventifs').select('*').eq('entreprise_id',co);
+      if(!plansErr){
+        state[co].plans=(plans||[]).map(p=>({id:p.id, matCode:p.materiel_code, mat:p.materiel_label, op:p.operation, periodValeur:p.periodicite_valeur, periodUnite:p.periodicite_unite, pieces:p.pieces_liees, last:p.derniere_fois, notes:p.notes}));
+      } else {
+        console.warn('[loadFromSupabase] plans_preventifs indisponible (table pas encore créée ?) :', plansErr.message);
+      }
+    }catch(e){ console.warn('[loadFromSupabase] plans_preventifs :', e.message); }
     setSbStatus('online','🟢 '+SB_USER?.email+' · Synchronisé');
     // Préserver les événements (stockés uniquement en localStorage, pas dans Supabase)
     try{
