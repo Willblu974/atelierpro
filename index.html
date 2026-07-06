@@ -2846,13 +2846,62 @@ const OT_STATUT_MAP = {
 };
 const OT_PRIO_MAP = {info:'Normale',warn:'Élevée',alert:'Urgente'};
 
+/* Construit les lignes du tableau "Plans préventifs" à partir des OT
+   de type "Préventif". Un plan = un couple (matériel, opération). Pour
+   chaque plan : "Dernière fois" = OT terminé le plus récent, "Prochaine"
+   = OT planifié/en cours le plus proche, "Périodicité" estimée à partir
+   de l'écart entre les 2 dernières interventions terminées. */
+function extraitPiecesDesc(desc){
+  if(!desc) return '—';
+  const m = desc.match(/pi[eè]ces?\s*(?:n[ée]cessaires?)?\s*:\s*([^\n\r]+)/i);
+  return m ? m[1].trim() : '—';
+}
+function buildPlansPreventifs(ots){
+  const groupes={};
+  (ots||[]).forEach(o=>{
+    if(o.type!=='Préventif') return;
+    const opLabel=(o.desc||'').trim()||'Opération non précisée';
+    const key=(o.mat||'—')+'||'+opLabel;
+    if(!groupes[key]) groupes[key]={mat:o.mat||'—', op:opLabel, items:[]};
+    groupes[key].items.push(o);
+  });
+  return Object.values(groupes).map(g=>{
+    const avecDate=g.items.filter(o=>o.date);
+    const termines=avecDate.filter(o=>o.statut==='termine').sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const aVenir=avecDate.filter(o=>o.statut!=='termine').sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const dernier=termines[0], prochain=aVenir[0];
+    let period='Non renseignée';
+    if(termines.length>=2){
+      const jours=Math.round((new Date(termines[0].date)-new Date(termines[1].date))/86400000);
+      if(jours>0) period='~ tous les '+jours+' jours (estimé)';
+    }
+    let proch='ok', prochTxt='Aucune planifiée';
+    if(prochain){
+      const today=new Date(); today.setHours(0,0,0,0);
+      const diff=Math.round((new Date(prochain.date)-today)/86400000);
+      proch = diff<0 ? 'alert' : (diff<=7 ? 'warn' : 'ok');
+      prochTxt = diff<0 ? ('En retard de '+(-diff)+' j') : (diff===0 ? "Aujourd'hui" : ('Dans '+diff+' j'));
+    }
+    return {
+      mat:g.mat,
+      op:g.op,
+      period,
+      pieces: extraitPiecesDesc(dernier?.desc) !== '—' ? extraitPiecesDesc(dernier?.desc) : extraitPiecesDesc(prochain?.desc),
+      last: dernier ? new Date(dernier.date).toLocaleDateString('fr-FR') : '—',
+      proch, prochTxt
+    };
+  }).sort((a,b)=> a.mat.localeCompare(b.mat));
+}
 function renderMaintenance(co,st){
   ensureOTState(co);
   renderOTTable();
-  // Plans
-  document.getElementById('plan-tbody').innerHTML=co.plans.map(p=>
-    `<tr><td>${p.mat}</td><td>${p.op}</td><td>${p.period}</td><td>${p.pieces}</td><td>${p.last}</td><td>${bdg(p.proch,p.prochTxt)}</td></tr>`
-  ).join('');
+  // Plans préventifs — générés automatiquement à partir des OT de type "Préventif"
+  const plansPreventifs = buildPlansPreventifs(st.ots||[]);
+  document.getElementById('plan-tbody').innerHTML = plansPreventifs.length
+    ? plansPreventifs.map(p=>
+        `<tr><td>${p.mat}</td><td>${p.op}</td><td>${p.period}</td><td>${p.pieces}</td><td>${p.last}</td><td>${bdg(p.proch,p.prochTxt)}</td></tr>`
+      ).join('')
+    : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Aucun plan préventif — créez un OT de type "Préventif" pour générer une entrée ici</td></tr>`;
   // Histo
   renderHistoTable();
 }
