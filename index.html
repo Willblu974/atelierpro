@@ -2750,9 +2750,9 @@ function openMatDetail(id){
 function saveToStorage(){
   try {
     localStorage.setItem('atelierPro_state', JSON.stringify({
-      A:{ familles:state.A.familles, statuts:state.A.statuts, materiels:state.A.materiels, evenements:state.A.evenements||[], demandesPret:state.A.demandesPret||[] },
-      B:{ familles:state.B.familles, statuts:state.B.statuts, materiels:state.B.materiels, evenements:state.B.evenements||[], demandesPret:state.B.demandesPret||[] },
-      C:{ familles:state.C.familles, statuts:state.C.statuts, materiels:state.C.materiels, evenements:state.C.evenements||[], demandesPret:state.C.demandesPret||[] },
+      A:{ familles:state.A.familles, statuts:state.A.statuts, materiels:state.A.materiels, evenements:state.A.evenements||[], demandesPret:state.A.demandesPret||[], plans:state.A.plans||[] },
+      B:{ familles:state.B.familles, statuts:state.B.statuts, materiels:state.B.materiels, evenements:state.B.evenements||[], demandesPret:state.B.demandesPret||[], plans:state.B.plans||[] },
+      C:{ familles:state.C.familles, statuts:state.C.statuts, materiels:state.C.materiels, evenements:state.C.evenements||[], demandesPret:state.C.demandesPret||[], plans:state.C.plans||[] },
     }));
     // Sauvegarder infos entreprises séparément (logo en base64 peut être volumineux)
     ['A','B','C'].forEach(id=>{
@@ -2774,6 +2774,7 @@ function loadFromStorage(){
         if(data[id]?.materiels)   state[id].materiels   = data[id].materiels;
         if(data[id]?.evenements)  state[id].evenements  = data[id].evenements;
         if(data[id]?.demandesPret) state[id].demandesPret = data[id].demandesPret;
+        if(data[id]?.plans && data[id].plans.length) state[id].plans = data[id].plans;
       });
     }
     // Charger infos entreprises
@@ -3023,11 +3024,32 @@ function savePlan(){
   closeModal('modal-plan');
   renderAll();
   if(SB && SB_MODE==='online'){
-    saveToSupabase('plans_preventifs',{
+    savePlanToSupabase({
       id:rec.id, entreprise_id:currentCompany, materiel_code:matCodes.join(','), materiel_label:rec.mat,
       operation:rec.op, periodicite_valeur:rec.periodValeur, periodicite_unite:rec.periodUnite,
       pieces_liees:rec.pieces, derniere_fois:rec.last, notes:rec.notes
     });
+  }
+}
+/* Écrit le plan dans Supabase. Essaie d'abord via l'Edge Function
+   secure-write (comme les autres tables) ; si ça échoue (table pas
+   encore créée, ou pas dans la liste autorisée côté Edge Function),
+   retente en écriture directe via le client Supabase (couverte par la
+   policy RLS "plans_preventifs_write_admin"). Un message clair est
+   affiché dans la console dans tous les cas d'échec pour diagnostiquer. */
+async function savePlanToSupabase(payload){
+  const { error } = await secureWrite('plans_preventifs','upsert',payload);
+  if(!error) return;
+  console.warn('[savePlan] échec via secure-write, tentative en écriture directe :', error);
+  try{
+    const { error: err2 } = await SB.from('plans_preventifs').upsert(payload);
+    if(err2){
+      console.error('[savePlan] Échec de la sauvegarde Supabase — le plan reste local uniquement. Vérifiez : 1) que la table plans_preventifs existe (script SQL fourni), 2) que l\'Edge Function secure-write autorise cette table, 3) les policies RLS. Détail :', err2.message);
+    } else {
+      console.info('[savePlan] Plan sauvegardé via écriture directe (RLS) — secure-write ne semble pas encore configuré pour plans_preventifs.');
+    }
+  } catch(e){
+    console.error('[savePlan] Échec de la sauvegarde Supabase (exception) :', e.message);
   }
 }
 async function deletePlan(id){
@@ -5180,16 +5202,28 @@ async function loadFromSupabase(){
       ? {bdc:trRow.bdc||'—',fourn:trRow.fournisseur||'Aucune expédition en cours',mode:trRow.mode||'—',progress:trRow.progress||0,progressColor:trRow.progress_color||'#9c9a94',progressTxt:trRow.progress_txt||'—',alert:trRow.alert||null,rows:(()=>{try{return JSON.parse(trRow.rows||'[]')}catch(e){return []}})(),surcout:trRow.surcout||'—'}
       : {bdc:'—',fourn:'Aucune expédition en cours',mode:'—',progress:0,progressColor:'#9c9a94',progressTxt:'—',alert:null,rows:[],surcout:'—'};
     // Chargée séparément (try/catch dédié) : si la table n'existe pas encore
-    // côté Supabase, on ne casse pas le reste du chargement, on garde les
-    // plans déjà en mémoire (démo ou précédemment chargés).
+    // côté Supabase, on ne casse pas le reste du chargement. En cas d'échec
+    // (table absente, RLS non configurée...), on retombe sur la dernière
+    // version connue en localStorage plutôt que de perdre les plans déjà
+    // créés localement (voir aussi le repli "événements" juste après).
     try{
       const {data:plans, error:plansErr} = await SB.from('plans_preventifs').select('*').eq('entreprise_id',co);
       if(!plansErr){
-        state[co].plans=(plans||[]).map(p=>({id:p.id, matCode:p.materiel_code, mat:p.materiel_label, op:p.operation, periodValeur:p.periodicite_valeur, periodUnite:p.periodicite_unite, pieces:p.pieces_liees, last:p.derniere_fois, notes:p.notes}));
+        state[co].plans=(plans||[]).map(p=>({id:p.id, matCodes:(p.materiel_code||'').split(',').filter(Boolean), mat:p.materiel_label, op:p.operation, periodValeur:p.periodicite_valeur, periodUnite:p.periodicite_unite, pieces:p.pieces_liees, last:p.derniere_fois, notes:p.notes}));
       } else {
-        console.warn('[loadFromSupabase] plans_preventifs indisponible (table pas encore créée ?) :', plansErr.message);
+        console.warn('[loadFromSupabase] plans_preventifs indisponible (table pas encore créée, ou RLS non configurée) :', plansErr.message);
+        try{
+          const _lsPlans=JSON.parse(localStorage.getItem('atelierPro_state')||'{}');
+          if(_lsPlans[co]?.plans?.length) state[co].plans=_lsPlans[co].plans;
+        }catch(e2){}
       }
-    }catch(e){ console.warn('[loadFromSupabase] plans_preventifs :', e.message); }
+    }catch(e){
+      console.warn('[loadFromSupabase] plans_preventifs (exception) :', e.message);
+      try{
+        const _lsPlans=JSON.parse(localStorage.getItem('atelierPro_state')||'{}');
+        if(_lsPlans[co]?.plans?.length) state[co].plans=_lsPlans[co].plans;
+      }catch(e2){}
+    }
     setSbStatus('online','🟢 '+SB_USER?.email+' · Synchronisé');
     // Préserver les événements (stockés uniquement en localStorage, pas dans Supabase)
     try{
