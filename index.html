@@ -1719,7 +1719,7 @@ function renderMatTable(co, st){
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
           ${(getUserRole()==='admin'||currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id))?`
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
-          <button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>
+          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
           `:''}
           ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${m.id||m.code}','${m.code} — ${m.nom}')">🤝 Demander</button>`:''}
@@ -2245,6 +2245,7 @@ function renderPretsTable(){
 
 let editingPretId = null;
 function openPretModal(id=null){
+  if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer un prêt dans une autre entreprise.');return;}
   ensureMatState(COMPANIES[currentCompany]);
   ensurePretState(COMPANIES[currentCompany]);
   editingPretId = id;
@@ -2495,6 +2496,7 @@ function renderDemandesEnvoyeesSection(){
 
 
 async function savePret(){
+  if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer un prêt dans une autre entreprise.');return;}
   const cbs=document.querySelectorAll('.pret-mat-cb:checked');
   if(!cbs.length){ alert('Sélectionnez au moins un matériel.'); return; }
   const matCodes=[],matLabels=[];
@@ -4805,9 +4807,17 @@ function customConfirm(msg){
 // ET seulement sur son propre entreprise
 function canEditCalendar(){
   const role = getUserRole();
-  const canRole = ['admin','technicien','resp_travaux','chef_de_chantier'].includes(role);
+  if(role==='admin') return true;
+  const canRole = ['technicien','resp_travaux','chef_de_chantier'].includes(role);
   const ownCompany = (SB_PROFILE?.entreprise_id||'A') === currentCompany;
   return canRole && ownCompany;
+}
+// Peut créer/modifier immobilisations et prêts dans l'entreprise courante
+function canManageEvtPret(){
+  const role = getUserRole();
+  if(role==='admin') return true;
+  if(role==='visiteur') return false;
+  return currentCompany===(SB_PROFILE?.entreprise_id||currentCompany);
 }
 
 function applyRoles(){
@@ -6643,6 +6653,7 @@ function openEventModal(){
 }
 
 function openImmobilisationModal(id){
+  if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer une immobilisation dans une autre entreprise.');return;}
   editingEventId=null;
   ensureCalState();
   const mats=state[currentCompany].materiels||[];
@@ -6691,6 +6702,7 @@ function openImmobilisationReadOnly(id){
 function openEventDetail(id){ openImmobilisationModal(id); }
 
 function saveEvent(){
+  if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer une immobilisation dans une autre entreprise.');return;}
   const checkedItems=[...document.querySelectorAll('#evt-f-materiels-list input[type=checkbox]:checked')];
   const materielIds=checkedItems.map(cb=>cb.value);
   const materielNoms=checkedItems.map(cb=>cb.dataset.nom||cb.value);
