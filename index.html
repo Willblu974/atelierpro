@@ -3258,7 +3258,6 @@ function processImportedMaterielsRows(rows, preview, errBox, confirmBtn){
 
     const serie     = iSerie>=0     ? (r[iSerie]||'').trim()     : '';
     const transsafe = iTranssafe>=0 ? (r[iTranssafe]||'').trim() : '';
-    if(!serie && !transsafe){ errors.push(`Ligne ${idx+2} : N° Série et Trans-Safe absents — ignorée.`); return; }
     data.push({
       code, nom,
       serie, transsafe,
