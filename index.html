@@ -1009,7 +1009,7 @@ textarea{resize:vertical;min-height:80px;}
       <div id="import-mat-preview" style="display:none">
         <div style="font-size:12px;color:var(--text3);margin-bottom:8px" id="import-mat-summary"></div>
         <div style="max-height:260px;overflow:auto">
-          <table><thead><tr><th>Code</th><th>Désignation</th><th>Famille</th><th>N° Série / Trans-Safe</th><th>Statut</th><th>Coût</th></tr></thead>
+          <table><thead><tr><th>Code</th><th>Désignation</th><th>N° Série</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maint.</th><th>Révision</th><th>Prix achat</th><th>Valeur march.</th></tr></thead>
           <tbody id="import-mat-tbody"></tbody></table>
         </div>
       </div>
@@ -3160,10 +3160,10 @@ function openImportMaterielsModal(){
 
 function downloadMaterielsTemplate(){
   downloadCSV('modele_import_materiels.csv',
-    ['Code','Désignation','Famille','N° Série','Trans-Safe','Statut','Mise en service','Prochaine maintenance','Coût','Notes'],
+    ['Code','Désignation','N° Série','Fournisseur','Famille','Statut','Proch. maintenance','Révision','Prix d\'achat (€)','Date d\'achat','Valeur marchande (€)','Notes'],
     [
-      ['EN-01','Groupe électrogène 50kVA','Énergie','SN-2021-001','','Actif','2021-03-15','2025-09-15','12500',''],
-      ['HY-02','Centrale hydraulique','Hydraulique','','TS-2019-088','En maintenance','2019-06-01','','8200','Révision en cours']
+      ['EN-01','Groupe électrogène 50kVA','SN-2021-001','Fournisseur A','Énergie','Actif','2025-09-15','2025-09-15','12500','2021-03-15','11000',''],
+      ['HY-02','Centrale hydraulique','SN-HY-002','Fournisseur B','Hydraulique','En maintenance','','2026-01-01','8200','2019-06-01','7500','Révision en cours']
     ]
   );
 }
@@ -3206,13 +3206,16 @@ function processImportedMaterielsRows(rows, preview, errBox, confirmBtn){
   const col = (...names)=>{ for(const n of names){ const i=headers.findIndex(h=>h.includes(n)); if(i>=0) return i; } return -1; };
   const iCode      = col('code');
   const iNom       = col('designation','nom','libelle');
-  const iFam       = col('famille','family');
-  const iSerie     = col('serie','n° serie','numero serie','numero de serie');
+  const iSerie     = col('serie','n° serie','numero serie','numero de serie','n° serie');
   const iTranssafe = col('trans-safe','transsafe','trans safe','transafe');
+  const iFourn     = col('fournisseur','fourn','supplier');
+  const iFam       = col('famille','family');
   const iStatut    = col('statut','etat','status');
-  const iDate      = col('mise en service','mise','service','date');
-  const iMaint     = col('maintenance','prochaine');
-  const iCout      = col('cout','cost','montant','prix');
+  const iMaint     = col('proch. maintenance','prochaine maintenance','maintenance','prochaine');
+  const iRevision  = col('revision','date revision','prochaine revision','rev');
+  const iPrixAchat = col('prix d\'achat','prix achat','prix d achat','achat');
+  const iDateAchat = col('date d\'achat','date achat');
+  const iCout      = col('valeur marchande','valeur','cout','cost','montant');
   const iNotes     = col('notes','remarque','commentaire');
 
   if(iCode<0 || iNom<0){
@@ -3220,11 +3223,7 @@ function processImportedMaterielsRows(rows, preview, errBox, confirmBtn){
     errBox.textContent = "Colonnes obligatoires manquantes : Code et Désignation requis.";
     return;
   }
-  if(iSerie<0 && iTranssafe<0){
-    errBox.style.display='block';
-    errBox.textContent = "Colonne obligatoire manquante : N° Série ou Trans-Safe requis.";
-    return;
-  }
+  // N° Série optionnel (Trans-Safe accepté comme alias)
 
   const st = state[currentCompany];
   const existingCodes = new Set((st.materiels||[]).map(m=>m.code));
@@ -3255,17 +3254,19 @@ function processImportedMaterielsRows(rows, preview, errBox, confirmBtn){
     if(!serie && !transsafe){ errors.push(`Ligne ${idx+2} : N° Série et Trans-Safe absents — ignorée.`); return; }
     data.push({
       code, nom,
-      famille: familleId,
-      famLabel: iFam>=0?(r[iFam]||'').trim():'',
-      serie,
-      transsafe,
-      statut:  statutId,
+      serie, transsafe,
+      fourn:     iFourn>=0?(r[iFourn]||'').trim():'',
+      famille:   familleId,
+      famLabel:  iFam>=0?(r[iFam]||'').trim():'',
+      statut:    statutId,
       statLabel: iStatut>=0?(r[iStatut]||'').trim():'',
-      dateMS:  iDate>=0?(r[iDate]||'').trim():'',
-      maint:   iMaint>=0?(r[iMaint]||'').trim():'',
-      cout:    iCout>=0?(r[iCout]||'').trim():'',
-      notes:   iNotes>=0?(r[iNotes]||'').trim():'',
-      update:  existingCodes.has(code)
+      maint:     iMaint>=0?(r[iMaint]||'').trim():'',
+      revision:  iRevision>=0?(r[iRevision]||'').trim():'',
+      prixAchat: iPrixAchat>=0?(r[iPrixAchat]||'').trim():'',
+      dateAchat: iDateAchat>=0?(r[iDateAchat]||'').trim():'',
+      cout:      iCout>=0?(r[iCout]||'').trim():'',
+      notes:     iNotes>=0?(r[iNotes]||'').trim():'',
+      update:    existingCodes.has(code)
     });
   });
 
@@ -3282,9 +3283,13 @@ function processImportedMaterielsRows(rows, preview, errBox, confirmBtn){
     document.getElementById('import-mat-tbody').innerHTML = data.map(d=>`<tr>
       <td><strong>${d.code}</strong>${d.update?' <span class="badge badge-info" style="font-size:9px">MAJ</span>':''}</td>
       <td>${d.nom}</td>
-      <td style="font-size:11px">${d.famLabel||'—'}</td>
       <td style="font-size:11px">${d.serie||d.transsafe||'—'}</td>
+      <td style="font-size:11px">${d.fourn||'—'}</td>
+      <td style="font-size:11px">${d.famLabel||'—'}</td>
       <td style="font-size:11px">${d.statLabel||'—'}</td>
+      <td style="font-size:11px">${d.maint||'—'}</td>
+      <td style="font-size:11px">${d.revision||'—'}</td>
+      <td style="font-size:11px">${d.prixAchat||'—'}</td>
       <td style="font-size:11px">${d.cout||'—'}</td>
     </tr>`).join('');
     preview.style.display='block';
@@ -3300,14 +3305,16 @@ async function confirmImportMateriels(){
   for(const d of importedMaterielsData){
     const serieVal = d.serie || (d.transsafe ? 'Trans-Safe: '+d.transsafe : '');
     const rec = { id:d.code, code:d.code, nom:d.nom, famille:d.famille, statut:d.statut,
-      serie:serieVal, maint:d.maint, cout:d.cout, dateMS:d.dateMS, notes:d.notes };
+      serie:serieVal, fourn:d.fourn, maint:d.maint, revision:d.revision||null,
+      prixAchat:d.prixAchat, dateAchat:d.dateAchat||null, cout:d.cout, notes:d.notes };
     const idx = mats.findIndex(m=>m.code===d.code);
     if(idx>=0){ mats[idx]={...mats[idx],...rec}; nbMaj++; }
     else { mats.push(rec); nbNew++; }
     if(SB&&SB_MODE==='online'){
       await saveToSupabase('materiels',{id:rec.id,entreprise_id:currentCompany,code:rec.code,nom:rec.nom,
-        famille_id:rec.famille,serie:rec.serie,statut_id:rec.statut,maint:rec.maint,
-        cout:rec.cout,date_ms:rec.dateMS||null,notes:rec.notes});
+        famille_id:rec.famille,serie:rec.serie,statut_id:rec.statut,fournisseur:rec.fourn||null,
+        maint:rec.maint,revision_date:rec.revision||null,prix_achat:rec.prixAchat||null,
+        date_achat:rec.dateAchat||null,cout:rec.cout,notes:rec.notes});
     }
   }
   saveToStorage();
