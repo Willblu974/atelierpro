@@ -3276,6 +3276,16 @@ function processImportedMaterielsRows(rows, preview, errBox, confirmBtn){
     });
   });
 
+  // Auto-suffixer les codes dupliqués dans le lot
+  const _codeSeen = {};
+  data.forEach(d=>{
+    if(_codeSeen[d.code]===undefined){ _codeSeen[d.code]=0; }
+    else { _codeSeen[d.code]++; d.code = d.code+'-'+(_codeSeen[d.code]+1); }
+  });
+  // Recalculer update avec les codes finaux
+  const _existCodes = new Set((state[currentCompany].materiels||[]).map(m=>m.code));
+  data.forEach(d=>{ d.update = _existCodes.has(d.code); });
+
   importedMaterielsData = data;
   if(errors.length){
     errBox.style.display='block';
@@ -3315,7 +3325,7 @@ async function confirmImportMateriels(){
       prixAchat:d.prixAchat, dateAchat:d.dateAchat||null, cout:d.cout, notes:d.notes };
     const idx = mats.findIndex(m=>m.code===d.code);
     if(idx>=0){ mats[idx]={...mats[idx],...rec}; nbMaj++; }
-    else { mats.push(rec); nbNew++; }
+    else { const uid='mat_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); rec.id=uid; mats.push(rec); nbNew++; }
     if(SB&&SB_MODE==='online'){
       await saveToSupabase('materiels',{id:rec.id,entreprise_id:currentCompany,code:rec.code,nom:rec.nom,
         famille_id:rec.famille,serie:rec.serie,statut_id:rec.statut,fournisseur:rec.fourn||null,
