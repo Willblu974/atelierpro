@@ -3188,9 +3188,16 @@ function handleImportMaterielsFile(input){
           errBox.textContent = "Librairie Excel non chargée. Utilisez un fichier CSV.";
           return;
         }
-        const wb = XLSX.read(e.target.result, {type:'array'});
+        const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''}).map(r=>r.map(c=>c==null?'':String(c)));
+        rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:'', raw:true}).map(r=>r.map(c=>{
+          if(c==null) return '';
+          // Objet Date (cellDates:true) → YYYY-MM-DD sans problème de fuseau
+          if(c instanceof Date){
+            return c.getFullYear()+'-'+String(c.getMonth()+1).padStart(2,'0')+'-'+String(c.getDate()).padStart(2,'0');
+          }
+          return String(c);
+        }));
       } else {
         rows = parseCSVText(String(e.target.result||''));
       }
