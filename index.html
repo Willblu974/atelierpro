@@ -3261,9 +3261,9 @@ function processImportedMaterielsRows(rows, preview, errBox, confirmBtn){
       statut:    statutId,
       statLabel: iStatut>=0?(r[iStatut]||'').trim():'',
       maint:     iMaint>=0?(r[iMaint]||'').trim():'',
-      revision:  iRevision>=0?(r[iRevision]||'').trim():'',
+      revision:  iRevision>=0?parseImportDate(r[iRevision]):'',
       prixAchat: iPrixAchat>=0?(r[iPrixAchat]||'').trim():'',
-      dateAchat: iDateAchat>=0?(r[iDateAchat]||'').trim():'',
+      dateAchat: iDateAchat>=0?parseImportDate(r[iDateAchat]):'',
       cout:      iCout>=0?(r[iCout]||'').trim():'',
       notes:     iNotes>=0?(r[iNotes]||'').trim():'',
       update:    existingCodes.has(code)
@@ -3372,7 +3372,27 @@ function parseCSVText(text){
 
 function normalizeHeader(h){
   return String(h||'').trim().toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,''); // retire les accents
+    .normalize('NFD').replace(/[̀-ͯ]/g,''); // retire les accents
+}
+// Convertit n'importe quel format de date en YYYY-MM-DD
+function parseImportDate(val){
+  if(!val) return '';
+  const s=String(val).trim();
+  if(!s) return '';
+  // Nombre Excel (jours depuis 1900-01-01)
+  if(/^\d{4,5}$/.test(s)){
+    const d=new Date((parseInt(s)-25569)*86400000);
+    if(!isNaN(d)) return d.toISOString().slice(0,10);
+  }
+  // DD/MM/YYYY ou DD-MM-YYYY ou DD.MM.YYYY
+  const dmy=/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(s);
+  if(dmy) return dmy[3]+'-'+dmy[2].padStart(2,'0')+'-'+dmy[1].padStart(2,'0');
+  // YYYY-MM-DD déjà correct
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Essai natif
+  const d=new Date(s);
+  if(!isNaN(d)) return d.toISOString().slice(0,10);
+  return '';
 }
 
 function handleImportPiecesFile(input){
