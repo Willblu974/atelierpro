@@ -7187,10 +7187,10 @@ const EXPORT_MAT_COLS = [
 
 function openExportMatModal(){
   const container = document.getElementById('export-mat-cols');
-  container.innerHTML = EXPORT_MAT_COLS.map((c,i)=>`
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+  container.innerHTML = EXPORT_MAT_COLS.map(c=>`
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap;overflow:hidden">
       <input type="checkbox" class="export-mat-cb" value="${c.key}" checked>
-      ${c.label}
+      <span style="overflow:hidden;text-overflow:ellipsis" title="${c.label}">${c.label}</span>
     </label>`).join('');
   document.getElementById('export-mat-all').checked = true;
   document.getElementById('modal-export-mat').classList.add('open');
@@ -7280,17 +7280,19 @@ function confirmExportMatXLSX(){
 </div>
 
 <div id="modal-export-mat" class="modal-bg">
-  <div class="modal" style="max-width:460px">
+  <div class="modal" style="max-width:480px">
     <div class="modal-header"><strong>📤 Exporter les matériels</strong><button class="btn btn-sm" onclick="closeModal('modal-export-mat')">&#10005;</button></div>
     <div style="padding:20px">
-      <p style="margin:0 0 12px;font-size:13px;color:var(--text2)">Choisissez les colonnes à inclure dans le fichier Excel :</p>
-      <div id="export-mat-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:16px"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
-        <label style="font-size:12px;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:4px;margin-right:auto">
+      <p style="margin:0 0 14px;font-size:13px;color:var(--text2)">Choisissez les colonnes à inclure dans le fichier Excel :</p>
+      <div id="export-mat-cols" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px"></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;display:flex;align-items:center;justify-content:space-between">
+        <label style="font-size:13px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px">
           <input type="checkbox" id="export-mat-all" onchange="toggleExportAll(this)"> Tout sélectionner
         </label>
-        <button class="btn" onclick="closeModal('modal-export-mat')">Annuler</button>
-        <button class="btn btn-primary" onclick="confirmExportMatXLSX()">📥 Télécharger</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="closeModal('modal-export-mat')">Annuler</button>
+          <button class="btn btn-primary" onclick="confirmExportMatXLSX()">📥 Télécharger</button>
+        </div>
       </div>
     </div>
   </div>
