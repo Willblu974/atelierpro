@@ -2672,23 +2672,6 @@ function generatePretPDF(rec){
     </div>
   </div>
 </div>
-
-<div id="modal-export-mat" class="modal-bg">
-  <div class="modal" style="max-width:460px">
-    <div class="modal-header"><strong>📤 Exporter les matériels</strong><button class="btn btn-sm" onclick="closeModal('modal-export-mat')">&#10005;</button></div>
-    <div style="padding:20px">
-      <p style="margin:0 0 12px;font-size:13px;color:var(--text2)">Choisissez les colonnes à inclure dans le fichier Excel :</p>
-      <div id="export-mat-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:16px"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
-        <label style="font-size:12px;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:4px;margin-right:auto">
-          <input type="checkbox" id="export-mat-all" onchange="toggleExportAll(this)"> Tout sélectionner
-        </label>
-        <button class="btn" onclick="closeModal('modal-export-mat')">Annuler</button>
-        <button class="btn btn-primary" onclick="confirmExportMatXLSX()">📥 Télécharger</button>
-      </div>
-    </div>
-  </div>
-</div>
 </body></html>`;
   printHTMLDocument(html);
 }
@@ -7296,5 +7279,21 @@ function confirmExportMatXLSX(){
   </div>
 </div>
 
+<div id="modal-export-mat" class="modal-bg">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><strong>📤 Exporter les matériels</strong><button class="btn btn-sm" onclick="closeModal('modal-export-mat')">&#10005;</button></div>
+    <div style="padding:20px">
+      <p style="margin:0 0 12px;font-size:13px;color:var(--text2)">Choisissez les colonnes à inclure dans le fichier Excel :</p>
+      <div id="export-mat-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:16px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <label style="font-size:12px;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:4px;margin-right:auto">
+          <input type="checkbox" id="export-mat-all" onchange="toggleExportAll(this)"> Tout sélectionner
+        </label>
+        <button class="btn" onclick="closeModal('modal-export-mat')">Annuler</button>
+        <button class="btn btn-primary" onclick="confirmExportMatXLSX()">📥 Télécharger</button>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
