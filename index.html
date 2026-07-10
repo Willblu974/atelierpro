@@ -439,6 +439,7 @@ textarea{resize:vertical;min-height:80px;}
         <button class="btn btn-sm btn-edit" onclick="openPretModal()" style="margin-left:auto">🔄 Prêt matériel</button>
         <button class="btn btn-sm" onclick="openPretsListModal()">📄 Fiches de prêt (PDF)</button>
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()">📥 Importer un fichier</button>
+        <button class="btn btn-sm" onclick="openExportMatModal()" style="margin-left:4px">📤 Exporter XLSX</button>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th style="width:28px"><input type="checkbox" id="mat-select-all" onchange="toggleSelectAllMats(this)" title="Tout sélectionner" style="cursor:pointer"></th><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
 
@@ -2668,6 +2669,23 @@ function generatePretPDF(rec){
     <div style="display:flex;gap:10px;justify-content:center">
       <button class="btn" onclick="closeModal('modal-confirm-del');if(_pendingConfirm){_pendingConfirm(false);_pendingConfirm=null;}">Annuler</button>
       <button class="btn btn-danger" style="padding:8px 20px" onclick="closeModal('modal-confirm-del');if(_pendingConfirm){_pendingConfirm(true);_pendingConfirm=null;}">🗑 Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-export-mat" class="modal" style="z-index:9990">
+  <div class="modal-inner" style="max-width:460px">
+    <div class="modal-header"><strong>📤 Exporter les matériels</strong><button class="btn btn-sm" onclick="closeModal('modal-export-mat')">&#10005;</button></div>
+    <div class="modal-body" style="padding:16px">
+      <p style="margin:0 0 12px;font-size:13px;color:var(--text2)">Choisissez les colonnes à inclure dans le fichier Excel :</p>
+      <div id="export-mat-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:16px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <label style="font-size:12px;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:4px;margin-right:auto">
+          <input type="checkbox" id="export-mat-all" onchange="toggleExportAll(this)"> Tout sélectionner
+        </label>
+        <button class="btn" onclick="closeModal('modal-export-mat')">Annuler</button>
+        <button class="btn btn-primary" onclick="confirmExportMatXLSX()">📥 Télécharger</button>
+      </div>
     </div>
   </div>
 </div>
@@ -7167,6 +7185,74 @@ function confirmerPretMulti(){
 
 
 
+
+/* ── EXPORT MATÉRIELS XLSX ───────────────────────────── */
+const EXPORT_MAT_COLS = [
+  {key:'code',       label:'Code'},
+  {key:'nom',        label:'Désignation'},
+  {key:'serie',      label:'N° Série'},
+  {key:'fourn',      label:'Fournisseur'},
+  {key:'famille',    label:'Famille'},
+  {key:'statut',     label:'Statut'},
+  {key:'maint',      label:'Proch. maintenance'},
+  {key:'revision',   label:'Révision'},
+  {key:'prixAchat',  label:"Prix d'achat (€)"},
+  {key:'dateAchat',  label:"Date d'achat"},
+  {key:'cout',       label:'Valeur marchande (€)'},
+  {key:'notes',      label:'Notes'},
+];
+
+function openExportMatModal(){
+  const container = document.getElementById('export-mat-cols');
+  container.innerHTML = EXPORT_MAT_COLS.map((c,i)=>`
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+      <input type="checkbox" class="export-mat-cb" value="${c.key}" checked>
+      ${c.label}
+    </label>`).join('');
+  document.getElementById('export-mat-all').checked = true;
+  document.getElementById('modal-export-mat').classList.add('open');
+}
+
+function toggleExportAll(cb){
+  document.querySelectorAll('.export-mat-cb').forEach(el=>el.checked=cb.checked);
+}
+
+function confirmExportMatXLSX(){
+  const selected = [...document.querySelectorAll('.export-mat-cb:checked')].map(el=>el.value);
+  if(!selected.length){ alert('Sélectionnez au moins une colonne.'); return; }
+
+  const st = state[currentCompany];
+  const mats = st.materiels || [];
+  const famMap = Object.fromEntries((st.familles||[]).map(f=>[f.id,f.name]));
+  const statMap = Object.fromEntries((st.statuts||[]).map(s=>[s.id,s.name]));
+
+  const cols = EXPORT_MAT_COLS.filter(c=>selected.includes(c.key));
+  const header = cols.map(c=>c.label);
+  const rows = mats.map(m=>{
+    return cols.map(c=>{
+      switch(c.key){
+        case 'famille':  return famMap[m.famille]||m.famille||'';
+        case 'statut':   return statMap[m.statut]||m.statut||'';
+        case 'revision': return m.revision ? new Date(m.revision).toLocaleDateString('fr-FR') : '';
+        case 'dateAchat':return m.dateAchat ? new Date(m.dateAchat).toLocaleDateString('fr-FR') : '';
+        default:         return m[c.key]||'';
+      }
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  // Largeurs auto
+  ws['!cols'] = cols.map((_,i)=>{
+    const max = Math.max(header[i].length, ...rows.map(r=>String(r[i]||'').length));
+    return {wch: Math.min(max+2, 40)};
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Matériels');
+  const co = COMPANIES[currentCompany];
+  const fname = 'materiels_'+(co?.name||currentCompany).replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  closeModal('modal-export-mat');
+}
 </script>
 <!-- Barre flottante sélection matériels -->
 <div id="mat-pret-bar" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;border-radius:12px;padding:10px 20px;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;white-space:nowrap">
