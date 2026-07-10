@@ -2193,7 +2193,7 @@ function saveMat(){
 }
 
 async function deleteMat(id){
-  if(!canModifyMat()){alert('❌ Vous ne pouvez pas supprimer les matériels d\'une autre entreprise.');return;}
+  if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut supprimer des matériels.');return;}
   const confirmed=await customConfirm('Supprimer ce matériel ? Cette action est irréversible.');
   if(!confirmed) return;
   ensureMatState(COMPANIES[currentCompany]);
@@ -3140,7 +3140,7 @@ function savePiece(){
   saveToStorage(); closeModal('modal-piece'); renderPieces(COMPANIES[currentCompany]);
 }
 async function deletePiece(id){
-  if(!canModifyMat()){alert('❌ Vous ne pouvez pas supprimer les pièces d\'une autre entreprise.');return;}
+  if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut supprimer des pièces détachées.');return;}
   const confirmed=await customConfirm('Supprimer cette pièce ? Cette action est irréversible.');
   if(!confirmed) return;
   const piece=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
