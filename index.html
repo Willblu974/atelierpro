@@ -2921,6 +2921,11 @@ function filterOTMats(){
 }
 
 function openOTModal(id=null){
+  // Création uniquement : bloquer les non-admin sur d'autres entreprises
+  if(!id && !canManageEvtPret()){
+    alert('❌ Vous ne pouvez pas créer un ordre de travail dans une autre entreprise.');
+    return;
+  }
   editingOTId=id;
   ensureOTState(COMPANIES[currentCompany]);
   ensureMatState(COMPANIES[currentCompany]);
@@ -2954,6 +2959,7 @@ function openOTModal(id=null){
 }
 function openOTEdit(id){openOTModal(id);}
 function saveOT(){
+  if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer un ordre de travail dans une autre entreprise.');return;}
   const num=document.getElementById('ot-f-num').value;
   const checkedMats=[...document.querySelectorAll('#ot-f-materiels-list input[type=checkbox]:checked')];
   if(!checkedMats.length){alert('Sélectionnez au moins un matériel.');return;}
@@ -3090,6 +3096,10 @@ function renderPiecesTable(){
 
 let editingPieceId=null;
 function openPieceModal(id=null){
+  if(!id && !canModifyMat()){
+    alert('❌ Vous ne pouvez pas créer une pièce détachée dans une autre entreprise.');
+    return;
+  }
   editingPieceId=id;
   ensureFournState(COMPANIES[currentCompany]);
   const p=id?(state[currentCompany].pieces||[]).find(x=>x.id===id||x.ref===id):null;
@@ -3108,6 +3118,7 @@ function openPieceModal(id=null){
 }
 function openPieceEdit(id){openPieceModal(id);}
 function savePiece(){
+  if(!canModifyMat()){alert('❌ Vous ne pouvez pas créer une pièce détachée dans une autre entreprise.');return;}
   const ref=document.getElementById('pc-f-ref').value.trim();
   const nom=document.getElementById('pc-f-nom').value.trim();
   if(!ref||!nom){alert('Référence et désignation obligatoires.');return;}
@@ -4859,7 +4870,14 @@ function canEditCalendar(){
 function canManageEvtPret(){
   const role = getUserRole();
   if(role==='admin') return true;
-  if(role==='visiteur') return false;
+  if(role==='visiteur'||role==='responsable') return false;
+  // En mode online, on exige que l'entreprise de l'utilisateur corresponde
+  if(SB&&SB_MODE==='online'){
+    const userCo = SB_PROFILE?.entreprise_id;
+    if(!userCo) return false; // profil non chargé → bloquer par sécurité
+    return currentCompany===userCo;
+  }
+  // Mode offline : on compare avec la compagnie active au moment du login
   return currentCompany===(SB_PROFILE?.entreprise_id||currentCompany);
 }
 
