@@ -519,6 +519,7 @@ textarea{resize:vertical;min-height:80px;}
         <select id="pc-st-filter" onchange="renderPiecesTable()" style="max-width:160px"><option value="">Tous niveaux</option><option value="alert">Rupture</option><option value="warn">Stock bas</option><option value="ok">OK</option></select>
         <div style="flex:1"></div>
         <button class="btn btn-sm btn-edit" onclick="openImportPiecesModal()">📥 Importer un fichier</button>
+        <button class="btn btn-sm" onclick="openExportPiecesModal()" style="margin-left:4px">📤 Exporter XLSX</button>
       </div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilités matériels</th><th>Fournisseur</th><th>Prix unitaire (€)</th><th>Stock</th><th>Seuil min</th><th></th></tr></thead><tbody id="pieces-tbody"></tbody></table></div></div>
       <!-- Archives mouvements pièces détachées -->
@@ -7236,6 +7237,53 @@ function confirmExportMatXLSX(){
   XLSX.writeFile(wb, fname);
   closeModal('modal-export-mat');
 }
+
+/* ── EXPORT PIÈCES XLSX ─────────────────────────────────── */
+const EXPORT_PIECES_COLS = [
+  {key:'ref',    label:'Référence'},
+  {key:'nom',    label:'Désignation'},
+  {key:'compat', label:'Compatibilités'},
+  {key:'fourn',  label:'Fournisseur'},
+  {key:'prix',   label:'Prix unitaire (€)'},
+  {key:'stock',  label:'Stock'},
+  {key:'seuil',  label:'Seuil min'},
+  {key:'notes',  label:'Notes'},
+];
+
+function openExportPiecesModal(){
+  const container = document.getElementById('export-pieces-cols');
+  container.innerHTML = EXPORT_PIECES_COLS.map(c=>`
+    <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);white-space:nowrap">
+      <input type="checkbox" class="export-pieces-cb" value="${c.key}" checked style="flex-shrink:0;width:16px;height:16px">
+      <span style="font-weight:500">${c.label}</span>
+    </label>`).join('');
+  document.getElementById('export-pieces-all').checked = true;
+  document.getElementById('modal-export-pieces').classList.add('open');
+}
+
+function toggleExportPiecesAll(cb){
+  document.querySelectorAll('.export-pieces-cb').forEach(el=>el.checked=cb.checked);
+}
+
+function confirmExportPiecesXLSX(){
+  const selected = [...document.querySelectorAll('.export-pieces-cb:checked')].map(el=>el.value);
+  if(!selected.length){ alert('Sélectionnez au moins une colonne.'); return; }
+  const pieces = state[currentCompany].pieces || [];
+  const cols = EXPORT_PIECES_COLS.filter(c=>selected.includes(c.key));
+  const header = cols.map(c=>c.label);
+  const rows = pieces.map(p=> cols.map(c=> p[c.key]!=null ? String(p[c.key]) : ''));
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = cols.map((_,i)=>{
+    const max = Math.max(header[i].length, ...rows.map(r=>String(r[i]||'').length));
+    return {wch: Math.min(max+2, 40)};
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pièces');
+  const co = COMPANIES[currentCompany];
+  const fname = 'pieces_'+(co?.name||currentCompany).replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  closeModal('modal-export-pieces');
+}
 </script>
 <!-- Barre flottante sélection matériels -->
 <div id="mat-pret-bar" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;border-radius:12px;padding:10px 20px;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;white-space:nowrap">
@@ -7292,6 +7340,25 @@ function confirmExportMatXLSX(){
         <div style="display:flex;gap:8px">
           <button class="btn" onclick="closeModal('modal-export-mat')">Annuler</button>
           <button class="btn btn-primary" onclick="confirmExportMatXLSX()">📥 Télécharger</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-export-pieces" class="modal-bg">
+  <div class="modal" style="width:560px;max-width:95vw">
+    <div class="modal-header"><strong>📤 Exporter les pièces détachées</strong><button class="btn btn-sm" onclick="closeModal('modal-export-pieces')">&#10005;</button></div>
+    <div style="padding:20px">
+      <p style="margin:0 0 14px;font-size:13px;color:var(--text2)">Choisissez les colonnes à inclure dans le fichier Excel :</p>
+      <div id="export-pieces-cols" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:18px"></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px;display:flex;align-items:center;justify-content:space-between">
+        <label style="font-size:13px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="export-pieces-all" onchange="toggleExportPiecesAll(this)"> Tout sélectionner
+        </label>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="closeModal('modal-export-pieces')">Annuler</button>
+          <button class="btn btn-primary" onclick="confirmExportPiecesXLSX()">📥 Télécharger</button>
         </div>
       </div>
     </div>
