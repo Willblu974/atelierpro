@@ -7512,11 +7512,11 @@ function exportInventairePDF(){
 }
 </script>
 <!-- Barre flottante sélection matériels -->
-<div id="mat-pret-bar" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;border-radius:12px;padding:10px 20px;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;white-space:nowrap">
-  <span id="mat-pret-bar-count" style="font-weight:600"></span>
-  <button class="btn btn-sm" style="background:#fff;color:var(--teal);font-weight:600" onclick="ouvrirPretMulti()">📤 Prêter la sélection</button>
-  <button class="btn btn-sm" style="background:#fff;color:#92400e;font-weight:600" onclick="ouvrirImmobMulti()">📅 Immobiliser</button>
-  <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff" onclick="deselectAllMats()">✕ Annuler</button>
+<div id="mat-pret-bar" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;border-radius:12px;padding:10px 20px;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;max-width:90vw;flex-wrap:wrap;justify-content:center">
+  <span id="mat-pret-bar-count" style="font-weight:600;white-space:nowrap"></span>
+  <button class="btn btn-sm" style="background:#fff;color:var(--teal);font-weight:600;white-space:nowrap" onclick="ouvrirPretMulti()">📤 Prêter la sélection</button>
+  <button class="btn btn-sm" style="background:#fff;color:#92400e;font-weight:600;white-space:nowrap" onclick="ouvrirImmobMulti()">📅 Immobiliser</button>
+  <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;white-space:nowrap" onclick="deselectAllMats()">✕ Annuler</button>
 </div>
 
 <!-- Modal prêt multi-matériels -->
