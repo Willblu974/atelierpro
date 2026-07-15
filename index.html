@@ -83,7 +83,7 @@ body.role-resp-travaux .btn-danger:not(#btn-logout):not(#btn-delete-account):not
 .card-body{padding:0;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{padding:10px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;background:var(--surface2);border-bottom:1px solid var(--border);}
-.table-sticky thead th{position:sticky;top:0;z-index:2;background:var(--surface2);box-shadow:0 1px 0 var(--border);}
+.table-sticky{max-height:calc(100vh - 260px);overflow-y:auto;overflow-x:auto;}.table-sticky thead th{position:sticky;top:0;z-index:2;background:var(--surface2);box-shadow:0 1px 0 var(--border);}
 td{padding:11px 16px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle;}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:var(--bg);}
@@ -443,7 +443,7 @@ textarea{resize:vertical;min-height:80px;}
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()">📥 Importer un fichier</button>
         <button class="btn btn-sm" onclick="openExportMatModal()" style="margin-left:4px">📤 Exporter XLSX</button>
       </div>
-      <div class="card"><div class="card-body table-sticky" style="overflow-x:auto"><table><thead><tr><th style="width:28px"><input type="checkbox" id="mat-select-all" onchange="toggleSelectAllMats(this)" title="Tout sélectionner" style="cursor:pointer"></th><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th>Prix loc/j (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body table-sticky"><table><thead><tr><th style="width:28px"><input type="checkbox" id="mat-select-all" onchange="toggleSelectAllMats(this)" title="Tout sélectionner" style="cursor:pointer"></th><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th>Prix loc/j (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
 
       <div class="section-header" style="margin-top:24px"><div class="section-title">🔄 Prêts de matériels</div></div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>Téléphone</th><th>Date prêt</th><th>Retour prévu</th><th>Statut</th><th></th></tr></thead><tbody id="pret-tbody"></tbody></table></div></div>
@@ -523,7 +523,7 @@ textarea{resize:vertical;min-height:80px;}
         <button class="btn btn-sm btn-edit" onclick="openImportPiecesModal()">📥 Importer un fichier</button>
         <button class="btn btn-sm" onclick="openExportPiecesModal()" style="margin-left:4px">📤 Exporter XLSX</button>
       </div>
-      <div class="card"><div class="card-body table-sticky" style="overflow-x:auto"><table><thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilités matériels</th><th>Fournisseur</th><th>Prix unitaire (€)</th><th>Stock</th><th>Seuil min</th><th></th></tr></thead><tbody id="pieces-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body table-sticky"><table><thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilités matériels</th><th>Fournisseur</th><th>Prix unitaire (€)</th><th>Stock</th><th>Seuil min</th><th></th></tr></thead><tbody id="pieces-tbody"></tbody></table></div></div>
       <!-- Archives mouvements pièces détachées -->
       <div class="section-header" style="margin-top:18px">
         <div class="section-title">📦 Archives mouvements pièces détachées</div>
