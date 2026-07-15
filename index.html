@@ -7176,6 +7176,33 @@ function ouvrirPretMulti(){
   document.getElementById('pret-multi-motif').value='';
   document.getElementById('modal-pret-multi').classList.add('open');
 }
+function ouvrirImmobMulti(){
+  if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer une immobilisation dans une autre entreprise.');return;}
+  const cbs=document.querySelectorAll('.mat-select-cb:checked');
+  if(!cbs.length) return;
+  const selectedIds=Array.from(cbs).map(cb=>cb.dataset.id);
+  // Ouvrir le modal d'immobilisation avec les matériels pré-cochés
+  editingEventId=null;
+  ensureCalState();
+  const mats=state[currentCompany].materiels||[];
+  if(typeof initCouleurPresets==='function') initCouleurPresets();
+  document.getElementById('evt-modal-title').textContent='Nouvelle immobilisation ('+cbs.length+' matériel'+(cbs.length>1?'s':'')+')';
+  document.getElementById('evt-f-mat-search').value='';
+  document.getElementById('evt-f-date-debut').value='';
+  document.getElementById('evt-f-date-fin').value='';
+  document.getElementById('evt-f-motif').value='';
+  document.getElementById('evt-delete-btn').style.display='none';
+  buildMatCheckList(mats, selectedIds);
+  const saveBtn=document.getElementById('evt-save-btn');
+  if(saveBtn) saveBtn.style.display='';
+  ['evt-f-date-debut','evt-f-date-fin','evt-f-motif','evt-f-mat-search'].forEach(fid=>{
+    const el=document.getElementById(fid); if(el) el.disabled=false;
+  });
+  document.querySelectorAll('#evt-f-materiels-list input[type=checkbox]').forEach(cb=>{cb.disabled=false;});
+  document.getElementById('modal-evt').classList.add('open');
+  deselectAllMats();
+}
+
 function confirmerPretMulti(){
   const benef=document.getElementById('pret-multi-benef').value.trim();
   const debut=document.getElementById('pret-multi-debut').value;
@@ -7488,6 +7515,7 @@ function exportInventairePDF(){
 <div id="mat-pret-bar" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;border-radius:12px;padding:10px 20px;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;white-space:nowrap">
   <span id="mat-pret-bar-count" style="font-weight:600"></span>
   <button class="btn btn-sm" style="background:#fff;color:var(--teal);font-weight:600" onclick="ouvrirPretMulti()">📤 Prêter la sélection</button>
+  <button class="btn btn-sm" style="background:#fff;color:#92400e;font-weight:600" onclick="ouvrirImmobMulti()">📅 Immobiliser</button>
   <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff" onclick="deselectAllMats()">✕ Annuler</button>
 </div>
 
