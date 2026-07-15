@@ -442,7 +442,7 @@ textarea{resize:vertical;min-height:80px;}
         <button class="btn btn-sm btn-edit" onclick="openImportMaterielsModal()">📥 Importer un fichier</button>
         <button class="btn btn-sm" onclick="openExportMatModal()" style="margin-left:4px">📤 Exporter XLSX</button>
       </div>
-      <div class="card"><div class="card-body"><table><thead><tr><th style="width:28px"><input type="checkbox" id="mat-select-all" onchange="toggleSelectAllMats(this)" title="Tout sélectionner" style="cursor:pointer"></th><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
+      <div class="card"><div class="card-body"><table><thead><tr><th style="width:28px"><input type="checkbox" id="mat-select-all" onchange="toggleSelectAllMats(this)" title="Tout sélectionner" style="cursor:pointer"></th><th>Code</th><th>D&eacute;signation</th><th>N&deg; S&eacute;rie</th><th>Fournisseur</th><th>Famille</th><th>Statut</th><th>Proch. maintenance</th><th>R&eacute;vision</th><th>Prix d'achat (€)</th><th>Date d'achat</th><th>Valeur marchande (€)</th><th>Prix loc/j (€)</th><th></th></tr></thead><tbody id="mat-tbody"></tbody></table></div></div>
 
       <div class="section-header" style="margin-top:24px"><div class="section-title">🔄 Prêts de matériels</div></div>
       <div class="card"><div class="card-body"><table><thead><tr><th>Matériel</th><th>Entreprise emprunteuse</th><th>Convoyeur</th><th>Téléphone</th><th>Date prêt</th><th>Retour prévu</th><th>Statut</th><th></th></tr></thead><tbody id="pret-tbody"></tbody></table></div></div>
@@ -1267,6 +1267,7 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-group"><label>Prix d'achat (€)</label><input id="mat-f-prixachat" placeholder="ex: 15 000 €"></div>
       <div class="form-group"><label>Date d'achat</label><input type="date" id="mat-f-dateachat"></div>
       <div class="form-group"><label>Valeur marchande (€)</label><input id="mat-f-cout" placeholder="ex: 18 420 €"></div>
+      <div class="form-group"><label>Prix loc/journée (€)</label><input id="mat-f-prixloc" placeholder="ex: 250 €"></div>
       <div class="form-group full"><label>Notes / Observations</label><textarea id="mat-f-notes" placeholder="Spécifications, historique, remarques..."></textarea></div>
     </div>
     <div class="modal-footer">
@@ -1757,6 +1758,7 @@ function renderMatTable(co, st){
         <td>${m.prixAchat ? (/€/.test(m.prixAchat) ? m.prixAchat : m.prixAchat+' €') : '—'}</td>
         <td style="font-size:12px">${m.dateAchat ? new Date(m.dateAchat).toLocaleDateString('fr-FR') : '—'}</td>
         <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
+        <td style="font-size:12px">${m.prixLoc||'—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
           ${(getUserRole()==='admin'||currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id))?`
@@ -2151,7 +2153,7 @@ function openNewModal(){
   editingMatId = null;
   document.getElementById('mat-modal-title').textContent = 'Nouveau matériel';
   document.getElementById('mat-edit-id').value = '';
-  ['mat-f-code','mat-f-nom','mat-f-serie','mat-f-maint','mat-f-cout','mat-f-prixachat','mat-f-notes'].forEach(id=>{
+  ['mat-f-code','mat-f-nom','mat-f-serie','mat-f-maint','mat-f-cout','mat-f-prixachat','mat-f-prixloc','mat-f-notes'].forEach(id=>{
     document.getElementById(id).value='';
   });
   document.getElementById('mat-f-date').value = new Date().toISOString().split('T')[0];
@@ -2176,6 +2178,7 @@ function openMatEdit(id){
   document.getElementById('mat-f-maint').value = mat.maint||'';
   document.getElementById('mat-f-cout').value  = mat.cout||'';
   document.getElementById('mat-f-prixachat').value = mat.prixAchat||'';
+  document.getElementById('mat-f-prixloc').value = mat.prixLoc||'';
   document.getElementById('mat-f-dateachat').value = mat.dateAchat||'';
   document.getElementById('mat-f-notes').value = mat.notes||'';
   if(mat.dateMS) document.getElementById('mat-f-date').value = mat.dateMS;
@@ -2207,6 +2210,7 @@ function saveMat(){
         revision: document.getElementById('mat-f-revision').value||null,
         cout:     document.getElementById('mat-f-cout').value.trim(),
         prixAchat:document.getElementById('mat-f-prixachat').value.trim(),
+        prixLoc:  document.getElementById('mat-f-prixloc').value.trim(),
         dateAchat:document.getElementById('mat-f-dateachat').value||null,
         notes:    document.getElementById('mat-f-notes').value.trim(),
         dateMS:   document.getElementById('mat-f-date').value,
@@ -2220,6 +2224,7 @@ function saveMat(){
       revision: document.getElementById('mat-f-revision').value||null,
       cout:     document.getElementById('mat-f-cout').value.trim(),
       prixAchat:document.getElementById('mat-f-prixachat').value.trim(),
+      prixLoc:  document.getElementById('mat-f-prixloc').value.trim(),
       dateAchat:document.getElementById('mat-f-dateachat').value||null,
       notes:    document.getElementById('mat-f-notes').value.trim(),
       dateMS:   document.getElementById('mat-f-date').value,
@@ -2739,6 +2744,7 @@ function openMatDetail(id){
     {l:'Prix d\'achat (€)', v: mat.prixAchat ? (/€/.test(mat.prixAchat) ? mat.prixAchat : mat.prixAchat+' €') : '—'},
     {l:'Date d\'achat', v: mat.dateAchat ? new Date(mat.dateAchat).toLocaleDateString('fr-FR') : '—'},
     {l:'Valeur marchande (€)', v: mat.cout ? (/€/.test(mat.cout) ? mat.cout : mat.cout+' €') : '—'},
+    {l:'Prix loc/journée (€)', v: mat.prixLoc ? (/€/.test(mat.prixLoc) ? mat.prixLoc : mat.prixLoc+' €') : '—'},
     {l:'Entreprise', v: COMPANIES[currentCompany].name},
   ];
   document.getElementById('detail-grid').innerHTML = fields.map(fi=>
