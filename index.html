@@ -7163,18 +7163,32 @@ function deselectAllMats(){
   if(bar) bar.style.display='none';
 }
 function ouvrirPretMulti(){
+  if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer un prêt dans une autre entreprise.');return;}
   const cbs=document.querySelectorAll('.mat-select-cb:checked');
   if(!cbs.length)return;
-  const list=document.getElementById('pret-multi-mat-list');
-  list.innerHTML=Array.from(cbs).map(function(cb){
-    return '<div style="padding:2px 0">📦 <strong>'+cb.dataset.code+'</strong> — '+cb.dataset.nom+'</div>';
+  const selectedIds=Array.from(cbs).map(cb=>cb.dataset.id||cb.dataset.code);
+  // Ouvrir le modal prêt standard avec les matériels pré-cochés
+  ensureMatState(COMPANIES[currentCompany]);
+  ensurePretState(COMPANIES[currentCompany]);
+  editingPretId=null;
+  const mats=state[currentCompany].materiels||[];
+  document.getElementById('pret-modal-title').textContent='Prêt de matériel';
+  document.getElementById('pret-edit-id').value='';
+  document.getElementById('pret-mat-search').value='';
+  document.getElementById('pret-f-mat-list').innerHTML=mats.map(function(m){
+    const mid=String(m.id||m.code);
+    const checked=selectedIds.includes(mid)||selectedIds.includes(m.code)?'checked':'';
+    return '<label class="mat-check-item"><input type="checkbox" class="pret-mat-cb" value="'+mid+'" data-code="'+m.code+'" data-nom="'+m.nom+'" '+checked+' onchange="updatePretMatCount()"> <strong>'+m.code+'</strong> — '+m.nom+'</label>';
   }).join('');
-  const today=new Date().toISOString().split('T')[0];
-  document.getElementById('pret-multi-debut').value=today;
-  document.getElementById('pret-multi-fin').value='';
-  document.getElementById('pret-multi-benef').value='';
-  document.getElementById('pret-multi-motif').value='';
-  document.getElementById('modal-pret-multi').classList.add('open');
+  updatePretMatCount();
+  document.getElementById('pret-f-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('pret-f-retour').value='';
+  document.getElementById('pret-f-entreprise').value='';
+  document.getElementById('pret-f-convoyeur').value='';
+  document.getElementById('pret-f-tel').value='';
+  document.getElementById('pret-f-notes').value='';
+  deselectAllMats();
+  document.getElementById('modal-pret').classList.add('open');
 }
 function ouvrirImmobMulti(){
   if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer une immobilisation dans une autre entreprise.');return;}
