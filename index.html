@@ -1351,6 +1351,7 @@ textarea{resize:vertical;min-height:80px;}
     <div style="padding:0 20px 20px" id="detail-notes-block"></div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="detail-delete-btn">🗑 Supprimer</button>
+      <button class="btn btn-sm" id="detail-liberer-btn" style="display:none;background:var(--amber-light,#fef3c7);color:var(--amber,#b45309);border:1px solid var(--amber,#b45309)" onclick="libererMateriel(currentDetailMatId)">🔓 Libérer le matériel</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-mat-detail')">Fermer</button>
       <button class="btn btn-primary btn-edit" id="detail-edit-btn">✏️ Modifier</button>
@@ -2762,6 +2763,9 @@ function openMatDetail(id){
   const delBtn=document.getElementById('detail-delete-btn');
   if(editBtn){ editBtn.style.display=canEditMat?'':'none'; editBtn.onclick=()=>openMatEdit(id); }
   if(delBtn){ delBtn.style.display=canEditMat?'':'none'; delBtn.onclick=()=>deleteMat(id); }
+  // Afficher bouton "Libérer" si le matériel est actuellement réservé
+  const libBtn = document.getElementById('detail-liberer-btn');
+  if(libBtn) libBtn.style.display = isMatReserve(id) ? 'inline-flex' : 'none';
   document.getElementById('modal-mat-detail').classList.add('open');
 }
 
@@ -7523,6 +7527,28 @@ function exportInventairePDF(){
   <script>window.onload=function(){window.print();}<\/script></body></html>`;
   const w=window.open('','_blank','width=900,height=700');
   if(w){w.document.write(html);w.document.close();}
+}
+
+function libererMateriel(matId){
+  if(!matId) return;
+  if(!canManageEvtPret()) { alert('❌ Action non autorisée.'); return; }
+  const today = toDS(new Date());
+  // Supprimer toutes les immobilisations actives ou futures pour ce matériel
+  const evts = state[currentCompany].evenements || [];
+  const avant = evts.length;
+  state[currentCompany].evenements = evts.filter(e => {
+    const ids = e.materielIds||(e.materielId?[e.materielId]:[]);
+    if(!ids.map(String).includes(String(matId))) return true; // pas ce matériel → garder
+    const fin = e.dateFin||e.dateDebut||e.date||'';
+    return fin < today; // garder uniquement les événements passés
+  });
+  const nbSup = avant - state[currentCompany].evenements.length;
+  saveToStorage();
+  closeModal('modal-mat-detail');
+  renderMateriels(COMPANIES[currentCompany], state[currentCompany]);
+  if(typeof showToast==='function')
+    showToast('🔓 Matériel libéré ('+(nbSup)+' immobilisation(s) annulée(s))','success');
+  else alert('✅ Matériel libéré — '+nbSup+' immobilisation(s) annulée(s).');
 }
 </script>
 <!-- Barre flottante sélection matériels -->
