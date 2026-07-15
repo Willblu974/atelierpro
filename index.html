@@ -84,7 +84,7 @@ body.role-resp-travaux .btn-danger:not(#btn-logout):not(#btn-delete-account):not
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th{padding:10px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;background:var(--surface2);border-bottom:1px solid var(--border);}
 .table-sticky{max-height:calc(100vh - 260px);overflow-y:auto;overflow-x:auto;}.table-sticky thead th{position:sticky;top:0;z-index:2;background:var(--surface2);box-shadow:0 1px 0 var(--border);}
-td{padding:11px 16px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle;}
+td{padding:11px 16px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:middle;}td input[type=checkbox]{display:inline-block !important;visibility:visible !important;}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:var(--bg);}
 .badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}
@@ -1747,7 +1747,7 @@ function renderMatTable(co, st){
   }).sort((a,b) => a.nom.localeCompare(b.nom, 'fr'));
   document.getElementById('mat-tbody').innerHTML = rows.length
     ? rows.map(m=>`<tr>
-        <td style="text-align:center"><input type="checkbox" class="mat-select-cb" data-id="${m.id||m.code}" data-code="${m.code}" data-nom="${m.nom}" onchange="onMatSelectChange()"></td>
+        <td style="text-align:center;width:32px"><input type="checkbox" class="mat-select-cb" data-id="${m.id||m.code}" data-code="${m.code}" data-nom="${m.nom}" onchange="onMatSelectChange()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--teal);display:inline-block !important;visibility:visible !important;opacity:1 !important"></td>
         <td><strong>${m.code}</strong></td>
         <td>${m.nom}</td>
         <td style="font-size:12px">${m.serie}</td>
