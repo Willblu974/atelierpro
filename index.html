@@ -2724,7 +2724,9 @@ function generatePretPDF(rec){
   printHTMLDocument(html);
 }
 
+let currentDetailMatId=null;
 function openMatDetail(id){
+  currentDetailMatId=id;
   ensureMatState(COMPANIES[currentCompany]);
   const mat = state[currentCompany].materiels.find(m=>m.id===id||m.code===id);
   if(!mat) return;
