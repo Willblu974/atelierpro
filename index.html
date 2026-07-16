@@ -3624,6 +3624,11 @@ function openMvtModal(ref){
   document.getElementById('mvt-piece-info').innerHTML=`<strong>${p.ref}</strong> — ${p.nom}<br><span style="color:var(--text3)">Stock actuel : </span><strong>${p.stock} u.</strong> | Seuil : ${p.seuil} u.`;
   document.getElementById('mvt-f-qte').value='';
   document.getElementById('mvt-f-motif').value='';
+  // Ajustement réservé à l'admin
+  const typeSel=document.getElementById('mvt-f-type');
+  typeSel.value='in';
+  const adjOpt=typeSel.querySelector('option[value="adjust"]');
+  if(adjOpt) adjOpt.style.display=getUserRole()==='admin'?'':'none';
   const otSel=document.getElementById('mvt-f-ot');
   otSel.innerHTML='<option value="">— Aucun —</option>'+(state[currentCompany].ots||[]).filter(o=>o.statut!=='termine').map(o=>`<option value="${o.num}">${o.num} — ${o.mat.split(' ')[0]}</option>`).join('');
   document.getElementById('modal-mvt').classList.add('open');
@@ -3632,6 +3637,7 @@ function saveMvt(){
   const qte=parseInt(document.getElementById('mvt-f-qte').value);
   if(!qte||qte<=0){alert('Quantité invalide.');return;}
   const type=document.getElementById('mvt-f-type').value;
+  if(type==='adjust'&&getUserRole()!=='admin'){alert('❌ Seul l'administrateur peut faire un ajustement d'inventaire.');return;}
   const motif=document.getElementById('mvt-f-motif').value.trim()||document.getElementById('mvt-f-ot').value||'Saisie manuelle';
   const pieces=state[currentCompany].pieces;
   const idx=pieces.findIndex(p=>p.ref===mvtPieceRef);
