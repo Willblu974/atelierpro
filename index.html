@@ -3637,7 +3637,7 @@ function saveMvt(){
   const qte=parseInt(document.getElementById('mvt-f-qte').value);
   if(!qte||qte<=0){alert('Quantité invalide.');return;}
   const type=document.getElementById('mvt-f-type').value;
-  if(type==='adjust'&&getUserRole()!=='admin'){alert('❌ Seul l'administrateur peut faire un ajustement d'inventaire.');return;}
+  if(type==='adjust'&&getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut faire un ajustement d\'inventaire.');return;}
   const motif=document.getElementById('mvt-f-motif').value.trim()||document.getElementById('mvt-f-ot').value||'Saisie manuelle';
   const pieces=state[currentCompany].pieces;
   const idx=pieces.findIndex(p=>p.ref===mvtPieceRef);
