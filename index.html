@@ -3653,18 +3653,21 @@ function saveMvt(){
     utilisateur:SB_PROFILE?.nom||'Local'
   });
   saveToStorage();
-  // Sync Supabase
+  // Sync Supabase — supprime le Realtime pendant les écritures pour éviter la race condition
   if(SB&&SB_MODE==='online'){
+    window._suppressRealtime=true;
     const mvtId='mvt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    saveToSupabase('mouvements_stock',{
-      id:mvtId,entreprise_id:currentCompany,
-      ref_piece:p.ref,nom_piece:p.nom,
-      type_mvt:type,qte:qte,motif,
-      ot_lie:otLieVal||null,
-      stock_apres:newStock,
-      utilisateur:SB_PROFILE?.nom||'Local'
-    });
-    saveToSupabase('pieces',{id:pieces[idx].id,entreprise_id:currentCompany,ref:pieces[idx].ref,nom:pieces[idx].nom,compat:pieces[idx].compat,prix:pieces[idx].prix,stock:newStock,seuil:pieces[idx].seuil,notes:pieces[idx].notes,fournisseur:pieces[idx].fourn||null});
+    Promise.all([
+      saveToSupabase('mouvements_stock',{
+        id:mvtId,entreprise_id:currentCompany,
+        ref_piece:p.ref,nom_piece:p.nom,
+        type_mvt:type,qte:qte,motif,
+        ot_lie:otLieVal||null,
+        stock_apres:newStock,
+        utilisateur:SB_PROFILE?.nom||'Local'
+      }),
+      saveToSupabase('pieces',{id:pieces[idx].id,entreprise_id:currentCompany,ref:pieces[idx].ref,nom:pieces[idx].nom,compat:pieces[idx].compat,prix:pieces[idx].prix,stock:newStock,seuil:pieces[idx].seuil,notes:pieces[idx].notes,fournisseur:pieces[idx].fourn||null})
+    ]).finally(()=>{ setTimeout(()=>{window._suppressRealtime=false;},500); });
   }
   closeModal('modal-mvt'); renderPieces(COMPANIES[currentCompany]); renderStock(COMPANIES[currentCompany]);
 }
@@ -5184,8 +5187,11 @@ function subscribeRealtime(co){
   var ch=SB.channel('atelierpro-'+co);
   tables.forEach(function(t){
     ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'entreprise_id=eq.'+co},function(){
+      if(window._suppressRealtime) return;
       loadFromSupabase().then(function(){
         renderDashboard(COMPANIES[currentCompany]);
+        renderPieces(COMPANIES[currentCompany]);
+        renderStock(COMPANIES[currentCompany]);
       });
     });
   });
