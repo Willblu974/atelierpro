@@ -3155,6 +3155,16 @@ function openPieceModal(id=null){
   document.getElementById('pc-f-compat').value=p?.compat||'';
   document.getElementById('pc-f-prix').value=p?parseFloat(String(p.prix).replace(/[^\d.,]/g,'').replace(',','.'))||'':'';
   document.getElementById('pc-f-stock').value=p?.stock??'';
+  // Stock : seul l'admin peut modifier directement en édition
+  const stockInput=document.getElementById('pc-f-stock');
+  const isAdmin=(getUserRole()==='admin');
+  if(id && !isAdmin){
+    stockInput.disabled=true;
+    stockInput.title='Utilisez le bouton 📦 Mouvement de stock pour modifier le stock';
+  } else {
+    stockInput.disabled=false;
+    stockInput.title='';
+  }
   document.getElementById('pc-f-seuil').value=p?.seuil??5;
   document.getElementById('pc-f-notes').value=p?.notes||'';
   document.getElementById('modal-piece').classList.add('open');
@@ -3166,7 +3176,10 @@ function savePiece(){
   const nom=document.getElementById('pc-f-nom').value.trim();
   if(!ref||!nom){alert('Référence et désignation obligatoires.');return;}
   const pieces=state[currentCompany].pieces;
-  const stock=parseInt(document.getElementById('pc-f-stock').value)||0;
+  const origPiece=editingPieceId?(pieces.find(p=>p.id===editingPieceId||p.ref===editingPieceId)):null;
+  const stock=(editingPieceId && getUserRole()!=='admin')
+    ? (origPiece?.stock??0)
+    : (parseInt(document.getElementById('pc-f-stock').value)||0);
   const seuil=parseInt(document.getElementById('pc-f-seuil').value)||0;
   const prix=parseFloat(document.getElementById('pc-f-prix').value)||0;
   const rec={id:ref,ref,nom,fourn:document.getElementById('pc-f-fourn').value,compat:document.getElementById('pc-f-compat').value.trim(),
