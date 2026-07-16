@@ -4921,7 +4921,9 @@ function canManageEvtPret(){
     return currentCompany===userCo;
   }
   // Mode offline : on compare avec la compagnie active au moment du login
-  return currentCompany===(SB_PROFILE?.entreprise_id||currentCompany);
+  const userCo = SB_PROFILE?.entreprise_id;
+  if(!userCo) return false;
+  return currentCompany===userCo;
 }
 
 function applyRoles(){
