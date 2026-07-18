@@ -1756,16 +1756,11 @@ function renderMatTable(co, st){
         <td>${familleBadge(m.famille,st)}</td>
         <td>
           ${(()=>{
-            const today = new Date(); today.setHours(0,0,0,0);
-            const dateMS = m.dateMS ? new Date(m.dateMS) : null;
-            const estPrevu = dateMS && dateMS > today;
-            const statutHtml = isMatReserve(m.id||m.code)
-              ? '<span class="badge-reserve">📅 Réservé</span>'
-              : statutBadge(m.statut,st);
-            const prevuHtml = estPrevu
-              ? `<span class="badge" style="background:#eeedfe;color:#534ab7;margin-left:4px;font-size:11px">📅 Prévu le ${dateMS.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>`
-              : '';
-            return statutHtml + prevuHtml;
+            if(isMatReserve(m.id||m.code)) return '<span class="badge-reserve">📅 Réservé</span>';
+            const st2 = st.statuts.find(x=>x.id===m.statut);
+            const isPrevu = st2 && st2.name && st2.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('prevu');
+            if(isPrevu) return `<span class="badge" style="background:#eeedfe;color:#534ab7">📅 ${st2.name}</span>`;
+            return statutBadge(m.statut,st);
           })()}
         </td>
         <td style="font-size:12px">${m.maint}</td>
