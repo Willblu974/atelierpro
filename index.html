@@ -1754,7 +1754,20 @@ function renderMatTable(co, st){
         <td style="font-size:12px">${m.serie}</td>
         <td style="font-size:12px">${m.fourn||'—'}</td>
         <td>${familleBadge(m.famille,st)}</td>
-        <td>${isMatReserve(m.id||m.code)?'<span class="badge-reserve">📅 Réservé</span>':statutBadge(m.statut,st)}</td>
+        <td>
+          ${(()=>{
+            const today = new Date(); today.setHours(0,0,0,0);
+            const dateMS = m.dateMS ? new Date(m.dateMS) : null;
+            const estPrevu = dateMS && dateMS > today;
+            const statutHtml = isMatReserve(m.id||m.code)
+              ? '<span class="badge-reserve">📅 Réservé</span>'
+              : statutBadge(m.statut,st);
+            const prevuHtml = estPrevu
+              ? `<span class="badge" style="background:#eeedfe;color:#534ab7;margin-left:4px;font-size:11px">📅 Prévu le ${dateMS.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>`
+              : '';
+            return statutHtml + prevuHtml;
+          })()}
+        </td>
         <td style="font-size:12px">${m.maint}</td>
         <td>${(function(){var rs=revisionStatus(m);if(!rs)return '<span style="color:var(--text3);font-size:11px">—</span>';var d=new Date(m.revision).toLocaleDateString('fr-FR');return '<span class="badge badge-'+rs.cls+'" title="'+rs.label+'">\uD83D\uDCC5 '+d+'</span>';})()}</td>
         <td>${m.prixAchat ? (/€/.test(m.prixAchat) ? m.prixAchat : m.prixAchat+' €') : '—'}</td>
