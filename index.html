@@ -1756,26 +1756,16 @@ function renderMatTable(co, st){
         <td>${familleBadge(m.famille,st)}</td>
         <td>
           ${(()=>{
-            if(isMatReserve(m.id||m.code)){
-              // Cherche l'immobilisation active ou future pour ce matériel
-              const today = toDS(new Date());
-              const evt = (state[currentCompany].evenements||[]).find(e=>{
-                const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
-                const fin=e.dateFin||e.dateDebut||e.date||'';
-                return ids.includes(String(m.id||m.code)) && fin>=today;
-              });
-              const debut = evt ? (evt.dateDebut||evt.date||'') : '';
-              const isFuture = debut > today;
-              if(isFuture){
-                const d = new Date(debut);
-                const label = '📅 Prévu le '+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
-                return `<span class="badge" style="background:#eeedfe;color:#534ab7">${label}</span>`;
+            const reserve = getMatReserveType(m.id||m.code);
+            if(reserve){
+              if(reserve.type==='futur'){
+                const d=new Date(reserve.date);
+                return `<span class="badge" style="background:#eeedfe;color:#534ab7">📅 Prévu le ${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>`;
               }
               return '<span class="badge-reserve">🔒 Réservé</span>';
             }
-            // Statut manuel "Prévu"
-            const st2 = st.statuts.find(x=>x.id===m.statut);
-            const isPrevu = st2 && st2.name && st2.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('prevu');
+            const st2=st.statuts.find(x=>x.id===m.statut);
+            const isPrevu=st2&&st2.name&&st2.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('prevu');
             if(isPrevu) return `<span class="badge" style="background:#eeedfe;color:#534ab7">📅 ${st2.name}</span>`;
             return statutBadge(m.statut,st);
           })()}
@@ -6782,12 +6772,26 @@ function buildMatCheckList(mats,selectedIds=[],disabled=false){
 
 function isMatReserve(matId){
   const today=toDS(new Date());
+  // Réservé si une immobilisation existe et n'est pas encore terminée (en cours OU future)
   return (state[currentCompany].evenements||[]).some(e=>{
     const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
-    const debut=e.dateDebut||e.date||'';
     const fin=e.dateFin||e.dateDebut||e.date||'';
-    return ids.map(String).includes(String(matId))&&today>=debut&&today<=fin;
+    return ids.map(String).includes(String(matId)) && fin>=today;
   });
+}
+
+// Retourne 'futur' si l'immobilisation commence après aujourd'hui,
+// 'encours' si elle est active aujourd'hui
+function getMatReserveType(matId){
+  const today=toDS(new Date());
+  const evt=(state[currentCompany].evenements||[]).find(e=>{
+    const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
+    const fin=e.dateFin||e.dateDebut||e.date||'';
+    return ids.map(String).includes(String(matId)) && fin>=today;
+  });
+  if(!evt) return null;
+  const debut=evt.dateDebut||evt.date||'';
+  return debut>today ? {type:'futur', date:debut} : {type:'encours'};
 }
 
 let editingEventId=null;
