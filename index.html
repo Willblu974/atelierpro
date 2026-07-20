@@ -6731,9 +6731,9 @@ async function importArticlesVersStock(){
         if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:pieces[idx].id,entreprise_id:currentCompany,ref:pieces[idx].ref,nom:pieces[idx].nom,stock:pieces[idx].stock,prix:pieces[idx].prix,seuil:pieces[idx].seuil,compat:pieces[idx].compat,notes:pieces[idx].notes,fournisseur:pieces[idx].fourn||null});
         nbMaj++;
       }else{
-        const np={id:ref,ref,nom:a.designation||ref,stock:a.qte||1,seuil:5,prix:a.pu?(a.pu.toFixed(2)+' €'):'—',compat:'',notes:'',fourn:'',st:'ok'};
+        const np={id:ref,ref,nom:a.designation||ref,stock:a.qte||1,seuil:0,prix:a.pu?(a.pu.toFixed(2)+' €'):'—',compat:'',notes:'',fourn:'',st:'ok'};
         pieces.push(np);
-        if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:np.id,entreprise_id:currentCompany,ref:np.ref,nom:np.nom,stock:np.stock,seuil:np.seuil,prix:np.prix,compat:'',notes:'',fournisseur:null});
+        if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:np.id,entreprise_id:currentCompany,ref:np.ref,nom:np.nom,stock:np.stock,seuil:0,prix:np.prix,compat:'',notes:'',fournisseur:null});
         nbNew++;
       }
     }
