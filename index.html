@@ -6851,8 +6851,16 @@ function openImmobilisationModal(id){
   document.getElementById('evt-delete-btn').style.display='none';
   buildMatCheckList(mats,[]);
   if(id){
-    const realId=id.includes('_')?id.split('_').slice(0,-1).join('_'):id;
-    const evt=(state[currentCompany].evenements||[]).find(e=>e.id===realId);
+    // Les IDs d'événements sont de la forme 'evt_1234567890'
+    // Les IDs de calendrier composés sont de la forme 'evt_1234567890_matId'
+    // On extrait le vrai ID de l'événement en cherchant directement par ID exact d'abord
+    let realId = id;
+    let evt = (state[currentCompany].evenements||[]).find(e=>e.id===id);
+    if(!evt && id.includes('_')){
+      // Essai avec l'ID tronqué (format calendrier composé)
+      realId = id.split('_').slice(0,2).join('_');
+      evt = (state[currentCompany].evenements||[]).find(e=>e.id===realId);
+    }
     if(evt){
       const ids=evt.materielIds||(evt.materielId?[evt.materielId]:[]);
       buildMatCheckList(mats,ids);
