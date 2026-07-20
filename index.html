@@ -6662,6 +6662,7 @@ async function extractArticlesViaIA(pdfText){
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+        'apikey': localStorage.getItem('sb_key') || 'sb_publishable_FQbh4RjyoRgHeT0AcpivRA_mpnxf4f6',
       },
       body: JSON.stringify({ pdfText })
     });
