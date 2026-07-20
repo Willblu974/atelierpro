@@ -6765,12 +6765,32 @@ async function extractPDFBDC(input){
     var ab=await file.arrayBuffer();
     var pdf=await pdfjsLib.getDocument({data:ab}).promise;
     pdf_numPages_last=pdf.numPages;
-    var LF=String.fromCharCode(10);
     var fullText='';
     for(var i=1;i<=pdf.numPages;i++){
       var page=await pdf.getPage(i);
       var ct=await page.getTextContent();
-      fullText+=ct.items.map(function(s){return s.str;}).join(' ')+LF;
+      // Reconstruction du texte en préservant la structure par position Y
+      // Les items proches en Y sont sur la même ligne
+      var items=ct.items.filter(s=>s.str.trim());
+      items.sort(function(a,b){
+        var dy=Math.round(b.transform[5]/5)*5 - Math.round(a.transform[5]/5)*5;
+        return dy!==0 ? dy : a.transform[4]-b.transform[4];
+      });
+      var lines=[];
+      var lastY=null;
+      var curLine=[];
+      items.forEach(function(s){
+        var y=Math.round(s.transform[5]/5)*5;
+        if(lastY===null || Math.abs(y-lastY)>3){
+          if(curLine.length) lines.push(curLine.join(' '));
+          curLine=[s.str];
+          lastY=y;
+        } else {
+          curLine.push(s.str);
+        }
+      });
+      if(curLine.length) lines.push(curLine.join(' '));
+      fullText+=lines.join('\n')+'\n';
     }
     document.getElementById('pdf-bdc-raw-text').textContent=fullText;
     parsePDFText(fullText);
