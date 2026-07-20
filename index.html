@@ -1758,11 +1758,12 @@ function renderMatTable(co, st){
           ${(()=>{
             const reserve=getMatReserveType(m.id||m.code);
             if(reserve){
+              const clickAttr=canManageEvtPret()?`onclick="openImmobilisationDepuisMatId('${m.id||m.code}')" style="cursor:pointer" title="Modifier l'immobilisation"`:'';
               if(reserve.type==='futur'){
                 const d=new Date(reserve.date);
-                return `<span class="badge" style="background:#eeedfe;color:#534ab7;font-size:11px">📅 Prévu le ${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>`;
+                return `<span class="badge" style="background:#eeedfe;color:#534ab7;font-size:11px" ${clickAttr}>📅 Prévu le ${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>`;
               }
-              return '<span class="badge-reserve">🔒 Réservé</span>';
+              return `<span class="badge-reserve" ${clickAttr}>🔒 Réservé</span>`;
             }
             const st2=st.statuts.find(x=>x.id===m.statut);
             const isPrevu=st2&&st2.name&&st2.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('prevu');
@@ -1780,7 +1781,7 @@ function renderMatTable(co, st){
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
           ${(getUserRole()==='admin'||currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id))?`
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
-          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
+          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationDepuisMatId('${m.id||m.code}')" style="margin-left:4px" title="Programmer ou modifier une immobilisation">📅</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
           `:''}
           ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${m.id||m.code}','${m.code} — ${m.nom}')">🤝 Demander</button>`:''}
@@ -6822,6 +6823,19 @@ function openEventModal(){
   document.getElementById('evt-delete-btn').style.display='none';
   buildMatCheckList(mats,[]);
   document.getElementById('modal-evt').classList.add('open');
+}
+
+// Ouvre le modal d'immobilisation depuis le tableau matériels :
+// si une immobilisation active ou future existe pour ce matériel,
+// l'ouvre en mode édition ; sinon ouvre en mode création.
+function openImmobilisationDepuisMatId(matId){
+  const today=toDS(new Date());
+  const evt=(state[currentCompany].evenements||[]).find(e=>{
+    const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
+    const fin=e.dateFin||e.dateDebut||e.date||'';
+    return ids.map(String).includes(String(matId)) && fin>=today;
+  });
+  openImmobilisationModal(evt ? evt.id : null);
 }
 
 function openImmobilisationModal(id){
