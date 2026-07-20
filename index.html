@@ -918,6 +918,7 @@ textarea{resize:vertical;min-height:80px;}
           <option value="responsable">Responsable</option>
           <option value="resp_travaux">Responsable travaux</option>
           <option value="chef_de_chantier">Chef de chantier</option>
+          <option value="comptabilite">Comptabilité</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -4984,6 +4985,7 @@ function customConfirm(msg){
 function canEditCalendar(){
   const role = getUserRole();
   if(role==='admin') return true;
+  if(role==='comptabilite' || role==='visiteur' || role==='responsable') return false;
   const canRole = ['technicien','resp_travaux','chef_de_chantier'].includes(role);
   const ownCompany = (SB_PROFILE?.entreprise_id||'A') === currentCompany;
   return canRole && ownCompany;
@@ -4992,7 +4994,7 @@ function canEditCalendar(){
 function canManageEvtPret(){
   const role = getUserRole();
   if(role==='admin') return true;
-  if(role==='visiteur'||role==='responsable') return false;
+  if(role==='visiteur'||role==='responsable'||role==='comptabilite') return false;
   // En mode online, on exige que l'entreprise de l'utilisateur corresponde
   if(SB&&SB_MODE==='online'){
     const userCo = SB_PROFILE?.entreprise_id;
@@ -5008,17 +5010,17 @@ function canManageEvtPret(){
 function applyRoles(){
   const role = getUserRole();
 
-  // --- Mode lecture seule global pour Responsable et Visiteur ---
-  document.body.classList.toggle('role-readonly', role==='responsable' || role==='visiteur');
+  // --- Mode lecture seule global pour Responsable, Visiteur et Comptabilité ---
+  document.body.classList.toggle('role-readonly', role==='responsable' || role==='visiteur' || role==='comptabilite');
   // Resp. travaux : lecture seule sauf réservations calendrier
   document.body.classList.toggle('role-resp-travaux', role==='resp_travaux');
 
   // --- Nav items ---
-  // Paramètres & Utilisateurs : inaccessibles pour Technicien et Visiteur
+  // Paramètres & Utilisateurs : inaccessibles pour Technicien, Visiteur, Resp. Travaux et Comptabilité
   document.querySelectorAll('.nav-item').forEach(n=>{
     const txt = n.textContent.trim();
     if(txt.includes('Paramètres') || txt.includes('Utilisateurs')){
-      n.style.display = (role==='technicien' || role==='visiteur' || role==='resp_travaux' || role==='chef_de_chantier') ? 'none' : '';
+      n.style.display = (role==='technicien' || role==='visiteur' || role==='resp_travaux' || role==='chef_de_chantier' || role==='comptabilite') ? 'none' : '';
     }
   });
 
@@ -5035,8 +5037,8 @@ function applyRoles(){
     roleFooter.style.cssText = 'margin-left:8px;padding:4px 12px;border-radius:10px;font-size:14px;font-weight:700;';
     footer.appendChild(roleFooter);
   }
-  const roleColors = {admin:'background:#534ab7;color:#fff', responsable:'background:#185fa5;color:#fff', resp_travaux:'background:#b45309;color:#fff', technicien:'background:#3b6d11;color:#fff', chef_de_chantier:'background:#0f6e56;color:#fff', visiteur:'background:#9c9a94;color:#fff'};
-  const roleLabels = {admin:'Admin', responsable:'Responsable', resp_travaux:'Resp. Travaux', technicien:'Technicien', chef_de_chantier:'Chef de chantier', visiteur:'Visiteur'};
+  const roleColors = {admin:'background:#534ab7;color:#fff', responsable:'background:#185fa5;color:#fff', resp_travaux:'background:#b45309;color:#fff', technicien:'background:#3b6d11;color:#fff', chef_de_chantier:'background:#0f6e56;color:#fff', visiteur:'background:#9c9a94;color:#fff', comptabilite:'background:#b5179e;color:#fff'};
+  const roleLabels = {admin:'Admin', responsable:'Responsable', resp_travaux:'Resp. Travaux', technicien:'Technicien', chef_de_chantier:'Chef de chantier', visiteur:'Visiteur', comptabilite:'Comptabilité'};
   roleFooter.style.cssText += ';' + (roleColors[role]||roleColors.technicien);
   roleFooter.textContent = roleLabels[role]||role;
 }
@@ -5045,9 +5047,9 @@ function applyPageRole(page){
   const role = getUserRole();
   const topbarNew = document.getElementById('topbar-new');
 
-  // Pages bloquées pour Technicien, Visiteur et Resp. Travaux
+  // Pages bloquées pour Technicien, Visiteur, Resp. Travaux et Comptabilité
   const blockedForTech = ['parametres','utilisateurs'];
-  if((role==='technicien' || role==='visiteur' || role==='resp_travaux') && blockedForTech.includes(page)){
+  if((role==='technicien' || role==='visiteur' || role==='resp_travaux' || role==='comptabilite') && blockedForTech.includes(page)){
     showPage('dashboard', document.querySelector('.nav-item'));
     return;
   }
@@ -5057,7 +5059,7 @@ function applyPageRole(page){
 
   // Bouton + Nouveau
   if(topbarNew){
-    if(role==='responsable' || role==='visiteur'){
+    if(role==='responsable' || role==='visiteur' || role==='comptabilite'){
       // Lecture seule totale : jamais de création
       topbarNew.style.display='none';
     } else if(role==='resp_travaux'){
@@ -5072,7 +5074,7 @@ function applyPageRole(page){
   }
 
   var btnImportPdf=document.getElementById('btn-import-pdf-bdc');
-  if(btnImportPdf) btnImportPdf.style.display=(role==='visiteur'||role==='responsable')?'none':'';
+  if(btnImportPdf) btnImportPdf.style.display=(role==='visiteur'||role==='responsable'||role==='comptabilite')?'none':'';
 
   // Champs de configuration (Paramètres) : verrouillés en lecture seule pour Responsable
   if(page==='parametres'){
