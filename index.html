@@ -6655,30 +6655,19 @@ async function extractArticlesViaIA(pdfText){
   const statusEl = document.getElementById('pdf-bdc-status');
   statusEl.textContent = '🤖 Analyse IA des articles en cours...';
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const session = await SB.auth.getSession();
+    const token = session?.data?.session?.access_token;
+    const resp = await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/extract-articles', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `Analyse ce bon de commande et extrais UNIQUEMENT le tableau des articles commandés.
-Réponds UNIQUEMENT en JSON valide, sans texte autour, sans markdown, sans explication.
-Format exact :
-{"articles":[{"ref":"CODE","designation":"NOM","qte":1,"pu":0.00}]}
-
-Si une colonne manque, mets null pour la valeur.
-Texte du bon de commande :
-${pdfText.substring(0, 6000)}`
-        }]
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ pdfText })
     });
     const data = await resp.json();
-    const raw = (data.content||[]).map(b=>b.text||'').join('');
-    const clean = raw.replace(/```json|```/g,'').trim();
-    const parsed = JSON.parse(clean);
-    _pdfArticlesIA = parsed.articles || [];
+    if(!resp.ok || data.error) throw new Error(data.error||'Erreur serveur');
+    _pdfArticlesIA = data.articles || [];
     renderPDFArticlesTable();
     statusEl.textContent = `✅ ${_pdfArticlesIA.length} article(s) reconnu(s) par l'IA`;
   } catch(e){
