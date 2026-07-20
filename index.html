@@ -1121,7 +1121,7 @@ textarea{resize:vertical;min-height:80px;}
 <!-- MODAL BDC -->
 <!-- MODAL IMPORT PDF BDC -->
 <div class="modal-bg" id="modal-import-pdf-bdc">
-  <div class="modal" style="width:620px;display:flex;flex-direction:column;max-height:90vh">
+  <div class="modal" style="width:720px;display:flex;flex-direction:column;max-height:92vh">
     <div class="modal-header">
       <strong>📄 Importer un bon de commande PDF</strong>
       <button class="btn btn-sm" onclick="closeModal('modal-import-pdf-bdc')">&#10005;</button>
@@ -1139,22 +1139,47 @@ textarea{resize:vertical;min-height:80px;}
           <div class="form-group"><label>Date commande</label><input type="date" id="pdf-f-date"></div>
           <div class="form-group"><label>Montant HT (€)</label><input type="number" id="pdf-f-mont" placeholder="0"></div>
           <div class="form-group"><label>Nb articles</label><input type="number" id="pdf-f-art" placeholder="1" min="1"></div>
-          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="6" style="font-size:12px;font-family:monospace"></textarea></div>
+          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="4" style="font-size:12px;font-family:monospace"></textarea></div>
         </div>
-        <div style="background:var(--amber-light);border-left:3px solid var(--amber-mid);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--amber);margin-top:8px">
-          ⚠️ Vérifiez et corrigez les données avant de cliquer sur "Créer le BDC".
+      </div>
+      <!-- Tableau articles extraits par IA -->
+      <div id="pdf-articles-ia" style="display:none;margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--teal)">🤖 Articles reconnus par l'IA</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="font-size:12px">Importer vers :</label>
+            <select id="pdf-import-target" style="font-size:12px">
+              <option value="pieces">Pièces détachées</option>
+              <option value="materiels">Matériels</option>
+            </select>
+          </div>
+        </div>
+        <table style="font-size:12px;width:100%">
+          <thead><tr style="background:var(--bg2)">
+            <th style="padding:6px 8px"><input type="checkbox" id="pdf-select-all" onchange="toggleAllPDFArticles(this)" checked></th>
+            <th style="padding:6px 8px">Référence</th>
+            <th style="padding:6px 8px">Désignation</th>
+            <th style="padding:6px 8px;text-align:center">Qté</th>
+            <th style="padding:6px 8px;text-align:right">PU (€)</th>
+            <th style="padding:6px 8px">Dans stock</th>
+          </tr></thead>
+          <tbody id="pdf-articles-tbody"></tbody>
+        </table>
+        <div style="margin-top:10px;padding:10px;background:var(--bg2);border-radius:6px;font-size:12px;color:var(--text3)">
+          ✅ coché = sera importé dans le stock
         </div>
       </div>
       <div id="pdf-bdc-raw" style="display:none;margin-top:14px">
         <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Texte brut extrait</div>
-        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--surface2);padding:12px;border-radius:var(--radius);max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
+        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--bg2);padding:12px;border-radius:var(--radius);max-height:150px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-sm" onclick="togglePDFRaw()">🔍 Texte brut</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-import-pdf-bdc')">Annuler</button>
-      <button class="btn btn-primary" id="pdf-bdc-confirm" style="display:none" onclick="createBDCFromPDF()">+ Créer le BDC</button>
+      <button class="btn btn-edit" id="pdf-bdc-confirm" style="display:none" onclick="createBDCFromPDF()">+ Créer le BDC</button>
+      <button class="btn btn-primary" id="pdf-import-stock-btn" style="display:none" onclick="importArticlesVersStock()">📦 Importer dans le stock</button>
     </div>
   </div>
 </div>
@@ -6604,38 +6629,164 @@ document.addEventListener('DOMContentLoaded', ()=>{
 /* ── IMPORT PDF BDC ─────────────────────────────────────── */
 function openImportBDCPDF(){
   const r=getUserRole();
-  if(r==='visiteur'||r==='responsable'){alert('Acc\u00e8s refus\u00e9.');return;}
+  if(r==='visiteur'||r==='responsable'||r==='comptabilite'){alert('Accès refusé.');return;}
   document.getElementById('pdf-bdc-file').value='';
   document.getElementById('pdf-bdc-status').textContent='';
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-raw').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
+  document.getElementById('pdf-articles-ia').style.display='none';
+  document.getElementById('pdf-import-stock-btn').style.display='none';
+  window._pdfCanImportStock=(r==='admin');
   document.getElementById('modal-import-pdf-bdc').classList.add('open');
 }
 function togglePDFRaw(){
   var el=document.getElementById('pdf-bdc-raw');
   el.style.display=el.style.display==='none'?'':'none';
 }
+
+/* ── EXTRACTION IA DES ARTICLES PDF ─────────────────────── */
+let _pdfArticlesIA=[];
+
+async function extractArticlesViaIA(pdfText){
+  const statusEl=document.getElementById('pdf-bdc-status');
+  statusEl.textContent='🤖 Analyse IA des articles en cours...';
+  try{
+    const session=await SB.auth.getSession();
+    const token=session?.data?.session?.access_token;
+    const resp=await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/extract-articles',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${token}`,
+        'apikey':localStorage.getItem('sb_key')||'sb_publishable_FQbh4RjyoRgHeT0AcpivRA_mpnxf4f6',
+      },
+      body:JSON.stringify({pdfText})
+    });
+    const data=await resp.json();
+    if(!resp.ok||data.error) throw new Error(data.error||'Erreur serveur');
+    _pdfArticlesIA=data.articles||[];
+    renderPDFArticlesTable();
+    statusEl.textContent=`✅ ${_pdfArticlesIA.length} article(s) reconnu(s) par l'IA`;
+  }catch(e){
+    statusEl.textContent='⚠️ Extraction IA échouée — vérifiez le texte brut';
+    console.warn('[extractArticlesViaIA]',e);
+    _pdfArticlesIA=[];
+  }
+}
+
+function renderPDFArticlesTable(){
+  const tbody=document.getElementById('pdf-articles-tbody');
+  if(!tbody) return;
+  const pieces=state[currentCompany].pieces||[];
+  const mats=state[currentCompany].materiels||[];
+  if(!_pdfArticlesIA.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--text3)">Aucun article détecté</td></tr>';return;}
+  tbody.innerHTML=_pdfArticlesIA.map((a,i)=>{
+    const ref=a.ref||'';
+    const existP=pieces.find(p=>p.ref&&p.ref.toLowerCase()===ref.toLowerCase());
+    const existM=mats.find(m=>m.code&&m.code.toLowerCase()===ref.toLowerCase());
+    const inStock=existP?`<span style="color:var(--teal);font-size:11px">📦 Stock: ${existP.stock} (pièce)</span>`
+      :existM?`<span style="color:var(--blue);font-size:11px">🔧 Matériel existant</span>`
+      :`<span style="color:var(--text3);font-size:11px">Nouveau</span>`;
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><input type="checkbox" class="pdf-art-cb" data-idx="${i}" checked></td>
+      <td style="padding:6px 8px"><input value="${(ref).replace(/"/g,'&quot;')}" oninput="_pdfArticlesIA[${i}].ref=this.value" style="width:90px;font-size:12px"></td>
+      <td style="padding:6px 8px"><input value="${(a.designation||'').replace(/"/g,'&quot;')}" oninput="_pdfArticlesIA[${i}].designation=this.value" style="width:180px;font-size:12px"></td>
+      <td style="padding:6px 8px;text-align:center"><input type="number" value="${a.qte||1}" min="1" oninput="_pdfArticlesIA[${i}].qte=+this.value" style="width:55px;font-size:12px;text-align:center"></td>
+      <td style="padding:6px 8px;text-align:right"><input type="number" value="${a.pu||''}" step="0.01" oninput="_pdfArticlesIA[${i}].pu=+this.value" style="width:70px;font-size:12px;text-align:right"></td>
+      <td style="padding:6px 8px">${inStock}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('pdf-articles-ia').style.display='';
+  if(window._pdfCanImportStock) document.getElementById('pdf-import-stock-btn').style.display='';
+}
+
+function toggleAllPDFArticles(cb){
+  document.querySelectorAll('.pdf-art-cb').forEach(c=>{c.checked=cb.checked;});
+}
+
+async function importArticlesVersStock(){
+  if(getUserRole()!=='admin'){alert('❌ Seul un administrateur peut importer des articles dans le stock.');return;}
+  const target=document.getElementById('pdf-import-target').value;
+  const checked=[...document.querySelectorAll('.pdf-art-cb:checked')].map(cb=>+cb.dataset.idx);
+  const articles=checked.map(i=>_pdfArticlesIA[i]).filter(Boolean);
+  if(!articles.length){alert('Sélectionnez au moins un article à importer.');return;}
+  const pieces=state[currentCompany].pieces||[];
+  const mats=state[currentCompany].materiels||[];
+  let nbNew=0,nbMaj=0;
+  if(target==='pieces'){
+    for(const a of articles){
+      const ref=a.ref||('REF-'+Date.now());
+      const idx=pieces.findIndex(p=>p.ref&&p.ref.toLowerCase()===(a.ref||'').toLowerCase());
+      if(idx>=0){
+        pieces[idx].stock=(parseInt(pieces[idx].stock)||0)+(a.qte||1);
+        if(a.pu) pieces[idx].prix=a.pu.toFixed(2)+' €';
+        if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:pieces[idx].id,entreprise_id:currentCompany,ref:pieces[idx].ref,nom:pieces[idx].nom,stock:pieces[idx].stock,prix:pieces[idx].prix,seuil:pieces[idx].seuil,compat:pieces[idx].compat,notes:pieces[idx].notes,fournisseur:pieces[idx].fourn||null});
+        nbMaj++;
+      }else{
+        const np={id:ref,ref,nom:a.designation||ref,stock:a.qte||1,seuil:5,prix:a.pu?(a.pu.toFixed(2)+' €'):'—',compat:'',notes:'',fourn:'',st:'ok'};
+        pieces.push(np);
+        if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:np.id,entreprise_id:currentCompany,ref:np.ref,nom:np.nom,stock:np.stock,seuil:np.seuil,prix:np.prix,compat:'',notes:'',fournisseur:null});
+        nbNew++;
+      }
+    }
+  }else{
+    for(const a of articles){
+      const code=a.ref||('MAT-'+Date.now());
+      const idx=mats.findIndex(m=>m.code&&m.code.toLowerCase()===(a.ref||'').toLowerCase());
+      if(idx>=0){nbMaj++;}
+      else{
+        const nm={id:code,code,nom:a.designation||code,famille:'',statut:'ok',fourn:'',serie:'',maint:'',cout:a.pu?(a.pu.toFixed(2)+' €'):'—',prixAchat:a.pu?(a.pu.toFixed(2)+' €'):'—',notes:'',dateMS:new Date().toISOString().split('T')[0]};
+        mats.push(nm);
+        if(SB&&SB_MODE==='online') await saveToSupabase('materiels',{id:nm.id,entreprise_id:currentCompany,code:nm.code,nom:nm.nom,famille_id:'',serie:'',statut_id:'ok',maint:'',cout:nm.cout,date_ms:nm.dateMS,notes:'',fournisseur:null,prix_achat:nm.prixAchat,date_achat:null});
+        nbNew++;
+      }
+    }
+  }
+  saveToStorage();
+  renderAll();
+  closeModal('modal-import-pdf-bdc');
+  alert(`✅ Import terminé !\n${nbNew} nouveau(x) article(s) créé(s)\n${nbMaj} article(s) mis à jour`);
+}
+
+
 var pdf_numPages_last=1;
 async function extractPDFBDC(input){
   var file=input.files[0];if(!file)return;
   document.getElementById('pdf-bdc-status').textContent='Lecture du PDF en cours...';
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
-  if(typeof pdfjsLib==='undefined'){document.getElementById('pdf-bdc-status').textContent='\u274c PDF.js non charg\u00e9.';return;}
+  document.getElementById('pdf-articles-ia').style.display='none';
+  if(typeof pdfjsLib==='undefined'){document.getElementById('pdf-bdc-status').textContent='\u274c PDF.js non chargé.';return;}
   try{
     var ab=await file.arrayBuffer();
     var pdf=await pdfjsLib.getDocument({data:ab}).promise;
     pdf_numPages_last=pdf.numPages;
-    var LF=String.fromCharCode(10);
     var fullText='';
     for(var i=1;i<=pdf.numPages;i++){
       var page=await pdf.getPage(i);
       var ct=await page.getTextContent();
-      fullText+=ct.items.map(function(s){return s.str;}).join(' ')+LF;
+      // Reconstruction positionnelle : regroupe les items par ligne (position Y)
+      var items=ct.items.filter(function(s){return s.str.trim();});
+      items.sort(function(a,b){
+        var dy=Math.round(b.transform[5]/5)*5-Math.round(a.transform[5]/5)*5;
+        return dy!==0?dy:a.transform[4]-b.transform[4];
+      });
+      var lines=[],lastY=null,curLine=[];
+      items.forEach(function(s){
+        var y=Math.round(s.transform[5]/5)*5;
+        if(lastY===null||Math.abs(y-lastY)>3){
+          if(curLine.length)lines.push(curLine.join(' '));
+          curLine=[s.str];lastY=y;
+        }else{curLine.push(s.str);}
+      });
+      if(curLine.length)lines.push(curLine.join(' '));
+      fullText+=lines.join('\n')+'\n';
     }
     document.getElementById('pdf-bdc-raw-text').textContent=fullText;
     parsePDFText(fullText);
+    // Extraction IA des articles
+    await extractArticlesViaIA(fullText);
   }catch(e){document.getElementById('pdf-bdc-status').textContent='\u274c Erreur: '+e.message;}
 }
 function parsePDFText(text){
