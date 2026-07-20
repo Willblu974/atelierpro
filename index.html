@@ -6633,12 +6633,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
 /* ── IMPORT PDF BDC ─────────────────────────────────────── */
 function openImportBDCPDF(){
   const r=getUserRole();
-  if(r==='visiteur'||r==='responsable'){alert('Acc\u00e8s refus\u00e9.');return;}
+  if(r==='visiteur'||r==='responsable'){alert('Accès refusé.');return;}
   document.getElementById('pdf-bdc-file').value='';
   document.getElementById('pdf-bdc-status').textContent='';
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-raw').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
+  document.getElementById('pdf-articles-ia').style.display='none';
+  window._pdfCanImportStock = (r==='admin');
   document.getElementById('modal-import-pdf-bdc').classList.add('open');
 }
 function togglePDFRaw(){
@@ -6708,7 +6710,7 @@ function renderPDFArticlesTable(){
     </tr>`;
   }).join('');
   document.getElementById('pdf-articles-ia').style.display='';
-  document.getElementById('pdf-import-stock-btn').style.display='';
+  if(window._pdfCanImportStock) document.getElementById('pdf-import-stock-btn').style.display='';
 }
 
 function toggleAllPDFArticles(cb){
@@ -6716,6 +6718,7 @@ function toggleAllPDFArticles(cb){
 }
 
 async function importArticlesVersStock(){
+  if(getUserRole()!=='admin'){alert('❌ Seul un administrateur peut importer des articles dans le stock.');return;}
   const target = document.getElementById('pdf-import-target').value;
   const checked = [...document.querySelectorAll('.pdf-art-cb:checked')].map(cb=>+cb.dataset.idx);
   const articles = checked.map(i=>_pdfArticlesIA[i]).filter(Boolean);
