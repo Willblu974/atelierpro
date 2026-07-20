@@ -1788,11 +1788,11 @@ function renderMatTable(co, st){
         <td style="font-size:12px">${m.prixLoc||'—'}</td>
         <td style="white-space:nowrap">
           <button class="btn btn-sm" onclick="openMatDetail('${(m.id||m.code).replace(/'/g,"\\'")}')">Voir</button>
-          ${(getUserRole()==='admin'||currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id))?`
+          ${getUserRole()==='admin'?`
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px">✏️</button>
-          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px">🗑</button>
           `:''}
+          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
           ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${(m.id||m.code).replace(/'/g,"\\'")}','${(m.code+' — '+m.nom).replace(/'/g,"\\'")}')">🤝 Demander</button>`:''}
         </td>
       </tr>`).join('')
@@ -2772,7 +2772,7 @@ function openMatDetail(id){
   document.getElementById('detail-notes-block').innerHTML = mat.notes
     ? `<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Notes</div><div style="font-size:13px;white-space:pre-wrap">${mat.notes}</div></div>`
     : '';
-  const canEditMat = getUserRole()==='admin'||currentCompany===(SB_PROFILE?.entreprise_id||'A');
+  const canEditMat = getUserRole()==='admin';
   const editBtn=document.getElementById('detail-edit-btn');
   const delBtn=document.getElementById('detail-delete-btn');
   if(editBtn){ editBtn.style.display=canEditMat?'':'none'; editBtn.onclick=()=>openMatEdit(id); }
@@ -3154,7 +3154,7 @@ function renderPiecesTable(){
           <td>${p.seuil}</td>
           <td style="white-space:nowrap">
             <button class="btn btn-sm btn-edit" onclick="openMvtModal('${p.ref.replace(/'/g,"\\'")}')" title="Mouvement stock">📦</button>
-            ${canModifyMat()?`<button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref.replace(/'/g,"\\'")}') " style="margin-left:4px">✏️</button>
+            ${getUserRole()==='admin'?`<button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref.replace(/'/g,"\\'")}') " style="margin-left:4px">✏️</button>
             <button class="btn btn-sm btn-danger" onclick="deletePiece('${p.ref.replace(/'/g,"\\'")}') " style="margin-left:4px">🗑</button>`:''}
           </td>
         </tr>`;
@@ -3164,8 +3164,12 @@ function renderPiecesTable(){
 
 let editingPieceId=null;
 function openPieceModal(id=null){
-  if(!id && !canModifyMat()){
-    alert('❌ Vous ne pouvez pas créer une pièce détachée dans une autre entreprise.');
+  if(!getUserRole()==='admin' && id){
+    alert('❌ Seul un administrateur peut modifier une pièce détachée.');
+    return;
+  }
+  if(!id && getUserRole()!=='admin'){
+    alert('❌ Seul un administrateur peut créer une pièce détachée.');
     return;
   }
   editingPieceId=id;
@@ -3206,7 +3210,7 @@ function openPieceModal(id=null){
 }
 function openPieceEdit(id){openPieceModal(id);}
 function savePiece(){
-  if(!canModifyMat()){alert('❌ Vous ne pouvez pas créer une pièce détachée dans une autre entreprise.');return;}
+  if(getUserRole()!=='admin'){alert('❌ Seul un administrateur peut modifier une pièce détachée.');return;}
   const ref=document.getElementById('pc-f-ref').value.trim();
   const nom=document.getElementById('pc-f-nom').value.trim();
   if(!ref||!nom){alert('Référence et désignation obligatoires.');return;}
@@ -5050,6 +5054,8 @@ function applyPageRole(page){
 
   // Pages où la création (+ Nouveau) a un sens et où Technicien peut créer
   const createPages = ['materiels','maintenance','pieces','stock','fournisseurs','commandes','transport','calendrier'];
+  // Pages où seul l'admin peut créer (matériels et pièces)
+  const adminOnlyCreatePages = ['materiels','pieces'];
 
   // Bouton + Nouveau
   if(topbarNew){
@@ -5060,7 +5066,8 @@ function applyPageRole(page){
       // Création uniquement dans le calendrier (réservations matériels)
       topbarNew.style.display = (page==='calendrier') ? '' : 'none';
     } else if(role==='technicien'){
-      topbarNew.style.display = createPages.includes(page) ? '' : 'none';
+      // Technicien : peut créer partout sauf matériels et pièces (admin uniquement)
+      topbarNew.style.display = (createPages.includes(page) && !adminOnlyCreatePages.includes(page)) ? '' : 'none';
     } else {
       // Admin : accès complet
       topbarNew.style.display = ['parametres','couts','rapports','utilisateurs'].includes(page)?'none':'';
