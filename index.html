@@ -918,7 +918,6 @@ textarea{resize:vertical;min-height:80px;}
           <option value="responsable">Responsable</option>
           <option value="resp_travaux">Responsable travaux</option>
           <option value="chef_de_chantier">Chef de chantier</option>
-          <option value="comptabilite">Comptabilité</option>
           <option value="admin">Admin</option>
         </select>
       </div>
@@ -1122,7 +1121,7 @@ textarea{resize:vertical;min-height:80px;}
 <!-- MODAL BDC -->
 <!-- MODAL IMPORT PDF BDC -->
 <div class="modal-bg" id="modal-import-pdf-bdc">
-  <div class="modal" style="width:720px;display:flex;flex-direction:column;max-height:92vh">
+  <div class="modal" style="width:620px;display:flex;flex-direction:column;max-height:90vh">
     <div class="modal-header">
       <strong>📄 Importer un bon de commande PDF</strong>
       <button class="btn btn-sm" onclick="closeModal('modal-import-pdf-bdc')">&#10005;</button>
@@ -1140,49 +1139,22 @@ textarea{resize:vertical;min-height:80px;}
           <div class="form-group"><label>Date commande</label><input type="date" id="pdf-f-date"></div>
           <div class="form-group"><label>Montant HT (€)</label><input type="number" id="pdf-f-mont" placeholder="0"></div>
           <div class="form-group"><label>Nb articles</label><input type="number" id="pdf-f-art" placeholder="1" min="1"></div>
-          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="4" style="font-size:12px;font-family:monospace"></textarea></div>
+          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="6" style="font-size:12px;font-family:monospace"></textarea></div>
+        </div>
+        <div style="background:var(--amber-light);border-left:3px solid var(--amber-mid);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--amber);margin-top:8px">
+          ⚠️ Vérifiez et corrigez les données avant de cliquer sur "Créer le BDC".
         </div>
       </div>
-
-      <!-- Tableau articles extraits par IA -->
-      <div id="pdf-articles-ia" style="display:none;margin-top:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:13px;font-weight:600;color:var(--teal)">🤖 Articles reconnus par l'IA</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <label style="font-size:12px">Importer vers :</label>
-            <select id="pdf-import-target" style="font-size:12px">
-              <option value="pieces">Pièces détachées</option>
-              <option value="materiels">Matériels</option>
-            </select>
-          </div>
-        </div>
-        <table style="font-size:12px;width:100%">
-          <thead><tr style="background:var(--bg2)">
-            <th style="padding:6px 8px"><input type="checkbox" id="pdf-select-all" onchange="toggleAllPDFArticles(this)" checked></th>
-            <th style="padding:6px 8px">Référence</th>
-            <th style="padding:6px 8px">Désignation</th>
-            <th style="padding:6px 8px;text-align:center">Qté</th>
-            <th style="padding:6px 8px;text-align:right">PU (€)</th>
-            <th style="padding:6px 8px">Dans stock</th>
-          </tr></thead>
-          <tbody id="pdf-articles-tbody"></tbody>
-        </table>
-        <div style="margin-top:10px;padding:10px;background:var(--bg2);border-radius:6px;font-size:12px;color:var(--text3)">
-          ✅ coché = sera importé dans le stock | Les articles déjà présents affichent leur quantité actuelle
-        </div>
-      </div>
-
       <div id="pdf-bdc-raw" style="display:none;margin-top:14px">
         <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Texte brut extrait</div>
-        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--bg2);padding:12px;border-radius:var(--radius);max-height:150px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
+        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--surface2);padding:12px;border-radius:var(--radius);max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-sm" onclick="togglePDFRaw()">🔍 Texte brut</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-import-pdf-bdc')">Annuler</button>
-      <button class="btn btn-edit" id="pdf-bdc-confirm" style="display:none" onclick="createBDCFromPDF()">+ Créer le BDC</button>
-      <button class="btn btn-primary" id="pdf-import-stock-btn" style="display:none" onclick="importArticlesVersStock()">📦 Importer dans le stock</button>
+      <button class="btn btn-primary" id="pdf-bdc-confirm" style="display:none" onclick="createBDCFromPDF()">+ Créer le BDC</button>
     </div>
   </div>
 </div>
@@ -1782,23 +1754,7 @@ function renderMatTable(co, st){
         <td style="font-size:12px">${m.serie}</td>
         <td style="font-size:12px">${m.fourn||'—'}</td>
         <td>${familleBadge(m.famille,st)}</td>
-        <td>
-          ${(()=>{
-            const reserve=getMatReserveType(m.id||m.code);
-            if(reserve){
-              const clickAttr=canManageEvtPret()?`onclick="openImmobilisationDepuisMatId('${m.id||m.code}')" style="cursor:pointer" title="Modifier l'immobilisation"`:'';
-              if(reserve.type==='futur'){
-                const d=new Date(reserve.date);
-                return `<span class="badge" style="background:#eeedfe;color:#534ab7;font-size:11px" ${clickAttr}>📅 Prévu le ${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span>`;
-              }
-              return `<span class="badge-reserve" ${clickAttr}>🔒 Réservé</span>`;
-            }
-            const st2=st.statuts.find(x=>x.id===m.statut);
-            const isPrevu=st2&&st2.name&&st2.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('prevu');
-            if(isPrevu) return `<span class="badge" style="background:#eeedfe;color:#534ab7;font-size:11px">📅 ${st2.name}</span>`;
-            return statutBadge(m.statut,st);
-          })()}
-        </td>
+        <td>${isMatReserve(m.id||m.code)?'<span class="badge-reserve">📅 Réservé</span>':statutBadge(m.statut,st)}</td>
         <td style="font-size:12px">${m.maint}</td>
         <td>${(function(){var rs=revisionStatus(m);if(!rs)return '<span style="color:var(--text3);font-size:11px">—</span>';var d=new Date(m.revision).toLocaleDateString('fr-FR');return '<span class="badge badge-'+rs.cls+'" title="'+rs.label+'">\uD83D\uDCC5 '+d+'</span>';})()}</td>
         <td>${m.prixAchat ? (/€/.test(m.prixAchat) ? m.prixAchat : m.prixAchat+' €') : '—'}</td>
@@ -1809,7 +1765,7 @@ function renderMatTable(co, st){
           <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
           ${(getUserRole()==='admin'||currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id))?`
           <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
-          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationDepuisMatId('${m.id||m.code}')" style="margin-left:4px" title="Programmer ou modifier une immobilisation">📅</button>`:''}
+          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
           `:''}
           ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${m.id||m.code}','${m.code} — ${m.nom}')">🤝 Demander</button>`:''}
@@ -2214,15 +2170,7 @@ function openNewModal(){
 function openMatEdit(id){
   ensureMatState(COMPANIES[currentCompany]);
   const mat = state[currentCompany].materiels.find(m=>m.id===id||m.code===id);
-  if(!mat){
-    // Matériel pas encore chargé localement — rechargement depuis Supabase
-    loadFromSupabase().then(()=>{
-      const mat2=(state[currentCompany].materiels||[]).find(m=>m.id===id||m.code===id);
-      if(mat2) openMatEdit(id);
-      else alert('Matériel introuvable.');
-    });
-    return;
-  }
+  if(!mat) return;
   editingMatId = mat.id || mat.code;
   document.getElementById('mat-modal-title').textContent = 'Modifier — '+mat.code;
   document.getElementById('mat-edit-id').value = editingMatId;
@@ -3199,14 +3147,12 @@ function openPieceModal(id=null){
   ensureFournState(COMPANIES[currentCompany]);
   const pieces=state[currentCompany].pieces||[];
   const p=id?pieces.find(x=>x.id===id||x.ref===id):null;
-  // Si la pièce n'est pas trouvée localement (entreprise différente chargée récemment)
+  // Pièce pas trouvée localement → rechargement Supabase avant d'ouvrir
   if(id && !p){
-    const statusEl=document.getElementById('pieces-status-msg');
-    if(statusEl) statusEl.textContent='Chargement...';
     loadFromSupabase().then(()=>{
       const p2=(state[currentCompany].pieces||[]).find(x=>x.id===id||x.ref===id);
-      if(!p2){ alert('Pièce introuvable.'); return; }
-      openPieceModal(id);
+      if(p2) openPieceModal(id);
+      else alert('Pièce introuvable.');
     });
     return;
   }
@@ -3261,6 +3207,10 @@ function savePiece(){
 }
 async function deletePiece(id){
   if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut supprimer des pièces détachées.');return;}
+  // Si la pièce n'est pas encore dans le cache local, on recharge d'abord
+  if(!(state[currentCompany].pieces||[]).find(p=>p.id===id||p.ref===id)){
+    await loadFromSupabase();
+  }
   const confirmed=await customConfirm('Supprimer cette pièce ? Cette action est irréversible.');
   if(!confirmed) return;
   const piece=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
@@ -5005,7 +4955,6 @@ function customConfirm(msg){
 function canEditCalendar(){
   const role = getUserRole();
   if(role==='admin') return true;
-  if(role==='comptabilite' || role==='visiteur' || role==='responsable') return false;
   const canRole = ['technicien','resp_travaux','chef_de_chantier'].includes(role);
   const ownCompany = (SB_PROFILE?.entreprise_id||'A') === currentCompany;
   return canRole && ownCompany;
@@ -5014,7 +4963,7 @@ function canEditCalendar(){
 function canManageEvtPret(){
   const role = getUserRole();
   if(role==='admin') return true;
-  if(role==='visiteur'||role==='responsable'||role==='comptabilite') return false;
+  if(role==='visiteur'||role==='responsable') return false;
   // En mode online, on exige que l'entreprise de l'utilisateur corresponde
   if(SB&&SB_MODE==='online'){
     const userCo = SB_PROFILE?.entreprise_id;
@@ -5030,17 +4979,17 @@ function canManageEvtPret(){
 function applyRoles(){
   const role = getUserRole();
 
-  // --- Mode lecture seule global pour Responsable, Visiteur et Comptabilité ---
-  document.body.classList.toggle('role-readonly', role==='responsable' || role==='visiteur' || role==='comptabilite');
+  // --- Mode lecture seule global pour Responsable et Visiteur ---
+  document.body.classList.toggle('role-readonly', role==='responsable' || role==='visiteur');
   // Resp. travaux : lecture seule sauf réservations calendrier
   document.body.classList.toggle('role-resp-travaux', role==='resp_travaux');
 
   // --- Nav items ---
-  // Paramètres & Utilisateurs : inaccessibles pour Technicien, Visiteur, Resp. Travaux et Comptabilité
+  // Paramètres & Utilisateurs : inaccessibles pour Technicien et Visiteur
   document.querySelectorAll('.nav-item').forEach(n=>{
     const txt = n.textContent.trim();
     if(txt.includes('Paramètres') || txt.includes('Utilisateurs')){
-      n.style.display = (role==='technicien' || role==='visiteur' || role==='resp_travaux' || role==='chef_de_chantier' || role==='comptabilite') ? 'none' : '';
+      n.style.display = (role==='technicien' || role==='visiteur' || role==='resp_travaux' || role==='chef_de_chantier') ? 'none' : '';
     }
   });
 
@@ -5057,8 +5006,8 @@ function applyRoles(){
     roleFooter.style.cssText = 'margin-left:8px;padding:4px 12px;border-radius:10px;font-size:14px;font-weight:700;';
     footer.appendChild(roleFooter);
   }
-  const roleColors = {admin:'background:#534ab7;color:#fff', responsable:'background:#185fa5;color:#fff', resp_travaux:'background:#b45309;color:#fff', technicien:'background:#3b6d11;color:#fff', chef_de_chantier:'background:#0f6e56;color:#fff', visiteur:'background:#9c9a94;color:#fff', comptabilite:'background:#b5179e;color:#fff'};
-  const roleLabels = {admin:'Admin', responsable:'Responsable', resp_travaux:'Resp. Travaux', technicien:'Technicien', chef_de_chantier:'Chef de chantier', visiteur:'Visiteur', comptabilite:'Comptabilité'};
+  const roleColors = {admin:'background:#534ab7;color:#fff', responsable:'background:#185fa5;color:#fff', resp_travaux:'background:#b45309;color:#fff', technicien:'background:#3b6d11;color:#fff', chef_de_chantier:'background:#0f6e56;color:#fff', visiteur:'background:#9c9a94;color:#fff'};
+  const roleLabels = {admin:'Admin', responsable:'Responsable', resp_travaux:'Resp. Travaux', technicien:'Technicien', chef_de_chantier:'Chef de chantier', visiteur:'Visiteur'};
   roleFooter.style.cssText += ';' + (roleColors[role]||roleColors.technicien);
   roleFooter.textContent = roleLabels[role]||role;
 }
@@ -5067,9 +5016,9 @@ function applyPageRole(page){
   const role = getUserRole();
   const topbarNew = document.getElementById('topbar-new');
 
-  // Pages bloquées pour Technicien, Visiteur, Resp. Travaux et Comptabilité
+  // Pages bloquées pour Technicien, Visiteur et Resp. Travaux
   const blockedForTech = ['parametres','utilisateurs'];
-  if((role==='technicien' || role==='visiteur' || role==='resp_travaux' || role==='comptabilite') && blockedForTech.includes(page)){
+  if((role==='technicien' || role==='visiteur' || role==='resp_travaux') && blockedForTech.includes(page)){
     showPage('dashboard', document.querySelector('.nav-item'));
     return;
   }
@@ -5079,7 +5028,7 @@ function applyPageRole(page){
 
   // Bouton + Nouveau
   if(topbarNew){
-    if(role==='responsable' || role==='visiteur' || role==='comptabilite'){
+    if(role==='responsable' || role==='visiteur'){
       // Lecture seule totale : jamais de création
       topbarNew.style.display='none';
     } else if(role==='resp_travaux'){
@@ -5094,7 +5043,7 @@ function applyPageRole(page){
   }
 
   var btnImportPdf=document.getElementById('btn-import-pdf-bdc');
-  if(btnImportPdf) btnImportPdf.style.display=(role==='visiteur'||role==='responsable'||role==='comptabilite')?'none':'';
+  if(btnImportPdf) btnImportPdf.style.display=(role==='visiteur'||role==='responsable')?'none':'';
 
   // Champs de configuration (Paramètres) : verrouillés en lecture seule pour Responsable
   if(page==='parametres'){
@@ -6655,127 +6604,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
 /* ── IMPORT PDF BDC ─────────────────────────────────────── */
 function openImportBDCPDF(){
   const r=getUserRole();
-  if(r==='visiteur'||r==='responsable'){alert('Accès refusé.');return;}
+  if(r==='visiteur'||r==='responsable'){alert('Acc\u00e8s refus\u00e9.');return;}
   document.getElementById('pdf-bdc-file').value='';
   document.getElementById('pdf-bdc-status').textContent='';
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-raw').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
-  document.getElementById('pdf-articles-ia').style.display='none';
-  window._pdfCanImportStock = (r==='admin');
   document.getElementById('modal-import-pdf-bdc').classList.add('open');
 }
 function togglePDFRaw(){
   var el=document.getElementById('pdf-bdc-raw');
   el.style.display=el.style.display==='none'?'':'none';
 }
-
-/* ── EXTRACTION IA DES ARTICLES PDF ─────────────────────── */
-let _pdfArticlesIA = [];
-
-async function extractArticlesViaIA(pdfText){
-  const statusEl = document.getElementById('pdf-bdc-status');
-  statusEl.textContent = '🤖 Analyse IA des articles en cours...';
-  try {
-    const session = await SB.auth.getSession();
-    const token = session?.data?.session?.access_token;
-    const resp = await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/extract-articles', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'apikey': localStorage.getItem('sb_key') || 'sb_publishable_FQbh4RjyoRgHeT0AcpivRA_mpnxf4f6',
-      },
-      body: JSON.stringify({ pdfText })
-    });
-    const data = await resp.json();
-    if(!resp.ok || data.error) throw new Error(data.error||'Erreur serveur');
-    _pdfArticlesIA = data.articles || [];
-    renderPDFArticlesTable();
-    statusEl.textContent = `✅ ${_pdfArticlesIA.length} article(s) reconnu(s) par l'IA`;
-  } catch(e){
-    statusEl.textContent = '⚠️ Extraction IA échouée — vérifiez le texte brut';
-    console.warn('[extractArticlesViaIA]', e);
-    _pdfArticlesIA = [];
-  }
-}
-
-function renderPDFArticlesTable(){
-  const tbody = document.getElementById('pdf-articles-tbody');
-  const pieces = state[currentCompany].pieces || [];
-  const mats = state[currentCompany].materiels || [];
-  if(!_pdfArticlesIA.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--text3)">Aucun article détecté</td></tr>'; return; }
-  tbody.innerHTML = _pdfArticlesIA.map((a,i)=>{
-    const ref = a.ref||'';
-    const existP = pieces.find(p=>p.ref&&p.ref.toLowerCase()===ref.toLowerCase());
-    const existM = mats.find(m=>m.code&&m.code.toLowerCase()===ref.toLowerCase());
-    const inStock = existP ? `<span style="color:var(--teal);font-size:11px">📦 Stock: ${existP.stock} (pièce)</span>`
-      : existM ? `<span style="color:var(--blue);font-size:11px">🔧 Matériel existant</span>`
-      : `<span style="color:var(--text3);font-size:11px">Nouveau</span>`;
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 8px"><input type="checkbox" class="pdf-art-cb" data-idx="${i}" checked></td>
-      <td style="padding:6px 8px"><input value="${ref}" oninput="_pdfArticlesIA[${i}].ref=this.value" style="width:90px;font-size:12px"></td>
-      <td style="padding:6px 8px"><input value="${a.designation||''}" oninput="_pdfArticlesIA[${i}].designation=this.value" style="width:180px;font-size:12px"></td>
-      <td style="padding:6px 8px;text-align:center"><input type="number" value="${a.qte||1}" min="1" oninput="_pdfArticlesIA[${i}].qte=+this.value" style="width:55px;font-size:12px;text-align:center"></td>
-      <td style="padding:6px 8px;text-align:right"><input type="number" value="${a.pu||''}" step="0.01" oninput="_pdfArticlesIA[${i}].pu=+this.value" style="width:70px;font-size:12px;text-align:right"></td>
-      <td style="padding:6px 8px">${inStock}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('pdf-articles-ia').style.display='';
-  if(window._pdfCanImportStock) document.getElementById('pdf-import-stock-btn').style.display='';
-}
-
-function toggleAllPDFArticles(cb){
-  document.querySelectorAll('.pdf-art-cb').forEach(c=>{ c.checked=cb.checked; });
-}
-
-async function importArticlesVersStock(){
-  if(getUserRole()!=='admin'){alert('❌ Seul un administrateur peut importer des articles dans le stock.');return;}
-  const target = document.getElementById('pdf-import-target').value;
-  const checked = [...document.querySelectorAll('.pdf-art-cb:checked')].map(cb=>+cb.dataset.idx);
-  const articles = checked.map(i=>_pdfArticlesIA[i]).filter(Boolean);
-  if(!articles.length){ alert('Sélectionnez au moins un article à importer.'); return; }
-
-  const pieces = state[currentCompany].pieces || [];
-  const mats = state[currentCompany].materiels || [];
-  let nbNew=0, nbMaj=0;
-
-  if(target==='pieces'){
-    for(const a of articles){
-      const ref = a.ref||('REF-'+Date.now());
-      const idx = pieces.findIndex(p=>p.ref&&p.ref.toLowerCase()===(a.ref||'').toLowerCase());
-      if(idx>=0){
-        pieces[idx].stock = (parseInt(pieces[idx].stock)||0) + (a.qte||1);
-        if(a.pu) pieces[idx].prix = a.pu.toFixed(2)+' €';
-        if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:pieces[idx].id,entreprise_id:currentCompany,ref:pieces[idx].ref,nom:pieces[idx].nom,stock:pieces[idx].stock,prix:pieces[idx].prix,seuil:pieces[idx].seuil,compat:pieces[idx].compat,notes:pieces[idx].notes,fournisseur:pieces[idx].fourn||null});
-        nbMaj++;
-      } else {
-        const np={id:ref,ref,nom:a.designation||ref,stock:a.qte||1,seuil:5,prix:a.pu?(a.pu.toFixed(2)+' €'):'—',compat:'',notes:'',fourn:'',st:'ok'};
-        pieces.push(np);
-        if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:np.id,entreprise_id:currentCompany,ref:np.ref,nom:np.nom,stock:np.stock,seuil:np.seuil,prix:np.prix,compat:'',notes:'',fournisseur:null});
-        nbNew++;
-      }
-    }
-  } else {
-    for(const a of articles){
-      const code = a.ref||('MAT-'+Date.now());
-      const idx = mats.findIndex(m=>m.code&&m.code.toLowerCase()===(a.ref||'').toLowerCase());
-      if(idx>=0){ nbMaj++; }
-      else {
-        const nm={id:code,code,nom:a.designation||code,famille:'',statut:'ok',fourn:'',serie:'',maint:'',cout:a.pu?(a.pu.toFixed(2)+' €'):'—',prixAchat:a.pu?(a.pu.toFixed(2)+' €'):'—',notes:'',dateMS:new Date().toISOString().split('T')[0]};
-        mats.push(nm);
-        if(SB&&SB_MODE==='online') await saveToSupabase('materiels',{id:nm.id,entreprise_id:currentCompany,code:nm.code,nom:nm.nom,famille_id:'',serie:'',statut_id:'ok',maint:'',cout:nm.cout,date_ms:nm.dateMS,notes:'',fournisseur:null,prix_achat:nm.prixAchat,date_achat:null});
-        nbNew++;
-      }
-    }
-  }
-  saveToStorage();
-  renderAll();
-  closeModal('modal-import-pdf-bdc');
-  alert(`✅ Import terminé !\n${nbNew} nouveau(x) article(s) créé(s)\n${nbMaj} article(s) mis à jour (stock incrémenté)`);
-}
-
-
 var pdf_numPages_last=1;
 async function extractPDFBDC(input){
   var file=input.files[0];if(!file)return;
@@ -6787,37 +6627,15 @@ async function extractPDFBDC(input){
     var ab=await file.arrayBuffer();
     var pdf=await pdfjsLib.getDocument({data:ab}).promise;
     pdf_numPages_last=pdf.numPages;
+    var LF=String.fromCharCode(10);
     var fullText='';
     for(var i=1;i<=pdf.numPages;i++){
       var page=await pdf.getPage(i);
       var ct=await page.getTextContent();
-      // Reconstruction du texte en préservant la structure par position Y
-      // Les items proches en Y sont sur la même ligne
-      var items=ct.items.filter(s=>s.str.trim());
-      items.sort(function(a,b){
-        var dy=Math.round(b.transform[5]/5)*5 - Math.round(a.transform[5]/5)*5;
-        return dy!==0 ? dy : a.transform[4]-b.transform[4];
-      });
-      var lines=[];
-      var lastY=null;
-      var curLine=[];
-      items.forEach(function(s){
-        var y=Math.round(s.transform[5]/5)*5;
-        if(lastY===null || Math.abs(y-lastY)>3){
-          if(curLine.length) lines.push(curLine.join(' '));
-          curLine=[s.str];
-          lastY=y;
-        } else {
-          curLine.push(s.str);
-        }
-      });
-      if(curLine.length) lines.push(curLine.join(' '));
-      fullText+=lines.join('\n')+'\n';
+      fullText+=ct.items.map(function(s){return s.str;}).join(' ')+LF;
     }
     document.getElementById('pdf-bdc-raw-text').textContent=fullText;
     parsePDFText(fullText);
-    // Lancement extraction IA des articles
-    await extractArticlesViaIA(fullText);
   }catch(e){document.getElementById('pdf-bdc-status').textContent='\u274c Erreur: '+e.message;}
 }
 function parsePDFText(text){
@@ -6955,24 +6773,13 @@ function isMatReserve(matId){
   const today=toDS(new Date());
   return (state[currentCompany].evenements||[]).some(e=>{
     const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
+    const debut=e.dateDebut||e.date||'';
     const fin=e.dateFin||e.dateDebut||e.date||'';
-    return ids.map(String).includes(String(matId)) && fin>=today;
+    return ids.map(String).includes(String(matId))&&today>=debut&&today<=fin;
   });
 }
 
-function getMatReserveType(matId){
-  const today=toDS(new Date());
-  const evt=(state[currentCompany].evenements||[]).find(e=>{
-    const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
-    const fin=e.dateFin||e.dateDebut||e.date||'';
-    return ids.map(String).includes(String(matId)) && fin>=today;
-  });
-  if(!evt) return null;
-  const debut=evt.dateDebut||evt.date||'';
-  return debut>today ? {type:'futur',date:debut} : {type:'encours'};
-}
-
-
+let editingEventId=null;
 
 
 function initCouleurPresets(){
@@ -7005,19 +6812,6 @@ function openEventModal(){
   document.getElementById('modal-evt').classList.add('open');
 }
 
-// Ouvre le modal d'immobilisation depuis le tableau matériels :
-// si une immobilisation active ou future existe pour ce matériel,
-// l'ouvre en mode édition ; sinon ouvre en mode création.
-function openImmobilisationDepuisMatId(matId){
-  const today=toDS(new Date());
-  const evt=(state[currentCompany].evenements||[]).find(e=>{
-    const ids=e.materielIds||(e.materielId?[e.materielId]:[]);
-    const fin=e.dateFin||e.dateDebut||e.date||'';
-    return ids.map(String).includes(String(matId)) && fin>=today;
-  });
-  openImmobilisationModal(evt ? evt.id : null);
-}
-
 function openImmobilisationModal(id){
   if(!canManageEvtPret()){alert('❌ Vous ne pouvez pas créer une immobilisation dans une autre entreprise.');return;}
   editingEventId=null;
@@ -7031,16 +6825,8 @@ function openImmobilisationModal(id){
   document.getElementById('evt-delete-btn').style.display='none';
   buildMatCheckList(mats,[]);
   if(id){
-    // Les IDs d'événements sont de la forme 'evt_1234567890'
-    // Les IDs de calendrier composés sont de la forme 'evt_1234567890_matId'
-    // On extrait le vrai ID de l'événement en cherchant directement par ID exact d'abord
-    let realId = id;
-    let evt = (state[currentCompany].evenements||[]).find(e=>e.id===id);
-    if(!evt && id.includes('_')){
-      // Essai avec l'ID tronqué (format calendrier composé)
-      realId = id.split('_').slice(0,2).join('_');
-      evt = (state[currentCompany].evenements||[]).find(e=>e.id===realId);
-    }
+    const realId=id.includes('_')?id.split('_').slice(0,-1).join('_'):id;
+    const evt=(state[currentCompany].evenements||[]).find(e=>e.id===realId);
     if(evt){
       const ids=evt.materielIds||(evt.materielId?[evt.materielId]:[]);
       buildMatCheckList(mats,ids);
