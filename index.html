@@ -2214,7 +2214,15 @@ function openNewModal(){
 function openMatEdit(id){
   ensureMatState(COMPANIES[currentCompany]);
   const mat = state[currentCompany].materiels.find(m=>m.id===id||m.code===id);
-  if(!mat) return;
+  if(!mat){
+    // Matériel pas encore chargé localement — rechargement depuis Supabase
+    loadFromSupabase().then(()=>{
+      const mat2=(state[currentCompany].materiels||[]).find(m=>m.id===id||m.code===id);
+      if(mat2) openMatEdit(id);
+      else alert('Matériel introuvable.');
+    });
+    return;
+  }
   editingMatId = mat.id || mat.code;
   document.getElementById('mat-modal-title').textContent = 'Modifier — '+mat.code;
   document.getElementById('mat-edit-id').value = editingMatId;
@@ -3189,7 +3197,19 @@ function openPieceModal(id=null){
   }
   editingPieceId=id;
   ensureFournState(COMPANIES[currentCompany]);
-  const p=id?(state[currentCompany].pieces||[]).find(x=>x.id===id||x.ref===id):null;
+  const pieces=state[currentCompany].pieces||[];
+  const p=id?pieces.find(x=>x.id===id||x.ref===id):null;
+  // Si la pièce n'est pas trouvée localement (entreprise différente chargée récemment)
+  if(id && !p){
+    const statusEl=document.getElementById('pieces-status-msg');
+    if(statusEl) statusEl.textContent='Chargement...';
+    loadFromSupabase().then(()=>{
+      const p2=(state[currentCompany].pieces||[]).find(x=>x.id===id||x.ref===id);
+      if(!p2){ alert('Pièce introuvable.'); return; }
+      openPieceModal(id);
+    });
+    return;
+  }
   document.getElementById('pc-modal-title').textContent=id?'Modifier la pièce':'Nouvelle pièce détachée';
   document.getElementById('pc-edit-id').value=id||'';
   document.getElementById('pc-f-ref').value=p?.ref||'';
