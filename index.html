@@ -1762,13 +1762,13 @@ function renderMatTable(co, st){
         <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
         <td style="font-size:12px">${m.prixLoc||'—'}</td>
         <td style="white-space:nowrap">
-          <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
+          <button class="btn btn-sm" onclick="openMatDetail('${(m.id||m.code).replace(/'/g,"\\'")}')">Voir</button>
           ${(getUserRole()==='admin'||currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id))?`
-          <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
-          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
-          <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
+          <button class="btn btn-sm btn-edit" onclick="openMatEdit('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px">✏️</button>
+          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
+          <button class="btn btn-sm btn-danger" onclick="deleteMat('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px">🗑</button>
           `:''}
-          ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${m.id||m.code}','${m.code} — ${m.nom}')">🤝 Demander</button>`:''}
+          ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${(m.id||m.code).replace(/'/g,"\\'")}','${(m.code+' — '+m.nom).replace(/'/g,"\\'")}')">🤝 Demander</button>`:''}
         </td>
       </tr>`).join('')
     : `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">Aucun matériel trouvé</td></tr>`;
@@ -3128,9 +3128,9 @@ function renderPiecesTable(){
           <td>${sb}</td>
           <td>${p.seuil}</td>
           <td style="white-space:nowrap">
-            <button class="btn btn-sm btn-edit" onclick="openMvtModal('${p.ref}')" title="Mouvement stock">📦</button>
-            ${canModifyMat()?`<button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref}')" style="margin-left:4px">✏️</button>
-            <button class="btn btn-sm btn-danger" onclick="deletePiece('${p.ref}')" style="margin-left:4px">🗑</button>`:''}
+            <button class="btn btn-sm btn-edit" onclick="openMvtModal('${p.ref.replace(/'/g,"\\'")}')" title="Mouvement stock">📦</button>
+            ${canModifyMat()?`<button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref.replace(/'/g,"\\'")}') " style="margin-left:4px">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deletePiece('${p.ref.replace(/'/g,"\\'")}') " style="margin-left:4px">🗑</button>`:''}
           </td>
         </tr>`;
       }).join('')
