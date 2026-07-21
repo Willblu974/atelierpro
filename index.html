@@ -1077,6 +1077,7 @@ textarea{resize:vertical;min-height:80px;}
             <th style="padding:6px 8px">Référence</th>
             <th style="padding:6px 8px">Désignation</th>
             <th style="padding:6px 8px;text-align:center">Qté utilisée</th>
+            <th style="padding:6px 8px"></th>
           </tr></thead>
           <tbody id="cr-pieces-tbody"></tbody>
         </table>
@@ -3264,6 +3265,7 @@ function renderCRPiecesTable(piecesLiees){
       <td style="padding:6px 8px"><input value="${p.ref}" oninput="_crPiecesExtra[${i}].ref=this.value" style="width:100px;font-size:12px"></td>
       <td style="padding:6px 8px"><input value="${p.nom}" oninput="_crPiecesExtra[${i}].nom=this.value" style="width:220px;font-size:12px"></td>
       <td style="padding:6px 8px;text-align:center"><input type="number" value="${p.qte}" min="1" oninput="_crPiecesExtra[${i}].qte=+this.value" style="width:60px;font-size:12px;text-align:center"></td>
+      <td style="padding:6px 4px;text-align:center"><button class="btn btn-sm btn-danger" onclick="removeCRPiece(${i})" title="Supprimer">🗑</button></td>
     </tr>`).join('');
   if(!rows) rows = '<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Aucun mouvement de stock lié à cet OT</td></tr>';
   tbody.innerHTML = rows;
@@ -3271,11 +3273,20 @@ function renderCRPiecesTable(piecesLiees){
 
 function addCRPiece(){
   _crPiecesExtra.push({ref:'',nom:'',qte:1});
-  const mouvements = state[currentCompany].mouvements||[];
-  const piecesLiees = mouvements.filter(m=>{
+  _refreshCRPiecesTable();
+}
+
+function removeCRPiece(idx){
+  _crPiecesExtra.splice(idx,1);
+  _refreshCRPiecesTable();
+}
+
+function _refreshCRPiecesTable(){
+  const mouvements=state[currentCompany].mouvements||[];
+  const piecesLiees=mouvements.filter(m=>{
     const motif=(m.motif||'').toLowerCase();
     const otLie=(m.otLie||'').toLowerCase();
-    return m.type==='out' && _crCurrentOT && (otLie===_crCurrentOT.num.toLowerCase() || motif.includes(_crCurrentOT.num.toLowerCase()));
+    return m.type==='out'&&_crCurrentOT&&(otLie===_crCurrentOT.num.toLowerCase()||motif.includes(_crCurrentOT.num.toLowerCase()));
   });
   renderCRPiecesTable(piecesLiees);
 }
