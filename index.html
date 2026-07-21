@@ -3047,11 +3047,7 @@ function renderOTTable(){
     ? filtered.map(o=>{
         const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
         // Chercher le N° de série dans le matériel si pas déjà dans l'OT
-        const serie=o.serie||(()=>{
-          const mats=state[currentCompany].materiels||[];
-          const codes=(o.matCodes||[o.mat]);
-          return codes.map(c=>{const m=mats.find(x=>x.code===c||x.nom===c||x.id===c);return m?.serie||'';}).filter(Boolean).join(', ')||'—';
-        })();
+        const serie=getSerieForOT(o);
         return `<tr>
           <td><strong>${o.num}</strong></td>
           <td>${o.mat}</td>
@@ -3179,11 +3175,7 @@ function openOTDetail(id){
   const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
   document.getElementById('ot-detail-title').textContent=o.num+' — '+o.type;
   document.getElementById('ot-detail-sub').textContent=o.mat;
-  const serie=o.serie||(()=>{
-    const mats=state[currentCompany].materiels||[];
-    const codes=(o.matCodes||[]).length?(o.matCodes):[o.mat];
-    return codes.map(c=>{const m=mats.find(x=>x.code===c||x.nom===c||x.id===c);return m?.serie||'';}).filter(Boolean).join(', ')||'—';
-  })();
+    const serie=getSerieForOT(o);
   const fields=[
     {l:'Matériel',v:o.mat},{l:'N° de série',v:serie},
     {l:'Type',v:o.type},
@@ -3206,6 +3198,14 @@ function openOTDetail(id){
 let _crCurrentOT = null;
 let _crPiecesExtra = [];
 
+function getSerieForOT(o){
+  if(!o) return '—';
+  if(o.serie) return o.serie;
+  const mats=state[currentCompany].materiels||[];
+  const codes=(o.matCodes||[]).length ? o.matCodes : [o.mat];
+  return codes.map(c=>{const m=mats.find(x=>x.code===c||x.nom===c||x.id===c);return m?.serie||'';}).filter(Boolean).join(', ')||'—';
+}
+
 function openCompteRenduOT(){
   const otId = document.getElementById('ot-detail-title')?.textContent?.split(' — ')[0];
   const ots = state[currentCompany].ots||[];
@@ -3217,11 +3217,7 @@ function openCompteRenduOT(){
   // En-tête OT
   const coInfo = COMPANIES[currentCompany];
   const sm = OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
-  const serie=o.serie||(()=>{
-    const mats=state[currentCompany].materiels||[];
-    const codes=(o.matCodes||[]).length?(o.matCodes):[o.mat];
-    return codes.map(c=>{const m=mats.find(x=>x.code===c||x.nom===c||x.id===c);return m?.serie||'';}).filter(Boolean).join(', ')||'—';
-  })();
+    const serie=getSerieForOT(o);
   document.getElementById('cr-ot-header').innerHTML = `
     <div><div style="font-size:11px;color:var(--text3)">N° OT</div><div style="font-weight:700;color:var(--company-color)">${o.num}</div></div>
     <div><div style="font-size:11px;color:var(--text3)">Matériel</div><div style="font-weight:600">${o.mat||'—'}</div></div>
@@ -3312,11 +3308,7 @@ function exportCRPDF(){
   const o = _crCurrentOT;
   const coInfo = COMPANIES[currentCompany];
   const now = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  const serie=o.serie||(()=>{
-    const mats=state[currentCompany].materiels||[];
-    const codes=(o.matCodes||[]).length?(o.matCodes):[o.mat];
-    return codes.map(c=>{const m=mats.find(x=>x.code===c||x.nom===c||x.id===c);return m?.serie||'';}).filter(Boolean).join(', ')||'—';
-  })();
+    const serie=getSerieForOT(o);
   const dateFin = document.getElementById('cr-date-fin').value
     ? new Date(document.getElementById('cr-date-fin').value).toLocaleDateString('fr-FR') : '—';
   const tech = document.getElementById('cr-technicien').value||'—';
@@ -6480,10 +6472,6 @@ function renderArchivesOTSection(){
         '<td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:11px">'+(a.nbBloque||0)+'</span></td>'+
         '<td style="color:#999;font-size:12px">'+(a.dateArchive||'—')+'</td>'+
         '<td><button class="btn btn-sm btn-edit" onclick="printArchivedOT(\''+key+'\')">📄 PDF</button></td>'+
-        '</tr>';
-    });
-    html+='</tbody></table>';
-  });
         '</tr>';
     });
     html+='</tbody></table>';
