@@ -1866,37 +1866,25 @@ function renderMatTable(co, st){
     if(search && !m.nom.toLowerCase().includes(search) && !m.code.toLowerCase().includes(search)) return false;
     return true;
   }).sort((a,b) => {
+    // Révisions à venir dans 1 mois en priorité
     const today = new Date(); today.setHours(0,0,0,0);
     const in1Month = new Date(today); in1Month.setMonth(in1Month.getMonth()+1);
-    // Score : 0 = révision urgente (≤1 mois), 1 = révision dans le futur, 2 = pas de révision
-    const scoreRev = m => {
-      if(!m.revision) return 2;
-      const d = new Date(m.revision);
-      if(d <= in1Month) return 0;
-      return 1;
-    };
-    const sa = scoreRev(a), sb = scoreRev(b);
-    if(sa !== sb) return sa - sb;
-    // À égalité de score : tri par date de révision croissante (la plus proche en premier)
-    if(sa === 0 || sa === 1){
-      const da = a.revision ? new Date(a.revision) : null;
-      const db = b.revision ? new Date(b.revision) : null;
-      if(da && db) return da - db;
+    const scoreA = a.revision && new Date(a.revision)<=in1Month ? 0 : 1;
+    const scoreB = b.revision && new Date(b.revision)<=in1Month ? 0 : 1;
+    if(scoreA !== scoreB) return scoreA - scoreB;
+    if(scoreA===0 && scoreB===0){
+      return new Date(a.revision) - new Date(b.revision);
     }
     return a.nom.localeCompare(b.nom, 'fr');
   });
-  const today2 = new Date(); today2.setHours(0,0,0,0);
-  const in1Month2 = new Date(today2); in1Month2.setMonth(in1Month2.getMonth()+1);
-  let _prevWasUrgent = false;
+  const _in1Mo=new Date();_in1Mo.setMonth(_in1Mo.getMonth()+1);
   document.getElementById('mat-tbody').innerHTML = rows.length
     ? rows.map((m,idx)=>{
-        const isUrgent = m.revision && new Date(m.revision) <= in1Month2;
-        const wasUrgent = idx>0 && rows[idx-1].revision && new Date(rows[idx-1].revision) <= in1Month2;
-        const separator = (!isUrgent && idx>0 && wasUrgent)
-          ? `<tr><td colspan="14" style="height:2px;background:var(--border);padding:0"></td></tr>`
-          : '';
-        const rowStyle = isUrgent ? 'background:rgba(239,68,68,0.04);' : '';
-        return separator+`<tr style="${rowStyle}">
+        const isUrgent=m.revision&&new Date(m.revision)<=_in1Mo;
+        const wasUrgent=idx>0&&rows[idx-1].revision&&new Date(rows[idx-1].revision)<=_in1Mo;
+        const sep=(!isUrgent&&wasUrgent)?'<tr><td colspan="14" style="height:2px;background:var(--border);padding:0"></td></tr>':'';
+        const bg=isUrgent?'background:rgba(239,68,68,0.04)':'';
+        return sep+`<tr style="${bg}">
         <td style="text-align:center;width:32px"><input type="checkbox" class="mat-select-cb" data-id="${m.id||m.code}" data-code="${m.code}" data-nom="${m.nom}" onchange="onMatSelectChange()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--teal);display:inline-block !important;visibility:visible !important;opacity:1 !important"></td>
         <td><strong>${m.code}</strong></td>
         <td>${m.nom}</td>
