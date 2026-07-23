@@ -1214,21 +1214,83 @@ textarea{resize:vertical;min-height:80px;}
 </div>
 
 <div class="modal-bg" id="modal-bdc">
-  <div class="modal">
-    <div class="modal-header"><strong id="bdc-modal-title">Nouveau bon de commande</strong><button class="btn btn-sm" onclick="closeModal('modal-bdc')">&#10005;</button></div>
-    <div class="form-grid">
-      <input type="hidden" id="bdc-edit-id">
-      <div class="form-group"><label>N° BDC</label><input id="bdc-f-num" readonly style="background:var(--surface2)"></div>
-      <div class="form-group"><label>Fournisseur *</label><input id="bdc-f-fourn" placeholder="Nom du fournisseur"></div>
-      <div class="form-group"><label>Date commande</label><input type="date" id="bdc-f-date"></div>
-      <div class="form-group"><label>Mode transport</label><select id="bdc-f-mode"><option value="Maritime">Maritime</option><option value="Aérien">Aérien</option><option value="Routier">Routier</option></select></div>
-      <div class="form-group"><label>Montant HT (€)</label><input type="number" id="bdc-f-mont" placeholder="0.00" step="0.01"></div>
-      <div class="form-group"><label>Nb articles</label><input type="number" id="bdc-f-art" placeholder="1" min="1"></div>
-      <div class="form-group"><label>Statut</label><select id="bdc-f-statut"><option value="encours">En préparation</option><option value="transit">En transit</option><option value="bloque">Douane bloquée</option><option value="livre">Livré</option></select></div>
-      <div class="form-group"><label>Date livraison prévue</label><input type="date" id="bdc-f-livraison"></div>
-      <div class="form-group full"><label>Articles / Pièces commandées</label><textarea id="bdc-f-articles" placeholder="Listez les articles commandés..."></textarea></div>
+  <div class="modal" style="width:800px;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <strong id="bdc-modal-title">Nouveau bon de commande</strong>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label style="cursor:pointer">
+          <input type="file" id="bdc-pdf-file" accept=".pdf" style="display:none" onchange="loadBDCPdf(this)">
+          <span class="btn btn-sm" onclick="document.getElementById('bdc-pdf-file').click()">📄 Joindre PDF</span>
+        </label>
+        <button class="btn btn-sm" onclick="closeModal('modal-bdc')">&#10005;</button>
+      </div>
     </div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-bdc')">Annuler</button><button class="btn btn-primary" onclick="saveBDC()">Enregistrer</button></div>
+    <div style="overflow-y:auto;flex:1">
+      <div class="form-grid">
+        <input type="hidden" id="bdc-edit-id">
+        <div class="form-group"><label>N° BDC</label><input id="bdc-f-num" readonly style="background:var(--surface2)"></div>
+        <div class="form-group"><label>Fournisseur *</label><input id="bdc-f-fourn" placeholder="Nom du fournisseur"></div>
+        <div class="form-group"><label>Date commande</label><input type="date" id="bdc-f-date"></div>
+        <div class="form-group"><label>Mode transport</label><select id="bdc-f-mode"><option value="Maritime">Maritime</option><option value="Aérien">Aérien</option><option value="Routier">Routier</option></select></div>
+        <div class="form-group"><label>Montant HT (€)</label><input type="number" id="bdc-f-mont" placeholder="0.00" step="0.01"></div>
+        <div class="form-group"><label>Nb articles</label><input type="number" id="bdc-f-art" placeholder="1" min="1"></div>
+        <div class="form-group"><label>Statut</label><select id="bdc-f-statut"><option value="encours">En préparation</option><option value="transit">En transit</option><option value="bloque">Douane bloquée</option><option value="livre">Livré</option></select></div>
+        <div class="form-group"><label>Date livraison prévue</label><input type="date" id="bdc-f-livraison"></div>
+        <div class="form-group full"><label>Notes / Observations</label><textarea id="bdc-f-articles" placeholder="Observations, conditions, remarques..."></textarea></div>
+      </div>
+
+      <!-- Section PDF intégrée -->
+      <div id="bdc-pdf-section" style="display:none;border-top:1px solid var(--border);padding:16px 20px">
+        <!-- Statut extraction -->
+        <div id="bdc-pdf-status" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
+
+        <!-- Barre d'actions articles -->
+        <div id="bdc-pdf-actions" style="display:none;margin-bottom:12px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="font-size:13px;font-weight:600;color:var(--teal)">🔩 Articles détectés</div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+              <input type="radio" name="bdc-import-dest" value="pieces" checked> 📦 Stock pièces
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+              <input type="radio" name="bdc-import-dest" value="materiels"> 🔧 Matériels
+            </label>
+            <button class="btn btn-sm" onclick="bdcSelectAll(true)">Tout ✓</button>
+            <button class="btn btn-sm" onclick="bdcSelectAll(false)">Tout ✗</button>
+            <button class="btn btn-sm" style="background:var(--teal);color:#fff;border-color:var(--teal)" onclick="importBDCArticles()">⬇️ Importer sélection</button>
+          </div>
+        </div>
+
+        <!-- Tableau articles -->
+        <div id="bdc-pdf-table-wrap" style="display:none">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="background:var(--surface2)">
+                <th style="padding:7px 10px;width:28px"><input type="checkbox" id="bdc-check-all" onchange="bdcSelectAll(this.checked)"></th>
+                <th style="padding:7px 10px;text-align:left">Référence</th>
+                <th style="padding:7px 10px;text-align:left">Désignation</th>
+                <th style="padding:7px 10px;text-align:center">Qté</th>
+                <th style="padding:7px 10px;text-align:right">Prix unit. HT</th>
+                <th style="padding:7px 10px;text-align:right">Total HT</th>
+              </tr>
+            </thead>
+            <tbody id="bdc-pdf-tbody"></tbody>
+            <tfoot id="bdc-pdf-tfoot"></tfoot>
+          </table>
+        </div>
+
+        <!-- Bouton scan IA -->
+        <div id="bdc-ai-btn-wrap" style="display:none;margin-top:10px">
+          <button class="btn btn-sm" style="background:var(--purple);color:#fff;border-color:var(--purple)" onclick="launchBDCAIScan()">🤖 Analyser avec l'IA</button>
+          <span style="font-size:11px;color:var(--text3);margin-left:8px">Détecte automatiquement les références et quantités</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="bdc-pdf-import-summary" style="font-size:12px;color:var(--text3)"></div>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="closeModal('modal-bdc')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveBDC()">Enregistrer le BDC</button>
+    </div>
   </div>
 </div>
 
@@ -3145,6 +3207,200 @@ function renderHistoTable(){
 }
 
 /* ══════════════════════════════════════════════════════════
+   PDF INTÉGRÉ DANS MODAL BDC
+   ══════════════════════════════════════════════════════════ */
+window._bdcAIItems = [];
+window._bdcRawText = '';
+
+async function loadBDCPdf(input){
+  const file = input.files[0]; if(!file) return;
+  const statusEl = document.getElementById('bdc-pdf-status');
+  document.getElementById('bdc-pdf-section').style.display = '';
+  document.getElementById('bdc-pdf-actions').style.display = 'none';
+  document.getElementById('bdc-pdf-table-wrap').style.display = 'none';
+  document.getElementById('bdc-ai-btn-wrap').style.display = 'none';
+  document.getElementById('bdc-pdf-tbody').innerHTML = '';
+  document.getElementById('bdc-pdf-tfoot').innerHTML = '';
+  window._bdcAIItems = [];
+  statusEl.style.color = 'var(--text3)';
+  statusEl.textContent = '⏳ Lecture du PDF…';
+  if(typeof pdfjsLib === 'undefined'){ statusEl.textContent = '❌ PDF.js non chargé.'; return; }
+  try{
+    const ab = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:ab}).promise;
+    let fullText = '';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page = await pdf.getPage(i);
+      const ct = await page.getTextContent();
+      fullText += ct.items.map(s=>s.str).join(' ') + '
+';
+    }
+    window._bdcRawText = fullText;
+    // Pré-remplir fournisseur/date/montant depuis le PDF (réutilise parsePDFText)
+    parseBDCPdfMeta(fullText);
+    statusEl.textContent = '✅ PDF chargé ('+pdf.numPages+' page(s)) — '+file.name;
+    document.getElementById('bdc-ai-btn-wrap').style.display = '';
+    // Tentative de parsing rapide sans IA
+    const quickItems = quickParseBDCItems(fullText);
+    if(quickItems.length){
+      window._bdcAIItems = quickItems;
+      renderBDCArticlesTable();
+    }
+  }catch(e){ statusEl.textContent = '❌ Erreur : '+e.message; }
+}
+
+function parseBDCPdfMeta(text){
+  const t = text.replace(/\s+/g,' ').trim();
+  // Fournisseur
+  if(!document.getElementById('bdc-f-fourn').value){
+    let fourn='';
+    const fm = t.match(/(?:fournisseur|vendeur|supplier|de\s*)\s*:+\s*([\w&. '-]{3,50})/i);
+    if(fm) fourn=fm[1].trim();
+    if(!fourn){ const fl=t.match(/([A-Z\u00C0-\u00DE][\w &'.\u00C0-\u00FF-]{2,40})\s+(?:SAS|SARL|SA|SNC|EURL|BV|NV|GmbH|Ltd)/); if(fl) fourn=fl[1].trim(); }
+    if(fourn) document.getElementById('bdc-f-fourn').value=fourn;
+  }
+  // Date
+  if(!document.getElementById('bdc-f-date').value){
+    const dm=t.match(/(?:date[^:]*:?\s*)(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)||t.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/);
+    if(dm){ const pts=dm[1].split(/[\/\-]/); if(pts.length===3){ const yr=pts[2].length===2?'20'+pts[2]:pts[2]; document.getElementById('bdc-f-date').value=yr+'-'+pts[1].padStart(2,'0')+'-'+pts[0].padStart(2,'0'); }}
+  }
+  // Montant
+  if(!document.getElementById('bdc-f-mont').value){
+    const mp=t.match(/(?:total\s*h\.?t\.?|montant\s*h\.?t\.?)\s*:?\s*([\d\s.,]+)/i);
+    if(mp){ const n=parseFloat(mp[1].replace(/\s/g,'').replace(',','.')); if(n>0&&n<10000000) document.getElementById('bdc-f-mont').value=n; }
+  }
+}
+
+function quickParseBDCItems(text){
+  const REF_PAT = /\b([A-Z]{2,}[\/\-][A-Z0-9\/\-\.]{3,30})\b/g;
+  const items=[]; let m;
+  const lines=text.split('\n');
+  while((m=REF_PAT.exec(text))!==null){
+    const from=m.index; const chunk=text.substring(from,from+300);
+    const prices=chunk.match(/\b(\d{1,6}[.,]\d{2})\b/g)||[];
+    const qm=chunk.match(/(\d+)\s*(?:pcs?|u\b|unités?)/i);
+    items.push({
+      ref:m[1], nom:chunk.replace(m[1],'').trim().split('\n')[0].substring(0,100).trim()||'—',
+      qte:qm?parseInt(qm[1]):1,
+      prix_unit:prices.length?parseFloat(prices[0].replace(',','.')):0,
+      notes:''
+    });
+  }
+  return items.slice(0,50);
+}
+
+async function launchBDCAIScan(){
+  const rawText = window._bdcRawText;
+  if(!rawText){ showToast('Chargez d\'abord un PDF.','warn'); return; }
+  if(!SB||SB_MODE!=='online'){ alert('Connexion Supabase requise pour le scan IA.'); return; }
+  const statusEl = document.getElementById('bdc-pdf-status');
+  statusEl.style.color='var(--text3)';
+  statusEl.textContent='🤖 Analyse IA en cours…';
+  document.getElementById('bdc-ai-btn-wrap').style.display='none';
+  try{
+    const {data:{session}}=await SB.auth.getSession();
+    if(!session?.access_token) throw new Error('Session expirée.');
+    const {data,error}=await SB.functions.invoke('extract-articles',{
+      body:{pdfText:rawText.substring(0,8000)},
+      headers:{Authorization:'Bearer '+session.access_token}
+    });
+    if(error) throw new Error(error.message||JSON.stringify(error));
+    if(!data?.ok) throw new Error(data?.error||'Erreur Edge Function');
+    const articles=data.articles||[];
+    if(!articles.length) throw new Error('Aucun article trouvé.');
+    window._bdcAIItems=articles.map(a=>({
+      ref:a.ref||'', nom:a.designation||a.nom||'—',
+      qte:a.qte||1, prix_unit:a.pu||a.prix_unit||0, notes:a.notes||''
+    }));
+    renderBDCArticlesTable();
+    statusEl.textContent='✅ IA — '+window._bdcAIItems.length+' article(s) détecté(s)';
+    showToast('✅ '+window._bdcAIItems.length+' articles détectés','ok');
+  }catch(e){
+    statusEl.style.color='var(--red)';
+    statusEl.textContent='❌ '+e.message;
+    document.getElementById('bdc-ai-btn-wrap').style.display='';
+  }
+}
+
+function renderBDCArticlesTable(){
+  const items=window._bdcAIItems||[];
+  const tbody=document.getElementById('bdc-pdf-tbody');
+  const tfoot=document.getElementById('bdc-pdf-tfoot');
+  if(!items.length){ tbody.innerHTML='<tr><td colspan="6" style="padding:14px;text-align:center;color:var(--text3)">Aucun article détecté</td></tr>'; return; }
+  let grandTotal=0;
+  tbody.innerHTML=items.map((item,i)=>{
+    const total=(parseFloat(item.prix_unit)||0)*(parseInt(item.qte)||1);
+    grandTotal+=total;
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 10px;text-align:center"><input type="checkbox" id="bdc-art-chk-${i}" class="bdc-art-chk" checked onchange="updateBDCSummary()"></td>
+      <td style="padding:6px 10px"><input value="${(item.ref||'').replace(/"/g,'&quot;')}" oninput="window._bdcAIItems[${i}].ref=this.value" style="width:100px;font-size:11px"></td>
+      <td style="padding:6px 10px"><input value="${(item.nom||'').replace(/"/g,'&quot;')}" oninput="window._bdcAIItems[${i}].nom=this.value" style="width:100%;min-width:160px;font-size:11px"></td>
+      <td style="padding:6px 10px;text-align:center"><input type="number" min="1" value="${item.qte||1}" oninput="window._bdcAIItems[${i}].qte=+this.value;updateBDCSummary()" style="width:52px;font-size:11px;text-align:center"></td>
+      <td style="padding:6px 10px;text-align:right"><input type="number" min="0" step="0.01" value="${parseFloat(item.prix_unit||0).toFixed(2)}" oninput="window._bdcAIItems[${i}].prix_unit=+this.value;updateBDCSummary()" style="width:72px;font-size:11px;text-align:right"></td>
+      <td style="padding:6px 10px;text-align:right;font-weight:500">${total>0?total.toFixed(2)+' €':'—'}</td>
+    </tr>`;
+  }).join('');
+  tfoot.innerHTML=`<tr style="background:var(--surface2);font-weight:600">
+    <td colspan="3" style="padding:7px 10px;font-size:12px">Total BDC</td>
+    <td style="padding:7px 10px;text-align:center;font-size:12px">${items.reduce((s,i)=>s+(parseInt(i.qte)||1),0)}</td>
+    <td colspan="2" style="padding:7px 10px;text-align:right;font-size:13px;color:var(--teal)">${grandTotal.toFixed(2)} €</td>
+  </tr>`;
+  document.getElementById('bdc-pdf-table-wrap').style.display='';
+  document.getElementById('bdc-pdf-actions').style.display='flex';
+  // Auto-remplir montant et nb articles
+  if(!document.getElementById('bdc-f-mont').value&&grandTotal>0) document.getElementById('bdc-f-mont').value=grandTotal.toFixed(2);
+  document.getElementById('bdc-f-art').value=items.length;
+  updateBDCSummary();
+}
+
+function bdcSelectAll(checked){
+  document.querySelectorAll('.bdc-art-chk').forEach(cb=>cb.checked=checked);
+  document.getElementById('bdc-check-all').checked=checked;
+  updateBDCSummary();
+}
+
+function updateBDCSummary(){
+  const n=document.querySelectorAll('.bdc-art-chk:checked').length;
+  const total=document.querySelectorAll('.bdc-art-chk').length;
+  document.getElementById('bdc-pdf-import-summary').textContent=n+' / '+total+' article(s) sélectionné(s)';
+  document.getElementById('bdc-check-all').checked=(n===total&&total>0);
+}
+
+function importBDCArticles(){
+  const dest=document.querySelector('input[name="bdc-import-dest"]:checked')?.value||'pieces';
+  const checks=[...document.querySelectorAll('.bdc-art-chk:checked')];
+  if(!checks.length){ showToast('Sélectionnez au moins un article.','warn'); return; }
+  const idxs=checks.map(cb=>+cb.id.replace('bdc-art-chk-',''));
+  const selected=idxs.map(i=>window._bdcAIItems[i]);
+  let imported=0;
+  if(dest==='pieces'){
+    ensurePieceState(COMPANIES[currentCompany]);
+    const pieces=state[currentCompany].pieces;
+    selected.forEach(item=>{
+      const ref=(item.ref||'').trim()||'REF-'+Date.now();
+      const ex=pieces.findIndex(p=>p.ref===ref||p.id===ref);
+      if(ex>=0){ pieces[ex].stock=(parseInt(pieces[ex].stock)||0)+(parseInt(item.qte)||1); }
+      else { pieces.push({id:ref,ref,nom:item.nom||'—',compat:'',fourn:document.getElementById('bdc-f-fourn').value||'—',prix:item.prix_unit||0,stock:parseInt(item.qte)||1,seuil:2,notes:item.notes||'',st:'ok'}); }
+      imported++;
+    });
+    saveToStorage();
+    showToast('✅ '+imported+' pièce(s) importée(s) dans le stock','ok');
+  } else {
+    ensureMatState(COMPANIES[currentCompany]);
+    const mats=state[currentCompany].materiels;
+    selected.forEach(item=>{
+      const code=(item.ref||'').trim()||'MAT-'+Date.now();
+      if(!mats.find(m=>m.code===code)){
+        mats.push({id:code,code,nom:item.nom||'—',serie:'',fourn:document.getElementById('bdc-f-fourn').value||'—',famille:'',statut:'ok',maint:'',revision:'',prix:item.prix_unit||0,datAchat:'',valeur:'',locJour:'',notes:''});
+        imported++;
+      }
+    });
+    saveToStorage();
+    showToast('✅ '+imported+' matériel(s) importé(s)','ok');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
    PIÈCES DÉTACHÉES
    ══════════════════════════════════════════════════════════ */
 function renderPieces(co){
@@ -3837,6 +4093,17 @@ function openBDCModal(id=null){
   document.getElementById('bdc-f-statut').value=b?.statut||'encours';
   document.getElementById('bdc-f-livraison').value=b?.livraison||'';
   document.getElementById('bdc-f-articles').value=b?.articles||'';
+  // Reset section PDF
+  document.getElementById('bdc-pdf-file').value='';
+  document.getElementById('bdc-pdf-section').style.display='none';
+  document.getElementById('bdc-pdf-status').textContent='';
+  document.getElementById('bdc-pdf-actions').style.display='none';
+  document.getElementById('bdc-pdf-table-wrap').style.display='none';
+  document.getElementById('bdc-ai-btn-wrap').style.display='none';
+  document.getElementById('bdc-pdf-tbody').innerHTML='';
+  document.getElementById('bdc-pdf-tfoot').innerHTML='';
+  document.getElementById('bdc-pdf-import-summary').textContent='';
+  window._bdcAIItems=[];
   closeModal('modal-bdc-detail');
   document.getElementById('modal-bdc').classList.add('open');
 }
@@ -3855,6 +4122,7 @@ function saveBDC(){
     statut:document.getElementById('bdc-f-statut').value,
     livraison:document.getElementById('bdc-f-livraison').value,
     articles:document.getElementById('bdc-f-articles').value.trim(),
+    articlesScannés:(window._bdcAIItems||[]).filter((_,i)=>document.getElementById('bdc-art-chk-'+i)?.checked),
     utilisateur:SB_PROFILE?.nom||'Local',
     dateCreation:editingBDCId?undefined:new Date().toISOString().slice(0,10)
   };
