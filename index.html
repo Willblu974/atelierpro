@@ -2994,7 +2994,7 @@ function showPage(id,el){
   if(id==='utilisateurs'){ loadUsers(); loadInvitationCodes(); }
   if(id==='calendrier'){ renderCalendrier(); }
   if(id==='dashboard'){ renderDashboard(COMPANIES[currentCompany]); }
-  if(id==='stock'){ renderArchivesSection(); }
+  if(id==='stock'){ renderStock(COMPANIES[currentCompany]); renderArchivesSection(); }
   if(id==='inventaire'){ renderInventaire(); }
   document.getElementById('page-title').textContent=titles[id]||id;
   document.getElementById('topbar-new').style.display=['parametres','couts','rapports','utilisateurs'].includes(id)?'none':'';
