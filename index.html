@@ -1009,72 +1009,8 @@ textarea{resize:vertical;min-height:80px;}
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="ot-detail-delete-btn">🗑 Supprimer</button>
       <div style="flex:1"></div>
-      <button class="btn btn-sm btn-edit" id="ot-detail-cr-btn" onclick="openCompteRenduOT()">📋 Compte rendu</button>
       <button class="btn" onclick="closeModal('modal-ot-detail')">Fermer</button>
       <button class="btn btn-primary btn-edit" id="ot-detail-edit-btn">✏️ Modifier</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL COMPTE RENDU DE MAINTENANCE -->
-<div class="modal-bg" id="modal-cr-maintenance">
-  <div class="modal" style="width:680px;display:flex;flex-direction:column;max-height:92vh">
-    <div class="modal-header">
-      <strong>📋 Compte rendu de maintenance</strong>
-      <button class="btn btn-sm" onclick="closeModal('modal-cr-maintenance')">&#10005;</button>
-    </div>
-    <div style="padding:20px;overflow-y:auto;flex:1">
-      <div style="background:var(--surface2);border-radius:var(--radius);padding:14px 16px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px" id="cr-ot-header"></div>
-      <div class="form-grid" style="padding:0;margin-bottom:14px">
-        <div class="form-group">
-          <label>Horamètre / Compteur (h ou km)</label>
-          <input id="cr-horametre" type="number" placeholder="ex: 1250" min="0">
-        </div>
-        <div class="form-group">
-          <label>Date de fin d'entretien *</label>
-          <input id="cr-date-fin" type="date">
-        </div>
-        <div class="form-group">
-          <label>Technicien ayant effectué la maintenance *</label>
-          <input id="cr-technicien" placeholder="Prénom Nom">
-        </div>
-        <div class="form-group">
-          <label>Durée réelle (h)</label>
-          <input id="cr-duree-reelle" type="number" placeholder="ex: 3.5" min="0" step="0.5">
-        </div>
-      </div>
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔩 Pièces détachées utilisées</div>
-      <div id="cr-pieces-container">
-        <table style="font-size:12px;width:100%;margin-bottom:8px">
-          <thead><tr style="background:var(--surface2)">
-            <th style="padding:6px 8px">Référence</th>
-            <th style="padding:6px 8px">Désignation</th>
-            <th style="padding:6px 8px;text-align:center">Qté utilisée</th>
-            <th style="padding:6px 8px"></th>
-          </tr></thead>
-          <tbody id="cr-pieces-tbody"></tbody>
-        </table>
-        <button class="btn btn-sm btn-edit" onclick="addCRPiece()">+ Ajouter une pièce</button>
-      </div>
-      <div class="form-group full" style="margin-top:14px">
-        <label>Observations / Travaux effectués</label>
-        <textarea id="cr-observations" rows="4" placeholder="Décrivez les travaux effectués, les anomalies constatées, les recommandations..."></textarea>
-      </div>
-      <div class="form-grid" style="padding:0;margin-top:0">
-        <div class="form-group">
-          <label>Prochaine maintenance prévue</label>
-          <input id="cr-prochaine-date" type="date">
-        </div>
-        <div class="form-group">
-          <label>Horamètre prochaine maintenance</label>
-          <input id="cr-prochaine-heure" type="number" placeholder="ex: 1500">
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-cr-maintenance')">Annuler</button>
-      <button class="btn btn-edit" onclick="exportCRPDF()">📄 Exporter PDF</button>
-      <button class="btn btn-primary" onclick="saveCRMaintenance()">💾 Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1185,7 +1121,7 @@ textarea{resize:vertical;min-height:80px;}
 <!-- MODAL BDC -->
 <!-- MODAL IMPORT PDF BDC -->
 <div class="modal-bg" id="modal-import-pdf-bdc">
-  <div class="modal" style="width:620px;display:flex;flex-direction:column;max-height:90vh">
+  <div class="modal" style="width:660px;display:flex;flex-direction:column;max-height:90vh">
     <div class="modal-header">
       <strong>📄 Importer un bon de commande PDF</strong>
       <button class="btn btn-sm" onclick="closeModal('modal-import-pdf-bdc')">&#10005;</button>
@@ -1196,6 +1132,19 @@ textarea{resize:vertical;min-height:80px;}
         <input type="file" id="pdf-bdc-file" accept=".pdf" onchange="extractPDFBDC(this)" style="margin-top:6px">
       </div>
       <div id="pdf-bdc-status" style="font-size:12px;color:var(--text3);margin-bottom:12px"></div>
+      <!-- Bouton scan IA -->
+      <div id="pdf-ai-scan-wrap" style="display:none;margin-bottom:16px;background:var(--purple-light);border-radius:var(--radius);padding:14px 16px">
+        <div style="font-size:13px;font-weight:600;color:var(--purple);margin-bottom:8px">🤖 Analyse intelligente des pièces</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">L'IA va identifier automatiquement les références, désignations et quantités dans le PDF et vous proposera de les importer dans le stock ou les matériels.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Clé API Anthropic</div>
+            <input type="password" id="pdf-ai-apikey" placeholder="sk-ant-..." style="width:100%;font-size:12px" oninput="saveAIKey()">
+          </div>
+          <button class="btn btn-sm" style="background:var(--purple);color:#fff;border-color:var(--purple);white-space:nowrap;margin-top:14px" onclick="launchAIScan()">🤖 Scanner avec l'IA</button>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:6px">La clé est stockée localement et n'est jamais envoyée ailleurs qu'à api.anthropic.com</div>
+      </div>
       <div id="pdf-bdc-fields" style="display:none">
         <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--teal)">✅ Données détectées — vérifiez avant d'importer</div>
         <div class="form-grid" style="padding:0">
@@ -1203,7 +1152,7 @@ textarea{resize:vertical;min-height:80px;}
           <div class="form-group"><label>Date commande</label><input type="date" id="pdf-f-date"></div>
           <div class="form-group"><label>Montant HT (€)</label><input type="number" id="pdf-f-mont" placeholder="0"></div>
           <div class="form-group"><label>Nb articles</label><input type="number" id="pdf-f-art" placeholder="1" min="1"></div>
-          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="6" style="font-size:12px;font-family:monospace"></textarea></div>
+          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="5" style="font-size:12px;font-family:monospace"></textarea></div>
         </div>
         <div style="background:var(--amber-light);border-left:3px solid var(--amber-mid);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--amber);margin-top:8px">
           ⚠️ Vérifiez et corrigez les données avant de cliquer sur "Créer le BDC".
@@ -1211,7 +1160,7 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div id="pdf-bdc-raw" style="display:none;margin-top:14px">
         <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Texte brut extrait</div>
-        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--surface2);padding:12px;border-radius:var(--radius);max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
+        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--surface2);padding:12px;border-radius:var(--radius);max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
       </div>
     </div>
     <div class="modal-footer">
@@ -1219,6 +1168,51 @@ textarea{resize:vertical;min-height:80px;}
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-import-pdf-bdc')">Annuler</button>
       <button class="btn btn-primary" id="pdf-bdc-confirm" style="display:none" onclick="createBDCFromPDF()">+ Créer le BDC</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RÉSULTATS IA — IMPORT PIÈCES / MATÉRIELS -->
+<div class="modal-bg" id="modal-ai-pieces">
+  <div class="modal" style="width:820px;display:flex;flex-direction:column;max-height:92vh">
+    <div class="modal-header">
+      <strong>🤖 Pièces détectées par l'IA — Sélectionnez ce que vous voulez importer</strong>
+      <button class="btn btn-sm" onclick="closeModal('modal-ai-pieces')">&#10005;</button>
+    </div>
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="font-size:12px;color:var(--text2)">Destination :</div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+        <input type="radio" name="ai-dest" value="pieces" checked onchange="onAIDestChange(this)"> 📦 Pièces détachées (stock)
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+        <input type="radio" name="ai-dest" value="materiels" onchange="onAIDestChange(this)"> 🔧 Matériels
+      </label>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="aiSelectAll(true)">Tout sélectionner</button>
+        <button class="btn btn-sm" onclick="aiSelectAll(false)">Tout désélectionner</button>
+      </div>
+    </div>
+    <div id="ai-scan-status" style="padding:12px 20px;font-size:13px;color:var(--text3);display:none">⏳ Analyse en cours…</div>
+    <div style="overflow-y:auto;flex:1">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--surface2);position:sticky;top:0;z-index:1">
+            <th style="padding:9px 12px;width:32px"><input type="checkbox" id="ai-check-all" onchange="aiSelectAll(this.checked)"></th>
+            <th style="padding:9px 12px;text-align:left">Référence / Code</th>
+            <th style="padding:9px 12px;text-align:left">Désignation</th>
+            <th style="padding:9px 12px;text-align:center">Qté</th>
+            <th style="padding:9px 12px;text-align:right" id="ai-col-prix">Prix unit. (€)</th>
+            <th style="padding:9px 12px;text-align:left" id="ai-col-extra">Famille / Notes</th>
+          </tr>
+        </thead>
+        <tbody id="ai-pieces-tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <div id="ai-import-summary" style="font-size:12px;color:var(--text3)"></div>
+      <div style="flex:1"></div>
+      <button class="btn" onclick="closeModal('modal-ai-pieces')">Annuler</button>
+      <button class="btn btn-primary" onclick="importAIPieces()">⬇️ Importer la sélection</button>
     </div>
   </div>
 </div>
@@ -3115,14 +3109,6 @@ async function deleteOT(id){
   closeModal('modal-ot-detail');
   renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
 }
-function getSerieForOT(o){
-  if(!o) return '—';
-  if(o.serie) return o.serie;
-  const mats=state[currentCompany].materiels||[];
-  const codes=(o.matCodes||[]).length?o.matCodes:[o.mat];
-  return codes.map(c=>{const m=mats.find(x=>x.code===c||x.nom===c||x.id===c);return m?.serie||''}).filter(Boolean).join(', ')||'—';
-}
-
 function openOTDetail(id){
   const ots=state[currentCompany].ots||[];
   const o=ots.find(x=>x.id===id);
@@ -3130,10 +3116,8 @@ function openOTDetail(id){
   const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
   document.getElementById('ot-detail-title').textContent=o.num+' — '+o.type;
   document.getElementById('ot-detail-sub').textContent=o.mat;
-  const serie=getSerieForOT(o);
   const fields=[
-    {l:'Matériel',v:o.mat},{l:'N° de série',v:serie},
-    {l:'Type',v:o.type},
+    {l:'Matériel',v:o.mat},{l:'Type',v:o.type},
     {l:'Priorité',v:`${bdg(o.prio,OT_PRIO_MAP[o.prio])}`},
     {l:'Statut',v:`<span class="badge badge-${sm.css}">${sm.label}</span>`},
     {l:'Technicien',v:o.tech||'—'},{l:'Durée estimée',v:o.dur||'—'},
@@ -3149,187 +3133,6 @@ function openOTDetail(id){
   document.getElementById('ot-detail-delete-btn').onclick=()=>deleteOT(id);
   document.getElementById('modal-ot-detail').classList.add('open');
 }
-
-/* ── COMPTE RENDU DE MAINTENANCE ─────────────────────────── */
-let _crCurrentOT=null;
-let _crPiecesExtra=[];
-
-function openCompteRenduOT(){
-  const otId=document.getElementById('ot-detail-title')?.textContent?.split(' — ')[0];
-  const ots=state[currentCompany].ots||[];
-  const o=ots.find(x=>x.num===otId||x.id===otId);
-  if(!o){alert('OT introuvable.');return;}
-  _crCurrentOT=o;
-  _crPiecesExtra=[];
-  const coInfo=COMPANIES[currentCompany];
-  const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
-  const serie=getSerieForOT(o);
-  document.getElementById('cr-ot-header').innerHTML=`
-    <div><div style="font-size:11px;color:var(--text3)">N° OT</div><div style="font-weight:700;color:var(--company-color)">${o.num}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Matériel</div><div style="font-weight:600">${o.mat||'—'}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">N° de série</div><div>${serie}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Type d'intervention</div><div>${o.type||'—'}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Statut</div><div><span class="badge badge-${sm.css}">${sm.label}</span></div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Entreprise</div><div>${coInfo.name}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Durée estimée</div><div>${o.dur||'—'}</div></div>
-  `;
-  document.getElementById('cr-date-fin').value=new Date().toISOString().split('T')[0];
-  document.getElementById('cr-technicien').value=o.tech||'';
-  document.getElementById('cr-duree-reelle').value='';
-  document.getElementById('cr-horametre').value='';
-  document.getElementById('cr-observations').value=o.desc||'';
-  document.getElementById('cr-prochaine-date').value=o.maint||'';
-  document.getElementById('cr-prochaine-heure').value='';
-  const mouvements=state[currentCompany].mouvements||[];
-  const piecesLiees=mouvements.filter(m=>{
-    const motif=(m.motif||'').toLowerCase();
-    const otLie=(m.otLie||'').toLowerCase();
-    return m.type==='out'&&(otLie===o.num.toLowerCase()||motif.includes(o.num.toLowerCase()));
-  });
-  renderCRPiecesTable(piecesLiees);
-  closeModal('modal-ot-detail');
-  document.getElementById('modal-cr-maintenance').classList.add('open');
-}
-
-function renderCRPiecesTable(piecesLiees){
-  const tbody=document.getElementById('cr-pieces-tbody');
-  let rows=(piecesLiees||[]).map((m,i)=>`
-    <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 8px"><input value="${m.ref||'—'}" style="width:100px;font-size:12px" readonly></td>
-      <td style="padding:6px 8px"><input value="${m.nom||'—'}" style="width:220px;font-size:12px" readonly></td>
-      <td style="padding:6px 8px;text-align:center"><input type="number" value="${(m.qte||'').replace(/[^0-9.]/g,'')}" style="width:60px;font-size:12px;text-align:center" readonly></td>
-      <td></td>
-    </tr>`).join('');
-  rows+=_crPiecesExtra.map((p,i)=>`
-    <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 8px"><input value="${p.ref}" oninput="_crPiecesExtra[${i}].ref=this.value" style="width:100px;font-size:12px"></td>
-      <td style="padding:6px 8px"><input value="${p.nom}" oninput="_crPiecesExtra[${i}].nom=this.value" style="width:220px;font-size:12px"></td>
-      <td style="padding:6px 8px;text-align:center"><input type="number" value="${p.qte}" min="1" oninput="_crPiecesExtra[${i}].qte=+this.value" style="width:60px;font-size:12px;text-align:center"></td>
-      <td style="padding:6px 4px;text-align:center"><button class="btn btn-sm btn-danger" onclick="removeCRPiece(${i})" title="Supprimer">🗑</button></td>
-    </tr>`).join('');
-  if(!rows) rows='<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Aucun mouvement de stock lié à cet OT</td></tr>';
-  tbody.innerHTML=rows;
-}
-
-function addCRPiece(){
-  _crPiecesExtra.push({ref:'',nom:'',qte:1});
-  _refreshCRPiecesTable();
-}
-function removeCRPiece(idx){
-  _crPiecesExtra.splice(idx,1);
-  _refreshCRPiecesTable();
-}
-function _refreshCRPiecesTable(){
-  const mouvements=state[currentCompany].mouvements||[];
-  const piecesLiees=mouvements.filter(m=>{
-    const motif=(m.motif||'').toLowerCase();
-    const otLie=(m.otLie||'').toLowerCase();
-    return m.type==='out'&&_crCurrentOT&&(otLie===_crCurrentOT.num.toLowerCase()||motif.includes(_crCurrentOT.num.toLowerCase()));
-  });
-  renderCRPiecesTable(piecesLiees);
-}
-
-function saveCRMaintenance(){
-  if(!_crCurrentOT)return;
-  const dateFin=document.getElementById('cr-date-fin').value;
-  const tech=document.getElementById('cr-technicien').value.trim();
-  if(!dateFin||!tech){alert('La date de fin et le technicien sont obligatoires.');return;}
-  const ots=state[currentCompany].ots||[];
-  const idx=ots.findIndex(x=>x.id===_crCurrentOT.id||x.num===_crCurrentOT.num);
-  if(idx>=0){
-    ots[idx].dateFin=dateFin;
-    ots[idx].horametre=document.getElementById('cr-horametre').value;
-    ots[idx].observations=document.getElementById('cr-observations').value;
-    ots[idx].dureeReelle=document.getElementById('cr-duree-reelle').value;
-    ots[idx].prochaineMaint=document.getElementById('cr-prochaine-date').value;
-    ots[idx].prochaineHeure=document.getElementById('cr-prochaine-heure').value;
-    ots[idx].statut='termine';
-  }
-  saveToStorage();
-  closeModal('modal-cr-maintenance');
-  renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
-  exportCRPDF();
-}
-
-function exportCRPDF(){
-  if(!_crCurrentOT)return;
-  const o=_crCurrentOT;
-  const coInfo=COMPANIES[currentCompany];
-  const co=state[currentCompany];
-  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  const serie=getSerieForOT(o);
-  const dateFin=document.getElementById('cr-date-fin').value
-    ?new Date(document.getElementById('cr-date-fin').value).toLocaleDateString('fr-FR'):'—';
-  const tech=document.getElementById('cr-technicien').value||'—';
-  const horametre=document.getElementById('cr-horametre').value;
-  const dureeReelle=document.getElementById('cr-duree-reelle').value;
-  const observations=document.getElementById('cr-observations').value||'—';
-  const prochainDate=document.getElementById('cr-prochaine-date').value
-    ?new Date(document.getElementById('cr-prochaine-date').value).toLocaleDateString('fr-FR'):'—';
-  const prochaineHeure=document.getElementById('cr-prochaine-heure').value;
-  const rows=[...document.querySelectorAll('#cr-pieces-tbody tr')];
-  const piecesHTML=rows.map(r=>{
-    const inputs=r.querySelectorAll('input');
-    if(inputs.length<3)return '';
-    return `<tr style="border-bottom:1px solid #eee">
-      <td style="padding:7px 10px">${inputs[0].value}</td>
-      <td style="padding:7px 10px">${inputs[1].value}</td>
-      <td style="padding:7px 10px;text-align:center">${inputs[2].value}</td>
-    </tr>`;
-  }).join('')||'<tr><td colspan="3" style="padding:12px;color:#999;text-align:center">Aucune pièce utilisée</td></tr>';
-  const header=buildPDFHeader(co,coInfo,now);
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Compte rendu — ${o.num}</title>
-  <style>
-    body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:13px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-    .field{background:#f9f9f7;border-radius:6px;padding:10px 14px}
-    .field-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-    .field-value{font-size:14px;font-weight:600}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th{background:#f0f0ee;padding:8px 10px;text-align:left;font-size:12px}
-    .sign-row{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:50px}
-    .sign-box{border-top:1px solid #999;padding-top:8px;font-size:11px;color:#666}
-    @media print{body{padding:10px}}
-  </style></head><body>
-  ${header}
-  <h2 style="font-size:17px;font-weight:700;color:${coInfo.color};margin:0 0 16px">📋 Compte rendu de maintenance — ${o.num}</h2>
-  <div class="grid">
-    <div class="field"><div class="field-label">Matériel</div><div class="field-value">${o.mat||'—'}</div></div>
-    <div class="field"><div class="field-label">N° de série</div><div class="field-value">${serie}</div></div>
-    <div class="field"><div class="field-label">Type d'intervention</div><div class="field-value">${o.type||'—'}</div></div>
-    <div class="field"><div class="field-label">Date de fin d'entretien</div><div class="field-value">${dateFin}</div></div>
-    <div class="field"><div class="field-label">Technicien</div><div class="field-value">${tech}</div></div>
-    ${horametre?`<div class="field"><div class="field-label">Horamètre / Compteur</div><div class="field-value">${horametre} h</div></div>`:''}
-    ${dureeReelle?`<div class="field"><div class="field-label">Durée réelle</div><div class="field-value">${dureeReelle} h</div></div>`:''}
-  </div>
-  <div style="font-size:13px;font-weight:700;margin-bottom:8px">🔩 Pièces détachées utilisées</div>
-  <table>
-    <thead><tr style="background:${coInfo.color};color:#fff">
-      <th>Référence</th><th>Désignation</th><th style="text-align:center">Qté</th>
-    </tr></thead>
-    <tbody>${piecesHTML}</tbody>
-  </table>
-  <div style="margin-top:18px;background:#f9f9f7;border-radius:6px;padding:14px">
-    <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Observations / Travaux effectués</div>
-    <div style="font-size:13px;white-space:pre-wrap">${observations}</div>
-  </div>
-  ${prochainDate!=='—'||prochaineHeure?`
-  <div style="margin-top:14px;background:#e1f5ee;border-radius:6px;padding:14px">
-    <div style="font-size:11px;color:#0f6e56;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Prochaine maintenance</div>
-    <div style="font-size:13px">${prochainDate!=='—'?'📅 '+prochainDate:''}${prochaineHeure?' · Horamètre : '+prochaineHeure+' h':''}</div>
-  </div>`:''}
-  <div class="sign-row">
-    <div class="sign-box">Visa technicien : ${tech}</div>
-    <div class="sign-box">Visa responsable</div>
-  </div>
-  <div style="margin-top:32px;padding-top:12px;border-top:1px solid #ddd;font-size:10px;color:#999">
-    AtelierPro — Compte rendu généré le ${now}
-  </div>
-  </body></html>`;
-  printHTMLDocument(html);
-}
-
 function renderHistoTable(){
   // Build histo from terminated OTs
   const ots=(state[currentCompany].ots||[]).filter(o=>o.statut==='termine');
@@ -6858,6 +6661,10 @@ function openImportBDCPDF(){
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-raw').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
+  document.getElementById('pdf-ai-scan-wrap').style.display='none';
+  const savedKey=localStorage.getItem('ap_anthropic_key')||'';
+  const keyEl=document.getElementById('pdf-ai-apikey');
+  if(keyEl) keyEl.value=savedKey;
   document.getElementById('modal-import-pdf-bdc').classList.add('open');
 }
 function togglePDFRaw(){
@@ -6935,7 +6742,8 @@ function parsePDFText(text){
   document.getElementById('pdf-f-articles').value=articles;
   document.getElementById('pdf-bdc-fields').style.display='';
   document.getElementById('pdf-bdc-confirm').style.display='';
-  document.getElementById('pdf-bdc-status').textContent='\u2705 Extraction termin\u00e9e \u2014 '+pdf_numPages_last+' page(s) lue(s).';
+  document.getElementById('pdf-ai-scan-wrap').style.display='';
+  document.getElementById('pdf-bdc-status').textContent='✅ Extraction terminée — '+pdf_numPages_last+' page(s) lue(s).';
 }
 function createBDCFromPDF(){
   var fourn=document.getElementById('pdf-f-fourn').value.trim();
@@ -6952,6 +6760,161 @@ function createBDCFromPDF(){
     if(art)document.getElementById('bdc-f-art').value=art;
     if(articles)document.getElementById('bdc-f-articles').value=articles;
   },150);
+}
+
+/* ══════════════════════════════════════════════════════════
+   SCAN IA — IMPORT PIÈCES / MATÉRIELS
+   ══════════════════════════════════════════════════════════ */
+let _aiScanItems = [];
+let _aiScanDest  = 'pieces';
+
+async function launchAIScan(){
+  const apiKey = document.getElementById('pdf-ai-apikey').value.trim();
+  if(!apiKey){alert('Veuillez saisir votre clé API Anthropic (sk-ant-…).');return;}
+  const rawText = document.getElementById('pdf-bdc-raw-text').textContent;
+  if(!rawText){alert('Aucun texte extrait. Chargez d\'abord un PDF.');return;}
+  // Ouvrir le modal résultats et afficher le statut de scan
+  closeModal('modal-import-pdf-bdc');
+  document.getElementById('ai-pieces-tbody').innerHTML='';
+  document.getElementById('ai-import-summary').textContent='';
+  document.getElementById('ai-scan-status').style.display='';
+  document.getElementById('modal-ai-pieces').classList.add('open');
+  _aiScanItems=[];
+  _aiScanDest='pieces';
+  document.querySelector('input[name="ai-dest"][value="pieces"]').checked=true;
+  onAIDestChange({value:'pieces'});
+  try{
+    const prompt=`Tu es un expert en gestion de stock industriel. Analyse ce bon de commande et extrais TOUS les articles/pièces.
+Retourne UNIQUEMENT un JSON valide (tableau), sans texte autour, avec cette structure exacte :
+[{"ref":"CODE_ARTICLE","nom":"DÉSIGNATION COMPLÈTE","qte":NOMBRE,"prix_unit":NOMBRE_OU_0,"notes":"info utile ou vide"}]
+Règles :
+- ref = code article, référence fabricant ou numéro de pièce (chaîne de caractères)
+- nom = désignation/description complète de la pièce
+- qte = quantité commandée (nombre entier, 1 si non trouvé)
+- prix_unit = prix unitaire HT en euros (0 si non trouvé)
+- notes = famille, marque, ou tout autre info pertinente (vide si rien)
+- Si une ligne n'est pas une pièce/article (ex: frais de port, remise), ne l'inclus pas.
+Texte du document :
+${rawText.substring(0,12000)}`;
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-allow-browser':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:4096,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    if(!resp.ok){const err=await resp.text();throw new Error('API Anthropic: '+resp.status+' '+err.substring(0,200));}
+    const data=await resp.json();
+    const raw=data.content?.[0]?.text||'';
+    // Extraire le JSON (au cas où il y aurait du texte autour)
+    const jsonMatch=raw.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    if(!jsonMatch)throw new Error('Réponse IA invalide : '+raw.substring(0,300));
+    _aiScanItems=JSON.parse(jsonMatch[0]);
+    if(!Array.isArray(_aiScanItems)||!_aiScanItems.length)throw new Error('Aucun article trouvé dans le PDF.');
+    renderAIScanTable();
+    document.getElementById('ai-scan-status').style.display='none';
+    showToast('✅ '+_aiScanItems.length+' article(s) détecté(s) par l\'IA','ok');
+  }catch(e){
+    document.getElementById('ai-scan-status').textContent='❌ Erreur : '+e.message;
+    document.getElementById('ai-scan-status').style.color='var(--red)';
+  }
+}
+
+function renderAIScanTable(){
+  const isPieces=_aiScanDest==='pieces';
+  document.getElementById('ai-col-prix').style.display=isPieces?'':' none';
+  document.getElementById('ai-col-extra').textContent=isPieces?'Famille / Notes':'N° Série / Notes';
+  const tbody=document.getElementById('ai-pieces-tbody');
+  tbody.innerHTML=_aiScanItems.map((item,i)=>`
+    <tr style="border-bottom:1px solid var(--border)" id="ai-row-${i}">
+      <td style="padding:8px 12px;text-align:center"><input type="checkbox" class="ai-item-check" data-idx="${i}" checked onchange="updateAISummary()"></td>
+      <td style="padding:8px 12px"><input value="${(item.ref||''). replace(/"/g,'&quot;')}" oninput="_aiScanItems[${i}].ref=this.value" style="width:110px;font-size:12px"></td>
+      <td style="padding:8px 12px"><input value="${(item.nom||''). replace(/"/g,'&quot;')}" oninput="_aiScanItems[${i}].nom=this.value" style="width:100%;min-width:180px;font-size:12px"></td>
+      <td style="padding:8px 12px;text-align:center"><input type="number" min="1" value="${item.qte||1}" oninput="_aiScanItems[${i}].qte=+this.value" style="width:60px;font-size:12px;text-align:center"></td>
+      <td style="padding:8px 12px;text-align:right;display:${isPieces?'':' none'}" class="ai-prix-col"><input type="number" min="0" step="0.01" value="${item.prix_unit||0}" oninput="_aiScanItems[${i}].prix_unit=+this.value" style="width:80px;font-size:12px;text-align:right"></td>
+      <td style="padding:8px 12px"><input value="${(item.notes||''). replace(/"/g,'&quot;')}" oninput="_aiScanItems[${i}].notes=this.value" style="width:100%;font-size:12px;color:var(--text3)"></td>
+    </tr>`).join('');
+  updateAISummary();
+}
+
+function onAIDestChange(radio){
+  _aiScanDest=radio.value;
+  if(_aiScanItems.length) renderAIScanTable();
+}
+
+function aiSelectAll(checked){
+  document.querySelectorAll('.ai-item-check').forEach(cb=>cb.checked=checked);
+  document.getElementById('ai-check-all').checked=checked;
+  updateAISummary();
+}
+
+function updateAISummary(){
+  const n=document.querySelectorAll('.ai-item-check:checked').length;
+  const total=document.querySelectorAll('.ai-item-check').length;
+  document.getElementById('ai-import-summary').textContent=n+' / '+total+' article(s) sélectionné(s)';
+  document.getElementById('ai-check-all').checked=(n===total&&total>0);
+}
+
+function importAIPieces(){
+  const checks=[...document.querySelectorAll('.ai-item-check:checked')];
+  if(!checks.length){showToast('Sélectionnez au moins un article.','warn');return;}
+  const idxs=checks.map(cb=>+cb.dataset.idx);
+  const selected=idxs.map(i=>_aiScanItems[i]);
+  let imported=0;
+  if(_aiScanDest==='pieces'){
+    ensurePieceState(COMPANIES[currentCompany]);
+    const pieces=state[currentCompany].pieces;
+    selected.forEach(item=>{
+      const ref=(item.ref||''). trim()||'REF-'+Date.now();
+      const existing=pieces.findIndex(p=>p.ref===ref||p.id===ref);
+      if(existing>=0){
+        // Augmenter le stock existant
+        pieces[existing].stock=(parseInt(pieces[existing].stock)||0)+(parseInt(item.qte)||1);
+      } else {
+        pieces.push({
+          id:ref, ref, nom:item.nom||'—',
+          compat:'', fourn:document.getElementById('pdf-f-fourn')?.value||'—',
+          prix:item.prix_unit||0, stock:parseInt(item.qte)||1,
+          seuil:2, notes:item.notes||'',
+          st:'ok'
+        });
+      }
+      imported++;
+    });
+    saveToStorage();
+    closeModal('modal-ai-pieces');
+    renderPieces(COMPANIES[currentCompany]);
+    showPage('pieces',document.querySelector('.nav-item:has(.nav-icon)'));
+    showToast('✅ '+imported+' pièce(s) importée(s) dans le stock','ok');
+  } else {
+    ensureMatState(COMPANIES[currentCompany]);
+    const mats=state[currentCompany].materiels;
+    selected.forEach(item=>{
+      const code=(item.ref||''). trim()||'MAT-'+Date.now();
+      const existing=mats.findIndex(m=>m.code===code||m.id===code);
+      if(existing<0){
+        mats.push({
+          id:code, code, nom:item.nom||'—',
+          serie:item.notes||'', fourn:document.getElementById('pdf-f-fourn')?.value||'—',
+          famille:'', statut:'ok', maint:'', revision:'',
+          prix:item.prix_unit||0, datAchat:'', valeur:'', locJour:'', notes:''
+        });
+        imported++;
+      }
+    });
+    saveToStorage();
+    closeModal('modal-ai-pieces');
+    renderMateriels(COMPANIES[currentCompany],state[currentCompany]);
+    showPage('materiels',document.querySelector('.nav-item:has(.nav-icon)'));
+    showToast('✅ '+imported+' matériel(s) importé(s)','ok');
+  }
 }
 
 
