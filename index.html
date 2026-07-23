@@ -1006,39 +1006,75 @@ textarea{resize:vertical;min-height:80px;}
     </div>
     <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px" id="ot-detail-grid"></div>
     <div style="padding:0 20px 20px" id="ot-detail-desc"></div>
-
-    <!-- Section pièces détachées utilisées -->
-    <div style="padding:0 20px 20px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px">🔩 Pièces détachées utilisées</div>
-      <div id="ot-detail-pieces-list" style="margin-bottom:12px"></div>
-      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:8px;align-items:end">
-        <div>
-          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Référence / Stock</div>
-          <select id="ot-piece-ref-select" style="width:100%" onchange="onOTPieceSelectChange()">
-            <option value="">— Stock existant —</option>
-          </select>
-        </div>
-        <div>
-          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Désignation (libre)</div>
-          <input id="ot-piece-nom" placeholder="ex: Filtre hydraulique" style="width:100%">
-        </div>
-        <div>
-          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Qté</div>
-          <input id="ot-piece-qte" type="number" min="1" value="1" style="width:64px">
-        </div>
-        <div>
-          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Prix unit. (€)</div>
-          <input id="ot-piece-prix" type="number" min="0" step="0.01" placeholder="0" style="width:80px">
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="addOTPiece()" style="white-space:nowrap">+ Ajouter</button>
-      </div>
-    </div>
-
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="ot-detail-delete-btn">🗑 Supprimer</button>
       <div style="flex:1"></div>
+      <button class="btn btn-sm btn-edit" id="ot-detail-cr-btn" onclick="openCompteRenduOT()">📋 Compte rendu</button>
       <button class="btn" onclick="closeModal('modal-ot-detail')">Fermer</button>
       <button class="btn btn-primary btn-edit" id="ot-detail-edit-btn">✏️ Modifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COMPTE RENDU DE MAINTENANCE -->
+<div class="modal-bg" id="modal-cr-maintenance">
+  <div class="modal" style="width:680px;display:flex;flex-direction:column;max-height:92vh">
+    <div class="modal-header">
+      <strong>📋 Compte rendu de maintenance</strong>
+      <button class="btn btn-sm" onclick="closeModal('modal-cr-maintenance')">&#10005;</button>
+    </div>
+    <div style="padding:20px;overflow-y:auto;flex:1">
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:14px 16px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px" id="cr-ot-header"></div>
+      <div class="form-grid" style="padding:0;margin-bottom:14px">
+        <div class="form-group">
+          <label>Horamètre / Compteur (h ou km)</label>
+          <input id="cr-horametre" type="number" placeholder="ex: 1250" min="0">
+        </div>
+        <div class="form-group">
+          <label>Date de fin d'entretien *</label>
+          <input id="cr-date-fin" type="date">
+        </div>
+        <div class="form-group">
+          <label>Technicien ayant effectué la maintenance *</label>
+          <input id="cr-technicien" placeholder="Prénom Nom">
+        </div>
+        <div class="form-group">
+          <label>Durée réelle (h)</label>
+          <input id="cr-duree-reelle" type="number" placeholder="ex: 3.5" min="0" step="0.5">
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔩 Pièces détachées utilisées</div>
+      <div id="cr-pieces-container">
+        <table style="font-size:12px;width:100%;margin-bottom:8px">
+          <thead><tr style="background:var(--surface2)">
+            <th style="padding:6px 8px">Référence</th>
+            <th style="padding:6px 8px">Désignation</th>
+            <th style="padding:6px 8px;text-align:center">Qté utilisée</th>
+            <th style="padding:6px 8px"></th>
+          </tr></thead>
+          <tbody id="cr-pieces-tbody"></tbody>
+        </table>
+        <button class="btn btn-sm btn-edit" onclick="addCRPiece()">+ Ajouter une pièce</button>
+      </div>
+      <div class="form-group full" style="margin-top:14px">
+        <label>Observations / Travaux effectués</label>
+        <textarea id="cr-observations" rows="4" placeholder="Décrivez les travaux effectués, les anomalies constatées, les recommandations..."></textarea>
+      </div>
+      <div class="form-grid" style="padding:0;margin-top:0">
+        <div class="form-group">
+          <label>Prochaine maintenance prévue</label>
+          <input id="cr-prochaine-date" type="date">
+        </div>
+        <div class="form-group">
+          <label>Horamètre prochaine maintenance</label>
+          <input id="cr-prochaine-heure" type="number" placeholder="ex: 1500">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-cr-maintenance')">Annuler</button>
+      <button class="btn btn-edit" onclick="exportCRPDF()">📄 Exporter PDF</button>
+      <button class="btn btn-primary" onclick="saveCRMaintenance()">💾 Enregistrer</button>
     </div>
   </div>
 </div>
@@ -3079,95 +3115,25 @@ async function deleteOT(id){
   closeModal('modal-ot-detail');
   renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
 }
-function renderOTDetailPieces(id){
-  const ots=state[currentCompany].ots||[];
-  const o=ots.find(x=>x.id===id);
-  if(!o)return;
-  const pieces=o.pieces_utilisees||[];
-  const el=document.getElementById('ot-detail-pieces-list');
-  if(!el)return;
-  if(!pieces.length){
-    el.innerHTML='<div style="text-align:center;color:var(--text3);font-size:12px;padding:10px 0">Aucune pièce renseignée</div>';
-    return;
-  }
-  const total=pieces.reduce((s,p)=>s+(parseFloat(p.prix||0)*parseInt(p.qte||1,10)),0);
-  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
-    <thead><tr style="background:var(--surface2)">
-      <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text3)">Réf.</th>
-      <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text3)">Désignation</th>
-      <th style="padding:6px 10px;text-align:center;font-size:11px;color:var(--text3)">Qté</th>
-      <th style="padding:6px 10px;text-align:right;font-size:11px;color:var(--text3)">Prix unit.</th>
-      <th style="padding:6px 10px;text-align:right;font-size:11px;color:var(--text3)">Total</th>
-      <th style="padding:6px 10px;width:32px"></th>
-    </tr></thead>
-    <tbody>${pieces.map((p,i)=>`<tr style="border-top:1px solid var(--border)">
-      <td style="padding:7px 10px;font-weight:500">${p.ref||'—'}</td>
-      <td style="padding:7px 10px;color:var(--text2)">${p.nom||'—'}</td>
-      <td style="padding:7px 10px;text-align:center">${p.qte||1}</td>
-      <td style="padding:7px 10px;text-align:right">${parseFloat(p.prix||0).toFixed(2)} €</td>
-      <td style="padding:7px 10px;text-align:right;font-weight:500">${(parseFloat(p.prix||0)*parseInt(p.qte||1,10)).toFixed(2)} €</td>
-      <td style="padding:7px 10px;text-align:center"><button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:11px" onclick="removeOTPiece('${id}',${i})">✕</button></td>
-    </tr>`).join('')}
-    </tbody>
-    <tfoot><tr style="border-top:2px solid var(--border);background:var(--surface2)">
-      <td colspan="4" style="padding:7px 10px;font-weight:600;font-size:13px">Total pièces</td>
-      <td style="padding:7px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--teal)">${total.toFixed(2)} €</td>
-      <td></td>
-    </tr></tfoot>
-  </table>`;
+function getSerieForOT(o){
+  if(!o) return '—';
+  if(o.serie) return o.serie;
+  const mats=state[currentCompany].materiels||[];
+  const codes=(o.matCodes||[]).length?o.matCodes:[o.mat];
+  return codes.map(c=>{const m=mats.find(x=>x.code===c||x.nom===c||x.id===c);return m?.serie||''}).filter(Boolean).join(', ')||'—';
 }
-function onOTPieceSelectChange(){
-  const sel=document.getElementById('ot-piece-ref-select');
-  const val=sel.value;
-  if(!val)return;
-  const pieces=state[currentCompany].pieces||[];
-  const p=pieces.find(x=>x.ref===val||x.id===val);
-  if(p){
-    document.getElementById('ot-piece-nom').value=p.nom||'';
-    document.getElementById('ot-piece-prix').value=parseFloat(String(p.prix).replace(/[^\d.,]/g,'').replace(',','.'))||0;
-  }
-}
-function addOTPiece(){
-  const currentOTId=window._currentOTDetailId;
-  if(!currentOTId)return;
-  const ots=state[currentCompany].ots||[];
-  const idx=ots.findIndex(o=>o.id===currentOTId);
-  if(idx<0)return;
-  const sel=document.getElementById('ot-piece-ref-select');
-  const ref=sel.value||'';
-  const nom=document.getElementById('ot-piece-nom').value.trim();
-  const qte=parseInt(document.getElementById('ot-piece-qte').value,10)||1;
-  const prix=parseFloat(document.getElementById('ot-piece-prix').value)||0;
-  if(!nom&&!ref){showToast('Renseignez au moins une désignation.','warn');return;}
-  if(!ots[idx].pieces_utilisees)ots[idx].pieces_utilisees=[];
-  ots[idx].pieces_utilisees.push({ref,nom:nom||(sel.options[sel.selectedIndex]?.text||ref),qte,prix});
-  saveToStorage();
-  // Reset form
-  sel.value='';
-  document.getElementById('ot-piece-nom').value='';
-  document.getElementById('ot-piece-qte').value='1';
-  document.getElementById('ot-piece-prix').value='';
-  renderOTDetailPieces(currentOTId);
-}
-function removeOTPiece(otId,pieceIdx){
-  const ots=state[currentCompany].ots||[];
-  const idx=ots.findIndex(o=>o.id===otId);
-  if(idx<0)return;
-  if(!confirm('Supprimer cette pièce ?'))return;
-  ots[idx].pieces_utilisees.splice(pieceIdx,1);
-  saveToStorage();
-  renderOTDetailPieces(otId);
-}
+
 function openOTDetail(id){
-  window._currentOTDetailId=id;
   const ots=state[currentCompany].ots||[];
   const o=ots.find(x=>x.id===id);
   if(!o)return;
   const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
   document.getElementById('ot-detail-title').textContent=o.num+' — '+o.type;
   document.getElementById('ot-detail-sub').textContent=o.mat;
+  const serie=getSerieForOT(o);
   const fields=[
-    {l:'Matériel',v:o.mat},{l:'Type',v:o.type},
+    {l:'Matériel',v:o.mat},{l:'N° de série',v:serie},
+    {l:'Type',v:o.type},
     {l:'Priorité',v:`${bdg(o.prio,OT_PRIO_MAP[o.prio])}`},
     {l:'Statut',v:`<span class="badge badge-${sm.css}">${sm.label}</span>`},
     {l:'Technicien',v:o.tech||'—'},{l:'Durée estimée',v:o.dur||'—'},
@@ -3179,21 +3145,191 @@ function openOTDetail(id){
   ).join('');
   document.getElementById('ot-detail-desc').innerHTML=o.desc
     ?`<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Description / Travaux</div><div style="font-size:13px;white-space:pre-wrap">${o.desc}</div></div>`:'';
-  // Peupler le select avec les pièces en stock
-  const piecesStock=state[currentCompany].pieces||[];
-  const selEl=document.getElementById('ot-piece-ref-select');
-  if(selEl){
-    selEl.innerHTML='<option value="">— Stock existant —</option>'+piecesStock.map(p=>`<option value="${p.ref||p.id}">${p.ref||p.id} — ${p.nom}</option>`).join('');
-    selEl.value='';
-  }
-  document.getElementById('ot-piece-nom').value='';
-  document.getElementById('ot-piece-qte').value='1';
-  document.getElementById('ot-piece-prix').value='';
-  renderOTDetailPieces(id);
   document.getElementById('ot-detail-edit-btn').onclick=()=>openOTEdit(id);
   document.getElementById('ot-detail-delete-btn').onclick=()=>deleteOT(id);
   document.getElementById('modal-ot-detail').classList.add('open');
 }
+
+/* ── COMPTE RENDU DE MAINTENANCE ─────────────────────────── */
+let _crCurrentOT=null;
+let _crPiecesExtra=[];
+
+function openCompteRenduOT(){
+  const otId=document.getElementById('ot-detail-title')?.textContent?.split(' — ')[0];
+  const ots=state[currentCompany].ots||[];
+  const o=ots.find(x=>x.num===otId||x.id===otId);
+  if(!o){alert('OT introuvable.');return;}
+  _crCurrentOT=o;
+  _crPiecesExtra=[];
+  const coInfo=COMPANIES[currentCompany];
+  const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
+  const serie=getSerieForOT(o);
+  document.getElementById('cr-ot-header').innerHTML=`
+    <div><div style="font-size:11px;color:var(--text3)">N° OT</div><div style="font-weight:700;color:var(--company-color)">${o.num}</div></div>
+    <div><div style="font-size:11px;color:var(--text3)">Matériel</div><div style="font-weight:600">${o.mat||'—'}</div></div>
+    <div><div style="font-size:11px;color:var(--text3)">N° de série</div><div>${serie}</div></div>
+    <div><div style="font-size:11px;color:var(--text3)">Type d'intervention</div><div>${o.type||'—'}</div></div>
+    <div><div style="font-size:11px;color:var(--text3)">Statut</div><div><span class="badge badge-${sm.css}">${sm.label}</span></div></div>
+    <div><div style="font-size:11px;color:var(--text3)">Entreprise</div><div>${coInfo.name}</div></div>
+    <div><div style="font-size:11px;color:var(--text3)">Durée estimée</div><div>${o.dur||'—'}</div></div>
+  `;
+  document.getElementById('cr-date-fin').value=new Date().toISOString().split('T')[0];
+  document.getElementById('cr-technicien').value=o.tech||'';
+  document.getElementById('cr-duree-reelle').value='';
+  document.getElementById('cr-horametre').value='';
+  document.getElementById('cr-observations').value=o.desc||'';
+  document.getElementById('cr-prochaine-date').value=o.maint||'';
+  document.getElementById('cr-prochaine-heure').value='';
+  const mouvements=state[currentCompany].mouvements||[];
+  const piecesLiees=mouvements.filter(m=>{
+    const motif=(m.motif||'').toLowerCase();
+    const otLie=(m.otLie||'').toLowerCase();
+    return m.type==='out'&&(otLie===o.num.toLowerCase()||motif.includes(o.num.toLowerCase()));
+  });
+  renderCRPiecesTable(piecesLiees);
+  closeModal('modal-ot-detail');
+  document.getElementById('modal-cr-maintenance').classList.add('open');
+}
+
+function renderCRPiecesTable(piecesLiees){
+  const tbody=document.getElementById('cr-pieces-tbody');
+  let rows=(piecesLiees||[]).map((m,i)=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><input value="${m.ref||'—'}" style="width:100px;font-size:12px" readonly></td>
+      <td style="padding:6px 8px"><input value="${m.nom||'—'}" style="width:220px;font-size:12px" readonly></td>
+      <td style="padding:6px 8px;text-align:center"><input type="number" value="${(m.qte||'').replace(/[^0-9.]/g,'')}" style="width:60px;font-size:12px;text-align:center" readonly></td>
+      <td></td>
+    </tr>`).join('');
+  rows+=_crPiecesExtra.map((p,i)=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 8px"><input value="${p.ref}" oninput="_crPiecesExtra[${i}].ref=this.value" style="width:100px;font-size:12px"></td>
+      <td style="padding:6px 8px"><input value="${p.nom}" oninput="_crPiecesExtra[${i}].nom=this.value" style="width:220px;font-size:12px"></td>
+      <td style="padding:6px 8px;text-align:center"><input type="number" value="${p.qte}" min="1" oninput="_crPiecesExtra[${i}].qte=+this.value" style="width:60px;font-size:12px;text-align:center"></td>
+      <td style="padding:6px 4px;text-align:center"><button class="btn btn-sm btn-danger" onclick="removeCRPiece(${i})" title="Supprimer">🗑</button></td>
+    </tr>`).join('');
+  if(!rows) rows='<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Aucun mouvement de stock lié à cet OT</td></tr>';
+  tbody.innerHTML=rows;
+}
+
+function addCRPiece(){
+  _crPiecesExtra.push({ref:'',nom:'',qte:1});
+  _refreshCRPiecesTable();
+}
+function removeCRPiece(idx){
+  _crPiecesExtra.splice(idx,1);
+  _refreshCRPiecesTable();
+}
+function _refreshCRPiecesTable(){
+  const mouvements=state[currentCompany].mouvements||[];
+  const piecesLiees=mouvements.filter(m=>{
+    const motif=(m.motif||'').toLowerCase();
+    const otLie=(m.otLie||'').toLowerCase();
+    return m.type==='out'&&_crCurrentOT&&(otLie===_crCurrentOT.num.toLowerCase()||motif.includes(_crCurrentOT.num.toLowerCase()));
+  });
+  renderCRPiecesTable(piecesLiees);
+}
+
+function saveCRMaintenance(){
+  if(!_crCurrentOT)return;
+  const dateFin=document.getElementById('cr-date-fin').value;
+  const tech=document.getElementById('cr-technicien').value.trim();
+  if(!dateFin||!tech){alert('La date de fin et le technicien sont obligatoires.');return;}
+  const ots=state[currentCompany].ots||[];
+  const idx=ots.findIndex(x=>x.id===_crCurrentOT.id||x.num===_crCurrentOT.num);
+  if(idx>=0){
+    ots[idx].dateFin=dateFin;
+    ots[idx].horametre=document.getElementById('cr-horametre').value;
+    ots[idx].observations=document.getElementById('cr-observations').value;
+    ots[idx].dureeReelle=document.getElementById('cr-duree-reelle').value;
+    ots[idx].prochaineMaint=document.getElementById('cr-prochaine-date').value;
+    ots[idx].prochaineHeure=document.getElementById('cr-prochaine-heure').value;
+    ots[idx].statut='termine';
+  }
+  saveToStorage();
+  closeModal('modal-cr-maintenance');
+  renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
+  exportCRPDF();
+}
+
+function exportCRPDF(){
+  if(!_crCurrentOT)return;
+  const o=_crCurrentOT;
+  const coInfo=COMPANIES[currentCompany];
+  const co=state[currentCompany];
+  const now=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const serie=getSerieForOT(o);
+  const dateFin=document.getElementById('cr-date-fin').value
+    ?new Date(document.getElementById('cr-date-fin').value).toLocaleDateString('fr-FR'):'—';
+  const tech=document.getElementById('cr-technicien').value||'—';
+  const horametre=document.getElementById('cr-horametre').value;
+  const dureeReelle=document.getElementById('cr-duree-reelle').value;
+  const observations=document.getElementById('cr-observations').value||'—';
+  const prochainDate=document.getElementById('cr-prochaine-date').value
+    ?new Date(document.getElementById('cr-prochaine-date').value).toLocaleDateString('fr-FR'):'—';
+  const prochaineHeure=document.getElementById('cr-prochaine-heure').value;
+  const rows=[...document.querySelectorAll('#cr-pieces-tbody tr')];
+  const piecesHTML=rows.map(r=>{
+    const inputs=r.querySelectorAll('input');
+    if(inputs.length<3)return '';
+    return `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:7px 10px">${inputs[0].value}</td>
+      <td style="padding:7px 10px">${inputs[1].value}</td>
+      <td style="padding:7px 10px;text-align:center">${inputs[2].value}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="3" style="padding:12px;color:#999;text-align:center">Aucune pièce utilisée</td></tr>';
+  const header=buildPDFHeader(co,coInfo,now);
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Compte rendu — ${o.num}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+    .field{background:#f9f9f7;border-radius:6px;padding:10px 14px}
+    .field-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+    .field-value{font-size:14px;font-weight:600}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th{background:#f0f0ee;padding:8px 10px;text-align:left;font-size:12px}
+    .sign-row{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:50px}
+    .sign-box{border-top:1px solid #999;padding-top:8px;font-size:11px;color:#666}
+    @media print{body{padding:10px}}
+  </style></head><body>
+  ${header}
+  <h2 style="font-size:17px;font-weight:700;color:${coInfo.color};margin:0 0 16px">📋 Compte rendu de maintenance — ${o.num}</h2>
+  <div class="grid">
+    <div class="field"><div class="field-label">Matériel</div><div class="field-value">${o.mat||'—'}</div></div>
+    <div class="field"><div class="field-label">N° de série</div><div class="field-value">${serie}</div></div>
+    <div class="field"><div class="field-label">Type d'intervention</div><div class="field-value">${o.type||'—'}</div></div>
+    <div class="field"><div class="field-label">Date de fin d'entretien</div><div class="field-value">${dateFin}</div></div>
+    <div class="field"><div class="field-label">Technicien</div><div class="field-value">${tech}</div></div>
+    ${horametre?`<div class="field"><div class="field-label">Horamètre / Compteur</div><div class="field-value">${horametre} h</div></div>`:''}
+    ${dureeReelle?`<div class="field"><div class="field-label">Durée réelle</div><div class="field-value">${dureeReelle} h</div></div>`:''}
+  </div>
+  <div style="font-size:13px;font-weight:700;margin-bottom:8px">🔩 Pièces détachées utilisées</div>
+  <table>
+    <thead><tr style="background:${coInfo.color};color:#fff">
+      <th>Référence</th><th>Désignation</th><th style="text-align:center">Qté</th>
+    </tr></thead>
+    <tbody>${piecesHTML}</tbody>
+  </table>
+  <div style="margin-top:18px;background:#f9f9f7;border-radius:6px;padding:14px">
+    <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Observations / Travaux effectués</div>
+    <div style="font-size:13px;white-space:pre-wrap">${observations}</div>
+  </div>
+  ${prochainDate!=='—'||prochaineHeure?`
+  <div style="margin-top:14px;background:#e1f5ee;border-radius:6px;padding:14px">
+    <div style="font-size:11px;color:#0f6e56;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Prochaine maintenance</div>
+    <div style="font-size:13px">${prochainDate!=='—'?'📅 '+prochainDate:''}${prochaineHeure?' · Horamètre : '+prochaineHeure+' h':''}</div>
+  </div>`:''}
+  <div class="sign-row">
+    <div class="sign-box">Visa technicien : ${tech}</div>
+    <div class="sign-box">Visa responsable</div>
+  </div>
+  <div style="margin-top:32px;padding-top:12px;border-top:1px solid #ddd;font-size:10px;color:#999">
+    AtelierPro — Compte rendu généré le ${now}
+  </div>
+  </body></html>`;
+  printHTMLDocument(html);
+}
+
 function renderHistoTable(){
   // Build histo from terminated OTs
   const ots=(state[currentCompany].ots||[]).filter(o=>o.statut==='termine');
