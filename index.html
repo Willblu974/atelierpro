@@ -483,7 +483,7 @@ textarea{resize:vertical;min-height:80px;}
               <button class="btn btn-sm btn-edit" onclick="exportJournalOT()">&#128196; Journal OT PDF</button>
             </span>
           </div>
-          <div class="card-body"><table><thead><tr><th>N° OT</th><th>Matériel</th><th>N° Série</th><th>Type</th><th>Priorité</th><th>Technicien</th><th>Statut</th><th>Durée est.</th><th></th></tr></thead><tbody id="ot-tbody"></tbody></table></div>
+          <div class="card-body"><table><thead><tr><th>N° OT</th><th>Matériel</th><th>Type</th><th>Priorité</th><th>Technicien</th><th>Statut</th><th>Durée est.</th><th></th></tr></thead><tbody id="ot-tbody"></tbody></table></div>
         </div>
       </div>
       <div id="maint-plan" style="display:none">
@@ -503,28 +503,6 @@ textarea{resize:vertical;min-height:80px;}
         <div class="card">
           <div class="card-body" id="archives-ot-section" style="padding:4px 0">
             <p style="color:#999;text-align:center;padding:16px;margin:0">Aucune archive OT disponible</p>
-          </div>
-        </div>
-
-        <!-- Tableau comptes rendus de maintenance -->
-        <div class="section-header" style="margin-top:18px">
-          <div class="section-title">📋 Comptes rendus de maintenance</div>
-          <button class="btn btn-sm btn-edit" onclick="renderCRTable()">🔄 Rafraîchir</button>
-        </div>
-        <div class="card">
-          <div class="card-body">
-            <table>
-              <thead><tr>
-                <th>N° OT</th>
-                <th>Matériel</th>
-                <th>Type</th>
-                <th>Technicien</th>
-                <th>Date de fin</th>
-                <th>Horamètre</th>
-                <th></th>
-              </tr></thead>
-              <tbody id="cr-list-tbody"><tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3)">Aucun OT terminé</td></tr></tbody>
-            </table>
           </div>
         </div>
       </div>
@@ -1028,84 +1006,39 @@ textarea{resize:vertical;min-height:80px;}
     </div>
     <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px" id="ot-detail-grid"></div>
     <div style="padding:0 20px 20px" id="ot-detail-desc"></div>
+
+    <!-- Section pièces détachées utilisées -->
+    <div style="padding:0 20px 20px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">🔩 Pièces détachées utilisées</div>
+      <div id="ot-detail-pieces-list" style="margin-bottom:12px"></div>
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:12px;display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:8px;align-items:end">
+        <div>
+          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Référence / Stock</div>
+          <select id="ot-piece-ref-select" style="width:100%" onchange="onOTPieceSelectChange()">
+            <option value="">— Stock existant —</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Désignation (libre)</div>
+          <input id="ot-piece-nom" placeholder="ex: Filtre hydraulique" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Qté</div>
+          <input id="ot-piece-qte" type="number" min="1" value="1" style="width:64px">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Prix unit. (€)</div>
+          <input id="ot-piece-prix" type="number" min="0" step="0.01" placeholder="0" style="width:80px">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="addOTPiece()" style="white-space:nowrap">+ Ajouter</button>
+      </div>
+    </div>
+
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="ot-detail-delete-btn">🗑 Supprimer</button>
       <div style="flex:1"></div>
-      <button class="btn btn-sm btn-edit" id="ot-detail-cr-btn" onclick="openCompteRenduOT()">📋 Compte rendu</button>
       <button class="btn" onclick="closeModal('modal-ot-detail')">Fermer</button>
       <button class="btn btn-primary btn-edit" id="ot-detail-edit-btn">✏️ Modifier</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL COMPTE RENDU DE MAINTENANCE -->
-<div class="modal-bg" id="modal-cr-maintenance">
-  <div class="modal" style="width:680px;display:flex;flex-direction:column;max-height:92vh">
-    <div class="modal-header">
-      <strong>📋 Compte rendu de maintenance</strong>
-      <button class="btn btn-sm" onclick="closeModal('modal-cr-maintenance')">&#10005;</button>
-    </div>
-    <div style="padding:20px;overflow-y:auto;flex:1">
-      <!-- En-tête OT -->
-      <div style="background:var(--bg2);border-radius:var(--radius);padding:14px 16px;margin-bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px" id="cr-ot-header"></div>
-
-      <!-- Horamètre / Compteur -->
-      <div class="form-grid" style="padding:0;margin-bottom:14px">
-        <div class="form-group">
-          <label>Horamètre / Compteur (h ou km)</label>
-          <input id="cr-horametre" type="number" placeholder="ex: 1250" min="0">
-        </div>
-        <div class="form-group">
-          <label>Date de fin d'entretien *</label>
-          <input id="cr-date-fin" type="date">
-        </div>
-        <div class="form-group">
-          <label>Technicien ayant effectué la maintenance *</label>
-          <input id="cr-technicien" placeholder="Prénom Nom">
-        </div>
-        <div class="form-group">
-          <label>Durée réelle (h)</label>
-          <input id="cr-duree-reelle" type="number" placeholder="ex: 3.5" min="0" step="0.5">
-        </div>
-      </div>
-
-      <!-- Pièces détachées utilisées -->
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔩 Pièces détachées utilisées</div>
-      <div id="cr-pieces-container">
-        <table style="font-size:12px;width:100%;margin-bottom:8px">
-          <thead><tr style="background:var(--bg2)">
-            <th style="padding:6px 8px">Référence</th>
-            <th style="padding:6px 8px">Désignation</th>
-            <th style="padding:6px 8px;text-align:center">Qté utilisée</th>
-            <th style="padding:6px 8px"></th>
-          </tr></thead>
-          <tbody id="cr-pieces-tbody"></tbody>
-        </table>
-        <button class="btn btn-sm btn-edit" onclick="addCRPiece()">+ Ajouter une pièce</button>
-      </div>
-
-      <!-- Observations -->
-      <div class="form-group full" style="margin-top:14px">
-        <label>Observations / Travaux effectués</label>
-        <textarea id="cr-observations" rows="4" placeholder="Décrivez les travaux effectués, les anomalies constatées, les recommandations..."></textarea>
-      </div>
-
-      <!-- Prochaine maintenance -->
-      <div class="form-grid" style="padding:0;margin-top:0">
-        <div class="form-group">
-          <label>Prochaine maintenance prévue</label>
-          <input id="cr-prochaine-date" type="date">
-        </div>
-        <div class="form-group">
-          <label>Horamètre prochaine maintenance</label>
-          <input id="cr-prochaine-heure" type="number" placeholder="ex: 1500">
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-cr-maintenance')">Annuler</button>
-      <button class="btn btn-edit" onclick="exportCRPDF()">📄 Exporter PDF</button>
-      <button class="btn btn-primary" onclick="saveCRMaintenance()">💾 Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1216,7 +1149,7 @@ textarea{resize:vertical;min-height:80px;}
 <!-- MODAL BDC -->
 <!-- MODAL IMPORT PDF BDC -->
 <div class="modal-bg" id="modal-import-pdf-bdc">
-  <div class="modal" style="width:720px;display:flex;flex-direction:column;max-height:92vh">
+  <div class="modal" style="width:620px;display:flex;flex-direction:column;max-height:90vh">
     <div class="modal-header">
       <strong>📄 Importer un bon de commande PDF</strong>
       <button class="btn btn-sm" onclick="closeModal('modal-import-pdf-bdc')">&#10005;</button>
@@ -1234,47 +1167,22 @@ textarea{resize:vertical;min-height:80px;}
           <div class="form-group"><label>Date commande</label><input type="date" id="pdf-f-date"></div>
           <div class="form-group"><label>Montant HT (€)</label><input type="number" id="pdf-f-mont" placeholder="0"></div>
           <div class="form-group"><label>Nb articles</label><input type="number" id="pdf-f-art" placeholder="1" min="1"></div>
-          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="4" style="font-size:12px;font-family:monospace"></textarea></div>
+          <div class="form-group full"><label>Articles / Pièces détectés</label><textarea id="pdf-f-articles" rows="6" style="font-size:12px;font-family:monospace"></textarea></div>
         </div>
-      </div>
-      <!-- Tableau articles extraits par IA -->
-      <div id="pdf-articles-ia" style="display:none;margin-top:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:13px;font-weight:600;color:var(--teal)">🤖 Articles reconnus par l'IA</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <label style="font-size:12px">Importer vers :</label>
-            <select id="pdf-import-target" style="font-size:12px">
-              <option value="pieces">Pièces détachées</option>
-              <option value="materiels">Matériels</option>
-            </select>
-          </div>
-        </div>
-        <table style="font-size:12px;width:100%">
-          <thead><tr style="background:var(--bg2)">
-            <th style="padding:6px 8px"><input type="checkbox" id="pdf-select-all" onchange="toggleAllPDFArticles(this)" checked></th>
-            <th style="padding:6px 8px">Référence</th>
-            <th style="padding:6px 8px">Désignation</th>
-            <th style="padding:6px 8px;text-align:center">Qté</th>
-            <th style="padding:6px 8px;text-align:right">PU (€)</th>
-            <th style="padding:6px 8px">Dans stock</th>
-          </tr></thead>
-          <tbody id="pdf-articles-tbody"></tbody>
-        </table>
-        <div style="margin-top:10px;padding:10px;background:var(--bg2);border-radius:6px;font-size:12px;color:var(--text3)">
-          ✅ coché = sera importé dans le stock
+        <div style="background:var(--amber-light);border-left:3px solid var(--amber-mid);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--amber);margin-top:8px">
+          ⚠️ Vérifiez et corrigez les données avant de cliquer sur "Créer le BDC".
         </div>
       </div>
       <div id="pdf-bdc-raw" style="display:none;margin-top:14px">
         <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Texte brut extrait</div>
-        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--bg2);padding:12px;border-radius:var(--radius);max-height:150px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
+        <pre id="pdf-bdc-raw-text" style="font-size:10px;background:var(--surface2);padding:12px;border-radius:var(--radius);max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:var(--text2)"></pre>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-sm" onclick="togglePDFRaw()">🔍 Texte brut</button>
       <div style="flex:1"></div>
       <button class="btn" onclick="closeModal('modal-import-pdf-bdc')">Annuler</button>
-      <button class="btn btn-edit" id="pdf-bdc-confirm" style="display:none" onclick="createBDCFromPDF()">+ Créer le BDC</button>
-      <button class="btn btn-primary" id="pdf-import-stock-btn" style="display:none" onclick="importArticlesVersStock()">📦 Importer dans le stock</button>
+      <button class="btn btn-primary" id="pdf-bdc-confirm" style="display:none" onclick="createBDCFromPDF()">+ Créer le BDC</button>
     </div>
   </div>
 </div>
@@ -1865,7 +1773,14 @@ function renderMatTable(co, st){
     if(sfilt && m.statut !== sfilt) return false;
     if(search && !m.nom.toLowerCase().includes(search) && !m.code.toLowerCase().includes(search)) return false;
     return true;
-  }).sort((a,b) => a.nom.localeCompare(b.nom, 'fr'));
+  }).sort((a,b) => {
+    const _d=new Date(); _d.setMonth(_d.getMonth()+1);
+    const sa=(!a.revision||new Date(a.revision)>_d)?1:0;
+    const sb=(!b.revision||new Date(b.revision)>_d)?1:0;
+    if(sa!==sb) return sa-sb;
+    if(sa===0&&sb===0) return new Date(a.revision)-new Date(b.revision);
+    return a.nom.localeCompare(b.nom,'fr');
+  });
   document.getElementById('mat-tbody').innerHTML = rows.length
     ? rows.map(m=>`<tr>
         <td style="text-align:center;width:32px"><input type="checkbox" class="mat-select-cb" data-id="${m.id||m.code}" data-code="${m.code}" data-nom="${m.nom}" onchange="onMatSelectChange()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--teal);display:inline-block !important;visibility:visible !important;opacity:1 !important"></td>
@@ -1882,13 +1797,13 @@ function renderMatTable(co, st){
         <td>${m.cout ? (/€/.test(m.cout) ? m.cout : m.cout+' €') : '—'}</td>
         <td style="font-size:12px">${m.prixLoc||'—'}</td>
         <td style="white-space:nowrap">
-          <button class="btn btn-sm" onclick="openMatDetail('${(m.id||m.code).replace(/'/g,"\\'")}')">Voir</button>
-          ${getUserRole()==='admin'?`
-          <button class="btn btn-sm btn-edit" onclick="openMatEdit('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px">✏️</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteMat('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px">🗑</button>
+          <button class="btn btn-sm" onclick="openMatDetail('${m.id||m.code}')">Voir</button>
+          ${(getUserRole()==='admin'||currentCompany===(SB_PROFILE&&SB_PROFILE.entreprise_id))?`
+          <button class="btn btn-sm btn-edit" onclick="openMatEdit('${m.id||m.code}')" style="margin-left:4px">✏️</button>
+          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${m.id||m.code}')" style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
+          <button class="btn btn-sm btn-danger" onclick="deleteMat('${m.id||m.code}')" style="margin-left:4px">🗑</button>
           `:''}
-          ${canManageEvtPret()?`<button class="btn btn-sm btn-edit" onclick="openImmobilisationModal('${(m.id||m.code).replace(/'/g,"\\'")}') " style="margin-left:4px" title="Programmer une immobilisation">📅</button>`:''}
-          ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${(m.id||m.code).replace(/'/g,"\\'")}','${(m.code+' — '+m.nom).replace(/'/g,"\\'")}')">🤝 Demander</button>`:''}
+          ${currentCompany!==(SB_PROFILE&&SB_PROFILE.entreprise_id)?`<button class="btn btn-sm" style="margin-left:4px;background:var(--teal-light);color:var(--teal)" onclick="openDemandePret('${m.id||m.code}','${m.code} — ${m.nom}')">🤝 Demander</button>`:''}
         </td>
       </tr>`).join('')
     : `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">Aucun matériel trouvé</td></tr>`;
@@ -2867,7 +2782,7 @@ function openMatDetail(id){
   document.getElementById('detail-notes-block').innerHTML = mat.notes
     ? `<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Notes</div><div style="font-size:13px;white-space:pre-wrap">${mat.notes}</div></div>`
     : '';
-  const canEditMat = getUserRole()==='admin';
+  const canEditMat = getUserRole()==='admin'||currentCompany===(SB_PROFILE?.entreprise_id||'A');
   const editBtn=document.getElementById('detail-edit-btn');
   const delBtn=document.getElementById('detail-delete-btn');
   if(editBtn){ editBtn.style.display=canEditMat?'':'none'; editBtn.onclick=()=>openMatEdit(id); }
@@ -2992,7 +2907,6 @@ function showPage(id,el){
   if(id==='calendrier'){ renderCalendrier(); }
   if(id==='dashboard'){ renderDashboard(COMPANIES[currentCompany]); }
   if(id==='stock'){ renderArchivesSection(); }
-  if(id==='maint-archives-ot'){ renderArchivesOTSection(); }
   if(id==='inventaire'){ renderInventaire(); }
   document.getElementById('page-title').textContent=titles[id]||id;
   document.getElementById('topbar-new').style.display=['parametres','couts','rapports','utilisateurs'].includes(id)?'none':'';
@@ -3047,12 +2961,9 @@ function renderOTTable(){
   document.getElementById('ot-tbody').innerHTML = filtered.length
     ? filtered.map(o=>{
         const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
-        // Chercher le N° de série dans le matériel si pas déjà dans l'OT
-        const serie=getSerieForOT(o);
         return `<tr>
           <td><strong>${o.num}</strong></td>
           <td>${o.mat}</td>
-          <td style="font-size:11px;color:var(--text3)">${serie}</td>
           <td>${o.type}</td>
           <td>${bdg(o.prio,OT_PRIO_MAP[o.prio]||o.prio)}</td>
           <td>${o.tech||'—'}</td>
@@ -3065,7 +2976,7 @@ function renderOTTable(){
           </td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Aucun ordre de travail</td></tr>`;
+    : `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">Aucun ordre de travail</td></tr>`;
 }
 
 let editingOTId=null;
@@ -3142,7 +3053,6 @@ function saveOT(){
     dur:document.getElementById('ot-f-dur').value, statut:document.getElementById('ot-f-statut').value,
     date:document.getElementById('ot-f-date').value, desc:document.getElementById('ot-f-desc').value,
     dateMaj:toDS(new Date()),
-    serie:matCodes.map(c=>{const m=mats.find(x=>x.code===c||x.id===c);return m?.serie||'';}).filter(Boolean).join(', ')||null,
   };
   if(editingOTId){
     const idx=ots.findIndex(o=>o.id===editingOTId);
@@ -3169,17 +3079,95 @@ async function deleteOT(id){
   closeModal('modal-ot-detail');
   renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
 }
+function renderOTDetailPieces(id){
+  const ots=state[currentCompany].ots||[];
+  const o=ots.find(x=>x.id===id);
+  if(!o)return;
+  const pieces=o.pieces_utilisees||[];
+  const el=document.getElementById('ot-detail-pieces-list');
+  if(!el)return;
+  if(!pieces.length){
+    el.innerHTML='<div style="text-align:center;color:var(--text3);font-size:12px;padding:10px 0">Aucune pièce renseignée</div>';
+    return;
+  }
+  const total=pieces.reduce((s,p)=>s+(parseFloat(p.prix||0)*parseInt(p.qte||1,10)),0);
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:var(--surface2)">
+      <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text3)">Réf.</th>
+      <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text3)">Désignation</th>
+      <th style="padding:6px 10px;text-align:center;font-size:11px;color:var(--text3)">Qté</th>
+      <th style="padding:6px 10px;text-align:right;font-size:11px;color:var(--text3)">Prix unit.</th>
+      <th style="padding:6px 10px;text-align:right;font-size:11px;color:var(--text3)">Total</th>
+      <th style="padding:6px 10px;width:32px"></th>
+    </tr></thead>
+    <tbody>${pieces.map((p,i)=>`<tr style="border-top:1px solid var(--border)">
+      <td style="padding:7px 10px;font-weight:500">${p.ref||'—'}</td>
+      <td style="padding:7px 10px;color:var(--text2)">${p.nom||'—'}</td>
+      <td style="padding:7px 10px;text-align:center">${p.qte||1}</td>
+      <td style="padding:7px 10px;text-align:right">${parseFloat(p.prix||0).toFixed(2)} €</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:500">${(parseFloat(p.prix||0)*parseInt(p.qte||1,10)).toFixed(2)} €</td>
+      <td style="padding:7px 10px;text-align:center"><button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:11px" onclick="removeOTPiece('${id}',${i})">✕</button></td>
+    </tr>`).join('')}
+    </tbody>
+    <tfoot><tr style="border-top:2px solid var(--border);background:var(--surface2)">
+      <td colspan="4" style="padding:7px 10px;font-weight:600;font-size:13px">Total pièces</td>
+      <td style="padding:7px 10px;text-align:right;font-weight:700;font-size:13px;color:var(--teal)">${total.toFixed(2)} €</td>
+      <td></td>
+    </tr></tfoot>
+  </table>`;
+}
+function onOTPieceSelectChange(){
+  const sel=document.getElementById('ot-piece-ref-select');
+  const val=sel.value;
+  if(!val)return;
+  const pieces=state[currentCompany].pieces||[];
+  const p=pieces.find(x=>x.ref===val||x.id===val);
+  if(p){
+    document.getElementById('ot-piece-nom').value=p.nom||'';
+    document.getElementById('ot-piece-prix').value=parseFloat(String(p.prix).replace(/[^\d.,]/g,'').replace(',','.'))||0;
+  }
+}
+function addOTPiece(){
+  const currentOTId=window._currentOTDetailId;
+  if(!currentOTId)return;
+  const ots=state[currentCompany].ots||[];
+  const idx=ots.findIndex(o=>o.id===currentOTId);
+  if(idx<0)return;
+  const sel=document.getElementById('ot-piece-ref-select');
+  const ref=sel.value||'';
+  const nom=document.getElementById('ot-piece-nom').value.trim();
+  const qte=parseInt(document.getElementById('ot-piece-qte').value,10)||1;
+  const prix=parseFloat(document.getElementById('ot-piece-prix').value)||0;
+  if(!nom&&!ref){showToast('Renseignez au moins une désignation.','warn');return;}
+  if(!ots[idx].pieces_utilisees)ots[idx].pieces_utilisees=[];
+  ots[idx].pieces_utilisees.push({ref,nom:nom||(sel.options[sel.selectedIndex]?.text||ref),qte,prix});
+  saveToStorage();
+  // Reset form
+  sel.value='';
+  document.getElementById('ot-piece-nom').value='';
+  document.getElementById('ot-piece-qte').value='1';
+  document.getElementById('ot-piece-prix').value='';
+  renderOTDetailPieces(currentOTId);
+}
+function removeOTPiece(otId,pieceIdx){
+  const ots=state[currentCompany].ots||[];
+  const idx=ots.findIndex(o=>o.id===otId);
+  if(idx<0)return;
+  if(!confirm('Supprimer cette pièce ?'))return;
+  ots[idx].pieces_utilisees.splice(pieceIdx,1);
+  saveToStorage();
+  renderOTDetailPieces(otId);
+}
 function openOTDetail(id){
+  window._currentOTDetailId=id;
   const ots=state[currentCompany].ots||[];
   const o=ots.find(x=>x.id===id);
   if(!o)return;
   const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
   document.getElementById('ot-detail-title').textContent=o.num+' — '+o.type;
   document.getElementById('ot-detail-sub').textContent=o.mat;
-    const serie=getSerieForOT(o);
   const fields=[
-    {l:'Matériel',v:o.mat},{l:'N° de série',v:serie},
-    {l:'Type',v:o.type},
+    {l:'Matériel',v:o.mat},{l:'Type',v:o.type},
     {l:'Priorité',v:`${bdg(o.prio,OT_PRIO_MAP[o.prio])}`},
     {l:'Statut',v:`<span class="badge badge-${sm.css}">${sm.label}</span>`},
     {l:'Technicien',v:o.tech||'—'},{l:'Durée estimée',v:o.dur||'—'},
@@ -3191,210 +3179,21 @@ function openOTDetail(id){
   ).join('');
   document.getElementById('ot-detail-desc').innerHTML=o.desc
     ?`<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Description / Travaux</div><div style="font-size:13px;white-space:pre-wrap">${o.desc}</div></div>`:'';
+  // Peupler le select avec les pièces en stock
+  const piecesStock=state[currentCompany].pieces||[];
+  const selEl=document.getElementById('ot-piece-ref-select');
+  if(selEl){
+    selEl.innerHTML='<option value="">— Stock existant —</option>'+piecesStock.map(p=>`<option value="${p.ref||p.id}">${p.ref||p.id} — ${p.nom}</option>`).join('');
+    selEl.value='';
+  }
+  document.getElementById('ot-piece-nom').value='';
+  document.getElementById('ot-piece-qte').value='1';
+  document.getElementById('ot-piece-prix').value='';
+  renderOTDetailPieces(id);
   document.getElementById('ot-detail-edit-btn').onclick=()=>openOTEdit(id);
   document.getElementById('ot-detail-delete-btn').onclick=()=>deleteOT(id);
   document.getElementById('modal-ot-detail').classList.add('open');
 }
-/* ── COMPTE RENDU DE MAINTENANCE ─────────────────────────── */
-let _crCurrentOT = null;
-let _crPiecesExtra = [];
-
-function getSerieForOT(o){
-  if(!o) return '—';
-  if(o.serie) return o.serie;
-  const mats=state[currentCompany].materiels||[];
-  const codes=(o.matCodes||[]).length ? o.matCodes : [o.mat];
-  return codes.map(c=>{const m=mats.find(x=>x.code===c||x.nom===c||x.id===c);return m?.serie||'';}).filter(Boolean).join(', ')||'—';
-}
-
-function openCompteRenduOT(){
-  const otId = document.getElementById('ot-detail-title')?.textContent?.split(' — ')[0];
-  const ots = state[currentCompany].ots||[];
-  const o = ots.find(x=>x.num===otId||x.id===otId);
-  if(!o){ alert('OT introuvable.'); return; }
-  _crCurrentOT = o;
-  _crPiecesExtra = [];
-
-  // En-tête OT
-  const coInfo = COMPANIES[currentCompany];
-  const sm = OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
-    const serie=getSerieForOT(o);
-  document.getElementById('cr-ot-header').innerHTML = `
-    <div><div style="font-size:11px;color:var(--text3)">N° OT</div><div style="font-weight:700;color:var(--company-color)">${o.num}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Matériel</div><div style="font-weight:600">${o.mat||'—'}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">N° de série</div><div>${serie}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Type d'intervention</div><div>${o.type||'—'}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Statut</div><div><span class="badge badge-${sm.css}">${sm.label}</span></div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Entreprise</div><div>${coInfo.name}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Durée estimée</div><div>${o.dur||'—'}</div></div>
-  `;
-
-  // Pré-remplissage
-  document.getElementById('cr-date-fin').value = new Date().toISOString().split('T')[0];
-  document.getElementById('cr-technicien').value = o.tech||'';
-  document.getElementById('cr-duree-reelle').value = '';
-  document.getElementById('cr-horametre').value = '';
-  document.getElementById('cr-observations').value = o.desc||'';
-  document.getElementById('cr-prochaine-date').value = o.maint||'';
-  document.getElementById('cr-prochaine-heure').value = '';
-
-  // Pièces liées automatiquement (via mouvements de stock)
-  const mouvements = state[currentCompany].mouvements||[];
-  const piecesLiees = mouvements.filter(m=>{
-    const motif=(m.motif||'').toLowerCase();
-    const otLie=(m.otLie||'').toLowerCase();
-    return m.type==='out' && (otLie===o.num.toLowerCase() || motif.includes(o.num.toLowerCase()));
-  });
-  renderCRPiecesTable(piecesLiees);
-
-  closeModal('modal-ot-detail');
-  document.getElementById('modal-cr-maintenance').classList.add('open');
-}
-
-function renderCRPiecesTable(piecesLiees){
-  const tbody = document.getElementById('cr-pieces-tbody');
-  let rows = piecesLiees.map((m,i)=>`
-    <tr id="cr-piece-row-liee-${i}" style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 8px"><input value="${m.ref||'—'}" style="width:100px;font-size:12px" readonly></td>
-      <td style="padding:6px 8px"><input value="${m.nom||'—'}" style="width:220px;font-size:12px" readonly></td>
-      <td style="padding:6px 8px;text-align:center"><input type="number" value="${(m.qte||'').replace(/[^0-9.]/g,'')}" style="width:60px;font-size:12px;text-align:center" readonly></td>
-    </tr>`).join('');
-  // Pièces ajoutées manuellement
-  rows += _crPiecesExtra.map((p,i)=>`
-    <tr id="cr-piece-row-extra-${i}" style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 8px"><input value="${p.ref}" oninput="_crPiecesExtra[${i}].ref=this.value" style="width:100px;font-size:12px"></td>
-      <td style="padding:6px 8px"><input value="${p.nom}" oninput="_crPiecesExtra[${i}].nom=this.value" style="width:220px;font-size:12px"></td>
-      <td style="padding:6px 8px;text-align:center"><input type="number" value="${p.qte}" min="1" oninput="_crPiecesExtra[${i}].qte=+this.value" style="width:60px;font-size:12px;text-align:center"></td>
-      <td style="padding:6px 4px;text-align:center"><button class="btn btn-sm btn-danger" onclick="removeCRPiece(${i})" title="Supprimer">🗑</button></td>
-    </tr>`).join('');
-  if(!rows) rows = '<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Aucun mouvement de stock lié à cet OT</td></tr>';
-  tbody.innerHTML = rows;
-}
-
-function addCRPiece(){
-  _crPiecesExtra.push({ref:'',nom:'',qte:1});
-  _refreshCRPiecesTable();
-}
-
-function removeCRPiece(idx){
-  _crPiecesExtra.splice(idx,1);
-  _refreshCRPiecesTable();
-}
-
-function _refreshCRPiecesTable(){
-  const mouvements=state[currentCompany].mouvements||[];
-  const piecesLiees=mouvements.filter(m=>{
-    const motif=(m.motif||'').toLowerCase();
-    const otLie=(m.otLie||'').toLowerCase();
-    return m.type==='out'&&_crCurrentOT&&(otLie===_crCurrentOT.num.toLowerCase()||motif.includes(_crCurrentOT.num.toLowerCase()));
-  });
-  renderCRPiecesTable(piecesLiees);
-}
-
-function saveCRMaintenance(){
-  if(!_crCurrentOT) return;
-  const dateFin = document.getElementById('cr-date-fin').value;
-  const tech = document.getElementById('cr-technicien').value.trim();
-  if(!dateFin || !tech){ alert('La date de fin et le technicien sont obligatoires.'); return; }
-  // Sauvegarde dans l'OT (champs enrichis)
-  const ots = state[currentCompany].ots||[];
-  const idx = ots.findIndex(x=>x.id===_crCurrentOT.id||x.num===_crCurrentOT.num);
-  if(idx>=0){
-    ots[idx].dateFin = dateFin;
-    ots[idx].horametre = document.getElementById('cr-horametre').value;
-    ots[idx].observations = document.getElementById('cr-observations').value;
-    ots[idx].dureeReelle = document.getElementById('cr-duree-reelle').value;
-    ots[idx].prochaineMaint = document.getElementById('cr-prochaine-date').value;
-    ots[idx].prochaineHeure = document.getElementById('cr-prochaine-heure').value;
-    ots[idx].statut = 'termine';
-  }
-  saveToStorage();
-  closeModal('modal-cr-maintenance');
-  renderMaintenance(COMPANIES[currentCompany], state[currentCompany]);
-  exportCRPDF(); // Génère aussi le PDF à la sauvegarde
-}
-
-function exportCRPDF(){
-  if(!_crCurrentOT) return;
-  const o = _crCurrentOT;
-  const coInfo = COMPANIES[currentCompany];
-  const now = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-    const serie=getSerieForOT(o);
-  const dateFin = document.getElementById('cr-date-fin').value
-    ? new Date(document.getElementById('cr-date-fin').value).toLocaleDateString('fr-FR') : '—';
-  const tech = document.getElementById('cr-technicien').value||'—';
-  const horametre = document.getElementById('cr-horametre').value;
-  const dureeReelle = document.getElementById('cr-duree-reelle').value;
-  const observations = document.getElementById('cr-observations').value||'—';
-  const prochainDate = document.getElementById('cr-prochaine-date').value
-    ? new Date(document.getElementById('cr-prochaine-date').value).toLocaleDateString('fr-FR') : '—';
-  const prochaineHeure = document.getElementById('cr-prochaine-heure').value;
-
-  // Récupérer toutes les pièces (liées + manuelles)
-  const rows = [...document.querySelectorAll('#cr-pieces-tbody tr')];
-  const piecesHTML = rows.map(r=>{
-    const inputs = r.querySelectorAll('input');
-    if(inputs.length < 3) return '';
-    return `<tr style="border-bottom:1px solid #eee">
-      <td style="padding:7px 10px">${inputs[0].value}</td>
-      <td style="padding:7px 10px">${inputs[1].value}</td>
-      <td style="padding:7px 10px;text-align:center">${inputs[2].value}</td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="3" style="padding:12px;color:#999;text-align:center">Aucune pièce utilisée</td></tr>';
-
-  const header = buildPDFHeader(state[currentCompany], coInfo, now);
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Compte rendu — ${o.num}</title>
-  <style>
-    body{font-family:Arial,sans-serif;margin:0;padding:20px;color:#1a1917;font-size:13px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-    .field{background:#f9f9f7;border-radius:6px;padding:10px 14px}
-    .field-label{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-    .field-value{font-size:14px;font-weight:600}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th{background:#f0f0ee;padding:8px 10px;text-align:left;font-size:12px}
-    .sign-row{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:50px}
-    .sign-box{border-top:1px solid #999;padding-top:8px;font-size:11px;color:#666}
-    @media print{body{padding:10px}}
-  </style></head><body>
-  ${header}
-  <h2 style="font-size:17px;font-weight:700;color:${coInfo.color};margin:0 0 16px">📋 Compte rendu de maintenance — ${o.num}</h2>
-  <div class="grid">
-    <div class="field"><div class="field-label">Matériel</div><div class="field-value">${o.mat||'—'}</div></div>
-    <div class="field"><div class="field-label">N° de série</div><div class="field-value">${serie}</div></div>
-    <div class="field"><div class="field-label">Type d'intervention</div><div class="field-value">${o.type||'—'}</div></div>
-    <div class="field"><div class="field-label">Date de fin d'entretien</div><div class="field-value">${dateFin}</div></div>
-    <div class="field"><div class="field-label">Technicien</div><div class="field-value">${tech}</div></div>
-    ${horametre?`<div class="field"><div class="field-label">Horamètre / Compteur</div><div class="field-value">${horametre} h</div></div>`:''}
-    ${dureeReelle?`<div class="field"><div class="field-label">Durée réelle</div><div class="field-value">${dureeReelle} h</div></div>`:''}
-  </div>
-  <div style="font-size:13px;font-weight:700;margin-bottom:8px">🔩 Pièces détachées utilisées</div>
-  <table>
-    <thead><tr style="background:${coInfo.color};color:#fff">
-      <th>Référence</th><th>Désignation</th><th style="text-align:center">Qté</th>
-    </tr></thead>
-    <tbody>${piecesHTML}</tbody>
-  </table>
-  <div style="margin-top:18px;background:#f9f9f7;border-radius:6px;padding:14px">
-    <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Observations / Travaux effectués</div>
-    <div style="font-size:13px;white-space:pre-wrap">${observations}</div>
-  </div>
-  ${prochainDate!=='—'||prochaineHeure?`
-  <div style="margin-top:14px;background:#e1f5ee;border-radius:6px;padding:14px">
-    <div style="font-size:11px;color:#0f6e56;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Prochaine maintenance</div>
-    <div style="font-size:13px">${prochainDate!=='—'?'📅 '+prochainDate:''} ${prochaineHeure?'· Horamètre : '+prochaineHeure+' h':''}</div>
-  </div>`:''}
-  <div class="sign-row">
-    <div class="sign-box">Visa technicien : ${tech}</div>
-    <div class="sign-box">Visa responsable</div>
-  </div>
-  <div style="margin-top:32px;padding-top:12px;border-top:1px solid #ddd;font-size:10px;color:#999">
-    AtelierPro — Compte rendu généré le ${now}
-  </div>
-  </body></html>`;
-  printHTMLDocument(html);
-}
-
 function renderHistoTable(){
   // Build histo from terminated OTs
   const ots=(state[currentCompany].ots||[]).filter(o=>o.statut==='termine');
@@ -3455,9 +3254,9 @@ function renderPiecesTable(){
           <td>${sb}</td>
           <td>${p.seuil}</td>
           <td style="white-space:nowrap">
-            <button class="btn btn-sm btn-edit" onclick="openMvtModal('${p.ref.replace(/'/g,"\\'")}')" title="Mouvement stock">📦</button>
-            ${getUserRole()==='admin'?`<button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref.replace(/'/g,"\\'")}') " style="margin-left:4px">✏️</button>
-            <button class="btn btn-sm btn-danger" onclick="deletePiece('${p.ref.replace(/'/g,"\\'")}') " style="margin-left:4px">🗑</button>`:''}
+            <button class="btn btn-sm btn-edit" onclick="openMvtModal('${p.ref}')" title="Mouvement stock">📦</button>
+            ${canModifyMat()?`<button class="btn btn-sm btn-edit" onclick="openPieceEdit('${p.ref}')" style="margin-left:4px">✏️</button>
+            <button class="btn btn-sm btn-danger" onclick="deletePiece('${p.ref}')" style="margin-left:4px">🗑</button>`:''}
           </td>
         </tr>`;
       }).join('')
@@ -3466,27 +3265,13 @@ function renderPiecesTable(){
 
 let editingPieceId=null;
 function openPieceModal(id=null){
-  if(!getUserRole()==='admin' && id){
-    alert('❌ Seul un administrateur peut modifier une pièce détachée.');
-    return;
-  }
-  if(!id && getUserRole()!=='admin'){
-    alert('❌ Seul un administrateur peut créer une pièce détachée.');
+  if(!id && !canModifyMat()){
+    alert('❌ Vous ne pouvez pas créer une pièce détachée dans une autre entreprise.');
     return;
   }
   editingPieceId=id;
   ensureFournState(COMPANIES[currentCompany]);
-  const pieces=state[currentCompany].pieces||[];
-  const p=id?pieces.find(x=>x.id===id||x.ref===id):null;
-  // Pièce pas trouvée localement → rechargement Supabase avant d'ouvrir
-  if(id && !p){
-    loadFromSupabase().then(()=>{
-      const p2=(state[currentCompany].pieces||[]).find(x=>x.id===id||x.ref===id);
-      if(p2) openPieceModal(id);
-      else alert('Pièce introuvable.');
-    });
-    return;
-  }
+  const p=id?(state[currentCompany].pieces||[]).find(x=>x.id===id||x.ref===id):null;
   document.getElementById('pc-modal-title').textContent=id?'Modifier la pièce':'Nouvelle pièce détachée';
   document.getElementById('pc-edit-id').value=id||'';
   document.getElementById('pc-f-ref').value=p?.ref||'';
@@ -3512,7 +3297,7 @@ function openPieceModal(id=null){
 }
 function openPieceEdit(id){openPieceModal(id);}
 function savePiece(){
-  if(getUserRole()!=='admin'){alert('❌ Seul un administrateur peut modifier une pièce détachée.');return;}
+  if(!canModifyMat()){alert('❌ Vous ne pouvez pas créer une pièce détachée dans une autre entreprise.');return;}
   const ref=document.getElementById('pc-f-ref').value.trim();
   const nom=document.getElementById('pc-f-nom').value.trim();
   if(!ref||!nom){alert('Référence et désignation obligatoires.');return;}
@@ -3538,10 +3323,6 @@ function savePiece(){
 }
 async function deletePiece(id){
   if(getUserRole()!=='admin'){alert('❌ Seul l\'administrateur peut supprimer des pièces détachées.');return;}
-  // Si la pièce n'est pas encore dans le cache local, on recharge d'abord
-  if(!(state[currentCompany].pieces||[]).find(p=>p.id===id||p.ref===id)){
-    await loadFromSupabase();
-  }
   const confirmed=await customConfirm('Supprimer cette pièce ? Cette action est irréversible.');
   if(!confirmed) return;
   const piece=state[currentCompany].pieces.find(p=>p.id===id||p.ref===id);
@@ -5356,8 +5137,6 @@ function applyPageRole(page){
 
   // Pages où la création (+ Nouveau) a un sens et où Technicien peut créer
   const createPages = ['materiels','maintenance','pieces','stock','fournisseurs','commandes','transport','calendrier'];
-  // Pages où seul l'admin peut créer (matériels et pièces)
-  const adminOnlyCreatePages = ['materiels','pieces'];
 
   // Bouton + Nouveau
   if(topbarNew){
@@ -5368,8 +5147,7 @@ function applyPageRole(page){
       // Création uniquement dans le calendrier (réservations matériels)
       topbarNew.style.display = (page==='calendrier') ? '' : 'none';
     } else if(role==='technicien'){
-      // Technicien : peut créer partout sauf matériels et pièces (admin uniquement)
-      topbarNew.style.display = (createPages.includes(page) && !adminOnlyCreatePages.includes(page)) ? '' : 'none';
+      topbarNew.style.display = createPages.includes(page) ? '' : 'none';
     } else {
       // Admin : accès complet
       topbarNew.style.display = ['parametres','couts','rapports','utilisateurs'].includes(page)?'none':'';
@@ -6488,96 +6266,7 @@ function renderArchivesOTSection(){
     html+='</tbody></table>';
   });
   el.innerHTML=html;
-  renderCRTable();
 }
-
-function renderCRTable(){
-  const tbody=document.getElementById('cr-list-tbody');
-  if(!tbody) return;
-  const ots=(state[currentCompany].ots||[])
-    .filter(o=>o.statut==='termine')
-    .sort((a,b)=>{
-      const na=parseInt((a.num||'').replace(/\D/g,''))||0;
-      const nb=parseInt((b.num||'').replace(/\D/g,''))||0;
-      return nb-na;
-    });
-  if(!ots.length){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3)">Aucun OT terminé</td></tr>';
-    return;
-  }
-  tbody.innerHTML=ots.map(o=>`
-    <tr>
-      <td><strong style="color:var(--company-color)">${o.num}</strong></td>
-      <td>${o.mat||'—'}</td>
-      <td style="font-size:12px">${o.type||'—'}</td>
-      <td>${o.tech||'—'}</td>
-      <td>${o.dateFin?new Date(o.dateFin).toLocaleDateString('fr-FR'):o.date?new Date(o.date).toLocaleDateString('fr-FR'):'—'}</td>
-      <td style="font-size:12px">${o.horametre?o.horametre+' h':'—'}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-sm btn-edit" onclick="regenererCRPDF('${(o.id||o.num).replace(/'/g,"\\'")}')">📄 PDF</button>
-        <button class="btn btn-sm" onclick="openCompteRenduDepuisOT('${(o.id||o.num).replace(/'/g,"\\'")}')  " style="margin-left:4px" title="Modifier le compte rendu">✏️</button>
-      </td>
-    </tr>`).join('');
-}
-
-function regenererCRPDF(otId){
-  const o=(state[currentCompany].ots||[]).find(x=>x.id===otId||x.num===otId);
-  if(!o){alert('OT introuvable.');return;}
-  _crCurrentOT=o;
-  _crPiecesExtra=[];
-  // Simuler les champs du formulaire pour exportCRPDF
-  const tmpFields={
-    'cr-date-fin':o.dateFin||o.date||'',
-    'cr-technicien':o.tech||'',
-    'cr-horametre':o.horametre||'',
-    'cr-duree-reelle':o.dureeReelle||'',
-    'cr-observations':o.observations||o.desc||'',
-    'cr-prochaine-date':o.prochaineMaint||'',
-    'cr-prochaine-heure':o.prochaineHeure||''
-  };
-  Object.entries(tmpFields).forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.value=v;});
-  const mouvements=state[currentCompany].mouvements||[];
-  const piecesLiees=mouvements.filter(m=>{
-    const motif=(m.motif||'').toLowerCase();
-    const otLie=(m.otLie||'').toLowerCase();
-    return m.type==='out'&&(otLie===o.num.toLowerCase()||motif.includes(o.num.toLowerCase()));
-  });
-  renderCRPiecesTable(piecesLiees);
-  setTimeout(()=>exportCRPDF(),100);
-}
-
-function openCompteRenduDepuisOT(otId){
-  const o=(state[currentCompany].ots||[]).find(x=>x.id===otId||x.num===otId);
-  if(!o){alert('OT introuvable.');return;}
-  _crCurrentOT=o;
-  _crPiecesExtra=[];
-  const coInfo=COMPANIES[currentCompany];
-  const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
-  document.getElementById('cr-ot-header').innerHTML=`
-    <div><div style="font-size:11px;color:var(--text3)">N° OT</div><div style="font-weight:700;color:var(--company-color)">${o.num}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Matériel</div><div style="font-weight:600">${o.mat||'—'}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Type d'intervention</div><div>${o.type||'—'}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Statut</div><div><span class="badge badge-${sm.css}">${sm.label}</span></div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Entreprise</div><div>${coInfo.name}</div></div>
-    <div><div style="font-size:11px;color:var(--text3)">Durée estimée</div><div>${o.dur||'—'}</div></div>
-  `;
-  document.getElementById('cr-date-fin').value=o.dateFin||o.date||'';
-  document.getElementById('cr-technicien').value=o.tech||'';
-  document.getElementById('cr-horametre').value=o.horametre||'';
-  document.getElementById('cr-duree-reelle').value=o.dureeReelle||'';
-  document.getElementById('cr-observations').value=o.observations||o.desc||'';
-  document.getElementById('cr-prochaine-date').value=o.prochaineMaint||'';
-  document.getElementById('cr-prochaine-heure').value=o.prochaineHeure||'';
-  const mouvements=state[currentCompany].mouvements||[];
-  const piecesLiees=mouvements.filter(m=>{
-    const motif=(m.motif||'').toLowerCase();
-    const otLie=(m.otLie||'').toLowerCase();
-    return m.type==='out'&&(otLie===o.num.toLowerCase()||motif.includes(o.num.toLowerCase()));
-  });
-  renderCRPiecesTable(piecesLiees);
-  document.getElementById('modal-cr-maintenance').classList.add('open');
-}
-
 function printArchivedOT(key){
   const archives=getArchivesOT(currentCompany);
   const a=archives[key];
@@ -7027,164 +6716,38 @@ document.addEventListener('DOMContentLoaded', ()=>{
 /* ── IMPORT PDF BDC ─────────────────────────────────────── */
 function openImportBDCPDF(){
   const r=getUserRole();
-  if(r==='visiteur'||r==='responsable'||r==='comptabilite'){alert('Accès refusé.');return;}
+  if(r==='visiteur'||r==='responsable'){alert('Acc\u00e8s refus\u00e9.');return;}
   document.getElementById('pdf-bdc-file').value='';
   document.getElementById('pdf-bdc-status').textContent='';
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-raw').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
-  document.getElementById('pdf-articles-ia').style.display='none';
-  document.getElementById('pdf-import-stock-btn').style.display='none';
-  window._pdfCanImportStock=(r==='admin');
   document.getElementById('modal-import-pdf-bdc').classList.add('open');
 }
 function togglePDFRaw(){
   var el=document.getElementById('pdf-bdc-raw');
   el.style.display=el.style.display==='none'?'':'none';
 }
-
-/* ── EXTRACTION IA DES ARTICLES PDF ─────────────────────── */
-let _pdfArticlesIA=[];
-
-async function extractArticlesViaIA(pdfText){
-  const statusEl=document.getElementById('pdf-bdc-status');
-  statusEl.textContent='🤖 Analyse IA des articles en cours...';
-  try{
-    const session=await SB.auth.getSession();
-    const token=session?.data?.session?.access_token;
-    const resp=await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/extract-articles',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization':`Bearer ${token}`,
-        'apikey':localStorage.getItem('sb_key')||'sb_publishable_FQbh4RjyoRgHeT0AcpivRA_mpnxf4f6',
-      },
-      body:JSON.stringify({pdfText})
-    });
-    const data=await resp.json();
-    if(!resp.ok||data.error) throw new Error(data.error||'Erreur serveur');
-    _pdfArticlesIA=data.articles||[];
-    renderPDFArticlesTable();
-    statusEl.textContent=`✅ ${_pdfArticlesIA.length} article(s) reconnu(s) par l'IA`;
-  }catch(e){
-    statusEl.textContent='⚠️ Extraction IA échouée — vérifiez le texte brut';
-    console.warn('[extractArticlesViaIA]',e);
-    _pdfArticlesIA=[];
-  }
-}
-
-function renderPDFArticlesTable(){
-  const tbody=document.getElementById('pdf-articles-tbody');
-  if(!tbody) return;
-  const pieces=state[currentCompany].pieces||[];
-  const mats=state[currentCompany].materiels||[];
-  if(!_pdfArticlesIA.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--text3)">Aucun article détecté</td></tr>';return;}
-  tbody.innerHTML=_pdfArticlesIA.map((a,i)=>{
-    const ref=a.ref||'';
-    const existP=pieces.find(p=>p.ref&&p.ref.toLowerCase()===ref.toLowerCase());
-    const existM=mats.find(m=>m.code&&m.code.toLowerCase()===ref.toLowerCase());
-    const inStock=existP?`<span style="color:var(--teal);font-size:11px">📦 Stock: ${existP.stock} (pièce)</span>`
-      :existM?`<span style="color:var(--blue);font-size:11px">🔧 Matériel existant</span>`
-      :`<span style="color:var(--text3);font-size:11px">Nouveau</span>`;
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 8px"><input type="checkbox" class="pdf-art-cb" data-idx="${i}" checked></td>
-      <td style="padding:6px 8px"><input value="${(ref).replace(/"/g,'&quot;')}" oninput="_pdfArticlesIA[${i}].ref=this.value" style="width:90px;font-size:12px"></td>
-      <td style="padding:6px 8px"><input value="${(a.designation||'').replace(/"/g,'&quot;')}" oninput="_pdfArticlesIA[${i}].designation=this.value" style="width:180px;font-size:12px"></td>
-      <td style="padding:6px 8px;text-align:center"><input type="number" value="${a.qte||1}" min="1" oninput="_pdfArticlesIA[${i}].qte=+this.value" style="width:55px;font-size:12px;text-align:center"></td>
-      <td style="padding:6px 8px;text-align:right"><input type="number" value="${a.pu||''}" step="0.01" oninput="_pdfArticlesIA[${i}].pu=+this.value" style="width:70px;font-size:12px;text-align:right"></td>
-      <td style="padding:6px 8px">${inStock}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('pdf-articles-ia').style.display='';
-  if(window._pdfCanImportStock) document.getElementById('pdf-import-stock-btn').style.display='';
-}
-
-function toggleAllPDFArticles(cb){
-  document.querySelectorAll('.pdf-art-cb').forEach(c=>{c.checked=cb.checked;});
-}
-
-async function importArticlesVersStock(){
-  if(getUserRole()!=='admin'){alert('❌ Seul un administrateur peut importer des articles dans le stock.');return;}
-  const target=document.getElementById('pdf-import-target').value;
-  const checked=[...document.querySelectorAll('.pdf-art-cb:checked')].map(cb=>+cb.dataset.idx);
-  const articles=checked.map(i=>_pdfArticlesIA[i]).filter(Boolean);
-  if(!articles.length){alert('Sélectionnez au moins un article à importer.');return;}
-  const pieces=state[currentCompany].pieces||[];
-  const mats=state[currentCompany].materiels||[];
-  let nbNew=0,nbMaj=0;
-  if(target==='pieces'){
-    for(const a of articles){
-      const ref=a.ref||('REF-'+Date.now());
-      const idx=pieces.findIndex(p=>p.ref&&p.ref.toLowerCase()===(a.ref||'').toLowerCase());
-      if(idx>=0){
-        pieces[idx].stock=(parseInt(pieces[idx].stock)||0)+(a.qte||1);
-        if(a.pu) pieces[idx].prix=a.pu.toFixed(2)+' €';
-        if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:pieces[idx].id,entreprise_id:currentCompany,ref:pieces[idx].ref,nom:pieces[idx].nom,stock:pieces[idx].stock,prix:pieces[idx].prix,seuil:pieces[idx].seuil,compat:pieces[idx].compat,notes:pieces[idx].notes,fournisseur:pieces[idx].fourn||null});
-        nbMaj++;
-      }else{
-        const np={id:ref,ref,nom:a.designation||ref,stock:a.qte||1,seuil:0,prix:a.pu?(a.pu.toFixed(2)+' €'):'—',compat:'',notes:'',fourn:'',st:'ok'};
-        pieces.push(np);
-        if(SB&&SB_MODE==='online') await saveToSupabase('pieces',{id:np.id,entreprise_id:currentCompany,ref:np.ref,nom:np.nom,stock:np.stock,seuil:0,prix:np.prix,compat:'',notes:'',fournisseur:null});
-        nbNew++;
-      }
-    }
-  }else{
-    for(const a of articles){
-      const code=a.ref||('MAT-'+Date.now());
-      const idx=mats.findIndex(m=>m.code&&m.code.toLowerCase()===(a.ref||'').toLowerCase());
-      if(idx>=0){nbMaj++;}
-      else{
-        const nm={id:code,code,nom:a.designation||code,famille:'',statut:'ok',fourn:'',serie:'',maint:'',cout:a.pu?(a.pu.toFixed(2)+' €'):'—',prixAchat:a.pu?(a.pu.toFixed(2)+' €'):'—',notes:'',dateMS:new Date().toISOString().split('T')[0]};
-        mats.push(nm);
-        if(SB&&SB_MODE==='online') await saveToSupabase('materiels',{id:nm.id,entreprise_id:currentCompany,code:nm.code,nom:nm.nom,famille_id:'',serie:'',statut_id:'ok',maint:'',cout:nm.cout,date_ms:nm.dateMS,notes:'',fournisseur:null,prix_achat:nm.prixAchat,date_achat:null});
-        nbNew++;
-      }
-    }
-  }
-  saveToStorage();
-  renderAll();
-  closeModal('modal-import-pdf-bdc');
-  alert(`✅ Import terminé !\n${nbNew} nouveau(x) article(s) créé(s)\n${nbMaj} article(s) mis à jour`);
-}
-
-
 var pdf_numPages_last=1;
 async function extractPDFBDC(input){
   var file=input.files[0];if(!file)return;
   document.getElementById('pdf-bdc-status').textContent='Lecture du PDF en cours...';
   document.getElementById('pdf-bdc-fields').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
-  document.getElementById('pdf-articles-ia').style.display='none';
-  if(typeof pdfjsLib==='undefined'){document.getElementById('pdf-bdc-status').textContent='\u274c PDF.js non chargé.';return;}
+  if(typeof pdfjsLib==='undefined'){document.getElementById('pdf-bdc-status').textContent='\u274c PDF.js non charg\u00e9.';return;}
   try{
     var ab=await file.arrayBuffer();
     var pdf=await pdfjsLib.getDocument({data:ab}).promise;
     pdf_numPages_last=pdf.numPages;
+    var LF=String.fromCharCode(10);
     var fullText='';
     for(var i=1;i<=pdf.numPages;i++){
       var page=await pdf.getPage(i);
       var ct=await page.getTextContent();
-      // Reconstruction positionnelle : regroupe les items par ligne (position Y)
-      var items=ct.items.filter(function(s){return s.str.trim();});
-      items.sort(function(a,b){
-        var dy=Math.round(b.transform[5]/5)*5-Math.round(a.transform[5]/5)*5;
-        return dy!==0?dy:a.transform[4]-b.transform[4];
-      });
-      var lines=[],lastY=null,curLine=[];
-      items.forEach(function(s){
-        var y=Math.round(s.transform[5]/5)*5;
-        if(lastY===null||Math.abs(y-lastY)>3){
-          if(curLine.length)lines.push(curLine.join(' '));
-          curLine=[s.str];lastY=y;
-        }else{curLine.push(s.str);}
-      });
-      if(curLine.length)lines.push(curLine.join(' '));
-      fullText+=lines.join('\n')+'\n';
+      fullText+=ct.items.map(function(s){return s.str;}).join(' ')+LF;
     }
     document.getElementById('pdf-bdc-raw-text').textContent=fullText;
     parsePDFText(fullText);
-    // Extraction IA des articles
-    await extractArticlesViaIA(fullText);
   }catch(e){document.getElementById('pdf-bdc-status').textContent='\u274c Erreur: '+e.message;}
 }
 function parsePDFText(text){
