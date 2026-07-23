@@ -3232,8 +3232,7 @@ async function loadBDCPdf(input){
     for(let i=1;i<=pdf.numPages;i++){
       const page = await pdf.getPage(i);
       const ct = await page.getTextContent();
-      fullText += ct.items.map(s=>s.str).join(' ') + '
-';
+      fullText += ct.items.map(s=>s.str).join(' ') + '\n';
     }
     window._bdcRawText = fullText;
     // Pré-remplir fournisseur/date/montant depuis le PDF (réutilise parsePDFText)
