@@ -694,6 +694,30 @@ textarea{resize:vertical;min-height:80px;}
         <div class="card-header"><strong>Répartition des coûts par matériel</strong></div>
         <div class="card-body"><table><thead><tr><th>Matériel</th><th>OT réalisés</th><th>Main d'œuvre</th><th>Pièces consommées</th><th>Total calculé</th><th>% du total</th></tr></thead><tbody id="cout-tbody"></tbody></table></div>
       </div>
+      <!-- Tableau détail OT -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+          <strong>Détail coûts par ordre de travail</strong>
+          <span style="font-size:12px;color:var(--text3)">Filtre statut : <select id="cout-ot-statut-filter" onchange="renderCouts(COMPANIES[currentCompany])" style="font-size:12px;padding:2px 6px;border-radius:4px;border:1px solid var(--border)"><option value="">Tous</option><option value="termine" selected>Terminés</option><option value="encours">En cours</option><option value="planifie">Planifiés</option></select></span>
+        </div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr style="background:var(--surface2)">
+              <th style="padding:9px 12px;text-align:left">N° OT</th>
+              <th style="padding:9px 12px;text-align:left">Matériel</th>
+              <th style="padding:9px 12px;text-align:left">Type</th>
+              <th style="padding:9px 12px;text-align:left">Technicien</th>
+              <th style="padding:9px 12px;text-align:center">Durée (h)</th>
+              <th style="padding:9px 12px;text-align:right">Coût MO</th>
+              <th style="padding:9px 12px;text-align:left">Pièces utilisées</th>
+              <th style="padding:9px 12px;text-align:right">Coût pièces</th>
+              <th style="padding:9px 12px;text-align:right">Total</th>
+            </tr></thead>
+            <tbody id="cout-ot-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
         <div class="card">
           <div class="card-header"><strong>Répartition par type d'intervention</strong></div>
@@ -4649,6 +4673,58 @@ function renderCouts(co){
       tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">
         Aucun coût calculé — créez des OT terminés et des mouvements de stock pour voir les coûts apparaître.
       </td></tr>`;
+    }
+  }
+
+  // ── Tableau détail par OT ────────────────────────────────────
+  const otStatutFilter=document.getElementById('cout-ot-statut-filter')?.value||'termine';
+  const otBodyEl=document.getElementById('cout-ot-tbody');
+  if(otBodyEl){
+    const otsFiltered=ots.filter(o=>otStatutFilter===''||o.statut===otStatutFilter);
+    const otRows=otsFiltered.map(o=>{
+      const h=parseDuree(o.dur);
+      const coutMO=h*tauxMO;
+      const mvtsOT=mvts.filter(m=>m.type==='out'&&(
+        (m.otLie&&(m.otLie===o.num||m.otLie.includes(o.num)))||
+        (!m.otLie&&m.motif&&(m.motif===o.num||m.motif.includes(o.num)))
+      ));
+      let coutPieces=0;
+      const piecesList=mvtsOT.map(m=>{
+        const p=pieces.find(x=>x.ref===m.ref);
+        const prix=parsePrix(p?.prix);
+        const qte=Math.abs(parseInt(m.qte)||0);
+        coutPieces+=prix*qte;
+        return m.ref+(qte>1?'×'+qte:'');
+      });
+      const total=coutMO+coutPieces;
+      const sm=OT_STATUT_MAP[o.statut]||{label:o.statut,css:'info'};
+      return {o,h,coutMO,piecesList,coutPieces,total,sm};
+    }).sort((a,b)=>(b.o.date||'').localeCompare(a.o.date||'')||b.o.num.localeCompare(a.o.num));
+    const totalMO=otRows.reduce((s,r)=>s+r.coutMO,0);
+    const totalPieces=otRows.reduce((s,r)=>s+r.coutPieces,0);
+    const grandTotalOT=totalMO+totalPieces;
+    if(otRows.length){
+      otBodyEl.innerHTML=otRows.map(r=>`
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 12px"><strong>${r.o.num}</strong><div style="font-size:10px;margin-top:2px">${bdg(r.sm.css,r.sm.label)}</div></td>
+          <td style="padding:8px 12px;font-size:12px">${r.o.mat}</td>
+          <td style="padding:8px 12px;font-size:12px">${r.o.type||'—'}</td>
+          <td style="padding:8px 12px;font-size:12px">${r.o.tech||'—'}</td>
+          <td style="padding:8px 12px;text-align:center;font-size:12px">${r.h>0?r.h.toFixed(1)+'h':'—'}</td>
+          <td style="padding:8px 12px;text-align:right;font-size:12px">${r.coutMO>0?fmtEur(r.coutMO):'—'}</td>
+          <td style="padding:8px 12px;font-size:11px;color:var(--text2);max-width:200px">${r.piecesList.length?r.piecesList.join(', '):'<span style="color:var(--text3)">—</span>'}</td>
+          <td style="padding:8px 12px;text-align:right;font-size:12px">${r.coutPieces>0?fmtEur(r.coutPieces):'—'}</td>
+          <td style="padding:8px 12px;text-align:right"><strong>${r.total>0?fmtEur(r.total):'—'}</strong></td>
+        </tr>`).join('')+`
+        <tr style="background:var(--surface2);font-weight:600">
+          <td colspan="5" style="padding:9px 12px">${otRows.length} OT</td>
+          <td style="padding:9px 12px;text-align:right">${fmtEur(totalMO)}</td>
+          <td></td>
+          <td style="padding:9px 12px;text-align:right">${fmtEur(totalPieces)}</td>
+          <td style="padding:9px 12px;text-align:right">${fmtEur(grandTotalOT)}</td>
+        </tr>`;
+    } else {
+      otBodyEl.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Aucun OT ${otStatutFilter==='termine'?'terminé':otStatutFilter==='encours'?'en cours':'planifié'} pour la période sélectionnée.</td></tr>`;
     }
   }
 
