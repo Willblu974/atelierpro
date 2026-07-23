@@ -3372,14 +3372,24 @@ function importBDCArticles(){
   const idxs=checks.map(cb=>+cb.id.replace('bdc-art-chk-',''));
   const selected=idxs.map(i=>window._bdcAIItems[i]);
   let imported=0;
+  const bdcNum=document.getElementById('bdc-f-num')?.value||document.getElementById('pdf-f-fourn')?.value||'BDC';
   if(dest==='pieces'){
     ensurePieceState(COMPANIES[currentCompany]);
     const pieces=state[currentCompany].pieces;
     selected.forEach(item=>{
       const ref=(item.ref||'').trim()||'REF-'+Date.now();
+      const qte=parseInt(item.qte)||1;
       const ex=pieces.findIndex(p=>p.ref===ref||p.id===ref);
-      if(ex>=0){ pieces[ex].stock=(parseInt(pieces[ex].stock)||0)+(parseInt(item.qte)||1); }
-      else { pieces.push({id:ref,ref,nom:item.nom||'—',compat:'',fourn:document.getElementById('bdc-f-fourn').value||'—',prix:item.prix_unit||0,stock:parseInt(item.qte)||1,seuil:2,notes:item.notes||'',st:'ok'}); }
+      if(ex>=0){
+        const newStock=(parseInt(pieces[ex].stock)||0)+qte;
+        pieces[ex].stock=newStock;
+        pieces[ex].st=newStock===0?'alert':newStock<=pieces[ex].seuil?'warn':'ok';
+        pushMouvement(ref,pieces[ex].nom,'in',qte,'BDC '+bdcNum,newStock);
+      } else {
+        const newStock=qte;
+        pieces.push({id:ref,ref,nom:item.nom||'—',compat:'',fourn:document.getElementById('bdc-f-fourn')?.value||'—',prix:item.prix_unit||0,stock:newStock,seuil:2,notes:item.notes||'',st:'ok'});
+        pushMouvement(ref,item.nom||'—','in',qte,'BDC '+bdcNum,newStock);
+      }
       imported++;
     });
     saveToStorage();
@@ -3508,6 +3518,11 @@ function savePiece(){
   } else {
     if(pieces.some(p=>p.ref===ref)){alert('Cette référence existe déjà.');return;}
     pieces.push(rec);
+    // Mouvement d'entrée pour le stock initial
+    if(stock>0){
+      const bdcCtx=window._currentBDCNum?'BDC '+window._currentBDCNum:'Création pièce';
+      pushMouvement(ref,nom,'in',stock,bdcCtx,stock);
+    }
   }
   saveToStorage(); closeModal('modal-piece'); renderPieces(COMPANIES[currentCompany]);
 }
@@ -3949,6 +3964,22 @@ function openMvtModal(ref){
   otSel.innerHTML='<option value="">— Aucun —</option>'+(state[currentCompany].ots||[]).filter(o=>o.statut!=='termine').map(o=>`<option value="${o.num}">${o.num} — ${o.mat.split(' ')[0]}</option>`).join('');
   document.getElementById('modal-mvt').classList.add('open');
 }
+/* Helper : enregistre un mouvement de stock sans passer par le modal */
+function pushMouvement(ref, nom, type, qteNum, motif, stockApres){
+  if(!state[currentCompany].mouvements) state[currentCompany].mouvements=[];
+  const d=new Date();
+  const qteStr=type==='in'?'+'+qteNum:type==='out'?'-'+qteNum:'='+qteNum;
+  state[currentCompany].mouvements.unshift({
+    date:d.toLocaleDateString('fr-FR'),
+    isoDate:d.toISOString().slice(0,10),
+    ref, nom, type,
+    qte:qteStr,
+    motif:motif||'',
+    apres:String(stockApres??''),
+    utilisateur:SB_PROFILE?.nom||'Local'
+  });
+}
+
 function saveMvt(){
   const qte=parseInt(document.getElementById('mvt-f-qte').value);
   if(!qte||qte<=0){alert('Quantité invalide.');return;}
@@ -7111,23 +7142,30 @@ function importAIPieces(){
   const idxs=checks.map(cb=>+cb.dataset.idx);
   const selected=idxs.map(i=>_aiScanItems[i]);
   let imported=0;
+  const bdcNumAI=document.getElementById('bdc-f-num')?.value||document.getElementById('pdf-f-fourn')?.value||'';
+  const motifAI=bdcNumAI?'BDC '+bdcNumAI:'Import PDF';
   if(_aiScanDest==='pieces'){
     ensurePieceState(COMPANIES[currentCompany]);
     const pieces=state[currentCompany].pieces;
     selected.forEach(item=>{
-      const ref=(item.ref||''). trim()||'REF-'+Date.now();
+      const ref=(item.ref||'').trim()||'REF-'+Date.now();
+      const qte=parseInt(item.qte)||1;
       const existing=pieces.findIndex(p=>p.ref===ref||p.id===ref);
       if(existing>=0){
-        // Augmenter le stock existant
-        pieces[existing].stock=(parseInt(pieces[existing].stock)||0)+(parseInt(item.qte)||1);
+        const newStock=(parseInt(pieces[existing].stock)||0)+qte;
+        pieces[existing].stock=newStock;
+        pieces[existing].st=newStock===0?'alert':newStock<=pieces[existing].seuil?'warn':'ok';
+        pushMouvement(ref,pieces[existing].nom,'in',qte,motifAI,newStock);
       } else {
+        const newStock=qte;
         pieces.push({
           id:ref, ref, nom:item.nom||'—',
           compat:'', fourn:document.getElementById('pdf-f-fourn')?.value||'—',
-          prix:item.prix_unit||0, stock:parseInt(item.qte)||1,
+          prix:item.prix_unit||0, stock:newStock,
           seuil:2, notes:item.notes||'',
           st:'ok'
         });
+        pushMouvement(ref,item.nom||'—','in',qte,motifAI,newStock);
       }
       imported++;
     });
