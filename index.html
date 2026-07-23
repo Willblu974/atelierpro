@@ -1137,13 +1137,9 @@ textarea{resize:vertical;min-height:80px;}
         <div style="font-size:13px;font-weight:600;color:var(--purple);margin-bottom:8px">🤖 Analyse intelligente des pièces</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px">L'IA va identifier automatiquement les références, désignations et quantités dans le PDF et vous proposera de les importer dans le stock ou les matériels.</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <div style="flex:1;min-width:200px">
-            <div style="font-size:11px;font-weight:500;color:var(--text2);margin-bottom:4px">Clé API Anthropic</div>
-            <input type="password" id="pdf-ai-apikey" placeholder="sk-ant-..." style="width:100%;font-size:12px" oninput="saveAIKey()">
-          </div>
-          <button class="btn btn-sm" style="background:var(--purple);color:#fff;border-color:var(--purple);white-space:nowrap;margin-top:14px" onclick="launchAIScan()">🤖 Scanner avec l'IA</button>
+          <button class="btn btn-sm" style="background:var(--purple);color:#fff;border-color:var(--purple);white-space:nowrap" onclick="launchAIScan()">🤖 Scanner avec l'IA</button>
         </div>
-        <div style="font-size:10px;color:var(--text3);margin-top:6px">La clé est stockée localement. En mode fichier local, le transit passe par corsproxy.io (proxy CORS open-source).</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:6px">Nécessite une connexion Supabase. La clé API Anthropic est stockée de façon sécurisée dans votre Edge Function.</div>
       </div>
       <div id="pdf-bdc-fields" style="display:none">
         <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--teal)">✅ Données détectées — vérifiez avant d'importer</div>
@@ -6662,9 +6658,6 @@ function openImportBDCPDF(){
   document.getElementById('pdf-bdc-raw').style.display='none';
   document.getElementById('pdf-bdc-confirm').style.display='none';
   document.getElementById('pdf-ai-scan-wrap').style.display='none';
-  const savedKey=localStorage.getItem('ap_anthropic_key')||'';
-  const keyEl=document.getElementById('pdf-ai-apikey');
-  if(keyEl) keyEl.value=savedKey;
   document.getElementById('modal-import-pdf-bdc').classList.add('open');
 }
 function togglePDFRaw(){
@@ -6769,66 +6762,47 @@ let _aiScanItems = [];
 let _aiScanDest  = 'pieces';
 
 async function launchAIScan(){
-  const apiKey = document.getElementById('pdf-ai-apikey').value.trim();
-  if(!apiKey){alert('Veuillez saisir votre clé API Anthropic (sk-ant-…).');return;}
   const rawText = document.getElementById('pdf-bdc-raw-text').textContent;
   if(!rawText){alert('Aucun texte extrait. Chargez d\'abord un PDF.');return;}
-  // Ouvrir le modal résultats et afficher le statut de scan
+  if(!SB||SB_MODE!=='online'){alert('Connexion Supabase requise pour utiliser le scan IA.\nConnectez-vous à votre compte AtelierPro.');return;}
   closeModal('modal-import-pdf-bdc');
   document.getElementById('ai-pieces-tbody').innerHTML='';
   document.getElementById('ai-import-summary').textContent='';
-  document.getElementById('ai-scan-status').style.display='';
+  const statusEl=document.getElementById('ai-scan-status');
+  statusEl.style.display='';
+  statusEl.style.color='var(--text3)';
+  statusEl.textContent='⏳ Analyse IA en cours…';
   document.getElementById('modal-ai-pieces').classList.add('open');
   _aiScanItems=[];
   _aiScanDest='pieces';
   document.querySelector('input[name="ai-dest"][value="pieces"]').checked=true;
   onAIDestChange({value:'pieces'});
   try{
-    const prompt=`Tu es un expert en gestion de stock industriel. Analyse ce bon de commande et extrais TOUS les articles/pièces.
-Retourne UNIQUEMENT un JSON valide (tableau), sans texte autour, avec cette structure exacte :
-[{"ref":"CODE_ARTICLE","nom":"DÉSIGNATION COMPLÈTE","qte":NOMBRE,"prix_unit":NOMBRE_OU_0,"notes":"info utile ou vide"}]
-Règles :
-- ref = code article, référence fabricant ou numéro de pièce (chaîne de caractères)
-- nom = désignation/description complète de la pièce
-- qte = quantité commandée (nombre entier, 1 si non trouvé)
-- prix_unit = prix unitaire HT en euros (0 si non trouvé)
-- notes = famille, marque, ou tout autre info pertinente (vide si rien)
-- Si une ligne n'est pas une pièce/article (ex: frais de port, remise), ne l'inclus pas.
-Texte du document :
-${rawText.substring(0,12000)}`;
-    // Proxy CORS nécessaire quand l'app est ouverte en file://
-    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost';
-    const anthropicURL = 'https://api.anthropic.com/v1/messages';
-    const fetchURL = isLocal ? 'https://corsproxy.io/?' + encodeURIComponent(anthropicURL) : anthropicURL;
-    const fetchHeaders = isLocal
-      ? { 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-allow-browser':'true' }
-      : { 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-allow-browser':'true' };
-    const resp = await fetch(fetchURL,{
-      method:'POST',
-      headers: fetchHeaders,
-      body:JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:4096,
-        messages:[{role:'user',content:prompt}]
-      })
+    const {data:{session}}=await SB.auth.getSession();
+    if(!session?.access_token) throw new Error('Session expirée, veuillez vous reconnecter.');
+    const {data,error}=await SB.functions.invoke('extract-articles',{
+      body:{pdfText:rawText.substring(0,8000)},
+      headers:{Authorization:'Bearer '+session.access_token}
     });
-    if(!resp.ok){const err=await resp.text();throw new Error('API Anthropic: '+resp.status+' '+err.substring(0,200));}
-    const data=await resp.json();
-    const raw=data.content?.[0]?.text||'';
-    // Extraire le JSON (au cas où il y aurait du texte autour)
-    const jsonMatch=raw.match(/\[\s*\{[\s\S]*\}\s*\]/);
-    if(!jsonMatch)throw new Error('Réponse IA invalide : '+raw.substring(0,300));
-    _aiScanItems=JSON.parse(jsonMatch[0]);
-    if(!Array.isArray(_aiScanItems)||!_aiScanItems.length)throw new Error('Aucun article trouvé dans le PDF.');
+    if(error) throw new Error(error.message||JSON.stringify(error));
+    if(!data?.ok) throw new Error(data?.error||'Erreur Edge Function');
+    const articles=data.articles||[];
+    if(!articles.length) throw new Error('Aucun article trouvé dans le PDF.');
+    _aiScanItems=articles.map(a=>({
+      ref:   a.ref||'',
+      nom:   a.designation||a.nom||'—',
+      qte:   a.qte||1,
+      prix_unit: a.pu||a.prix_unit||0,
+      notes: a.notes||''
+    }));
     renderAIScanTable();
-    document.getElementById('ai-scan-status').style.display='none';
+    statusEl.style.display='none';
     showToast('✅ '+_aiScanItems.length+' article(s) détecté(s) par l\'IA','ok');
   }catch(e){
-    document.getElementById('ai-scan-status').textContent='❌ Erreur : '+e.message;
-    document.getElementById('ai-scan-status').style.color='var(--red)';
+    statusEl.textContent='❌ Erreur : '+e.message;
+    statusEl.style.color='var(--red)';
   }
 }
-
 function renderAIScanTable(){
   const isPieces=_aiScanDest==='pieces';
   document.getElementById('ai-col-prix').style.display=isPieces?'':' none';
