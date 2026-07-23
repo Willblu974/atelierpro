@@ -1143,7 +1143,7 @@ textarea{resize:vertical;min-height:80px;}
           </div>
           <button class="btn btn-sm" style="background:var(--purple);color:#fff;border-color:var(--purple);white-space:nowrap;margin-top:14px" onclick="launchAIScan()">🤖 Scanner avec l'IA</button>
         </div>
-        <div style="font-size:10px;color:var(--text3);margin-top:6px">La clé est stockée localement et n'est jamais envoyée ailleurs qu'à api.anthropic.com</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:6px">La clé est stockée localement. En mode fichier local, le transit passe par corsproxy.io (proxy CORS open-source).</div>
       </div>
       <div id="pdf-bdc-fields" style="display:none">
         <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--teal)">✅ Données détectées — vérifiez avant d'importer</div>
@@ -6796,14 +6796,16 @@ Règles :
 - Si une ligne n'est pas une pièce/article (ex: frais de port, remise), ne l'inclus pas.
 Texte du document :
 ${rawText.substring(0,12000)}`;
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+    // Proxy CORS nécessaire quand l'app est ouverte en file://
+    const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost';
+    const anthropicURL = 'https://api.anthropic.com/v1/messages';
+    const fetchURL = isLocal ? 'https://corsproxy.io/?' + encodeURIComponent(anthropicURL) : anthropicURL;
+    const fetchHeaders = isLocal
+      ? { 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-allow-browser':'true' }
+      : { 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-allow-browser':'true' };
+    const resp = await fetch(fetchURL,{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-allow-browser':'true'
-      },
+      headers: fetchHeaders,
       body:JSON.stringify({
         model:'claude-haiku-4-5-20251001',
         max_tokens:4096,
