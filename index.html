@@ -853,13 +853,11 @@ textarea{resize:vertical;min-height:80px;}
 
 <!-- PAGE UTILISATEURS -->
 <div class="page" id="page-utilisateurs">
-  <div style="max-width:1100px;margin:0 auto">
   <div class="section-header">
     <div class="section-title">👥 Gestion des utilisateurs</div>
     <button class="btn btn-primary btn-sm btn-edit" onclick="openModalInvitation()">+ Générer un code d'invitation</button>
   </div>
 
-  <!-- Stats -->
   <div class="stat-row" id="user-stats-row">
     <div class="stat-mini"><div class="stat-mini-val" id="user-total-kpi" style="color:var(--teal)">—</div><div class="stat-mini-lbl">Total utilisateurs</div></div>
     <div class="stat-mini"><div class="stat-mini-val" id="user-admin-kpi" style="color:var(--purple)">—</div><div class="stat-mini-lbl">Admins</div></div>
@@ -867,10 +865,8 @@ textarea{resize:vertical;min-height:80px;}
     <div class="stat-mini"><div class="stat-mini-val" id="user-tech-kpi" style="color:var(--green)">—</div><div class="stat-mini-lbl">Techniciens</div></div>
   </div>
 
-  <!-- Tableaux côte à côte sous la barre stats -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px;align-items:start">
 
-    <!-- Gauche : utilisateurs -->
     <div>
       <div class="section-header" style="margin-bottom:10px">
         <div class="section-title">Comptes utilisateurs</div>
@@ -879,16 +875,13 @@ textarea{resize:vertical;min-height:80px;}
       <div class="card">
         <div class="card-body" style="overflow-x:auto;padding:0">
           <table>
-            <thead><tr>
-              <th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th>
-            </tr></thead>
+            <thead><tr><th>Nom</th><th>Email</th><th>Entreprise</th><th>Rôle</th><th>Créé le</th><th></th></tr></thead>
             <tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- Droite : codes d'invitation -->
     <div>
       <div class="section-header" style="margin-bottom:10px">
         <div class="section-title">🎟 Codes d'invitation</div>
@@ -897,16 +890,13 @@ textarea{resize:vertical;min-height:80px;}
       <div class="card">
         <div class="card-body" style="overflow-x:auto;padding:0;max-height:70vh;overflow-y:auto">
           <table>
-            <thead><tr>
-              <th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th></th>
-            </tr></thead>
+            <thead><tr><th>Code</th><th>Rôle</th><th>Entreprise</th><th>Statut</th><th></th></tr></thead>
             <tbody id="codes-tbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
           </table>
         </div>
       </div>
     </div>
 
-  </div>
   </div>
 </div>
 
