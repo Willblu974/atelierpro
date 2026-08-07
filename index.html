@@ -1039,9 +1039,19 @@ textarea{resize:vertical;min-height:80px;}
     </div>
     <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px" id="ot-detail-grid"></div>
     <div style="padding:0 20px 20px" id="ot-detail-desc"></div>
+    <!-- Section pièces jointes PDF -->
+    <div style="padding:0 20px 16px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">📎 Fiches de travail (PDF)</div>
+      <div id="ot-pdf-list" style="margin-bottom:8px;display:flex;flex-direction:column;gap:6px"></div>
+      <label class="btn btn-sm btn-edit" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+        📥 Importer un PDF
+        <input type="file" accept=".pdf" style="display:none" onchange="importOTPDF(this)">
+      </label>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-danger btn-sm" id="ot-detail-delete-btn">🗑 Supprimer</button>
       <div style="flex:1"></div>
+      <button class="btn btn-sm btn-edit" id="ot-detail-cr-btn" onclick="openCompteRenduOT()">📋 Compte rendu</button>
       <button class="btn" onclick="closeModal('modal-ot-detail')">Fermer</button>
       <button class="btn btn-primary btn-edit" id="ot-detail-edit-btn">✏️ Modifier</button>
     </div>
@@ -3200,7 +3210,7 @@ async function deleteOT(id){
   closeModal('modal-ot-detail');
   renderMaintenance(COMPANIES[currentCompany],state[currentCompany]);
 }
-function openOTDetail(id){
+async function openOTDetail(id){
   const ots=state[currentCompany].ots||[];
   const o=ots.find(x=>x.id===id);
   if(!o)return;
@@ -3220,10 +3230,92 @@ function openOTDetail(id){
   ).join('');
   document.getElementById('ot-detail-desc').innerHTML=o.desc
     ?`<div style="background:var(--surface2);border-radius:var(--radius);padding:12px 14px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Description / Travaux</div><div style="font-size:13px;white-space:pre-wrap">${o.desc}</div></div>`:'';
+  // Afficher les PDFs liés à cet OT
+  renderOTPDFList(id);
   document.getElementById('ot-detail-edit-btn').onclick=()=>openOTEdit(id);
   document.getElementById('ot-detail-delete-btn').onclick=()=>deleteOT(id);
   document.getElementById('modal-ot-detail').classList.add('open');
 }
+
+/* ── PDF LIÉS AUX OT (Supabase Storage) ────────────────────── */
+async function getOTPDFs(otId){
+  if(!SB||SB_MODE!=='online') return [];
+  try{
+    const {data,error}=await SB.from('ot_attachments')
+      .select('*').eq('entreprise_id',currentCompany).eq('ot_id',otId)
+      .order('uploaded_at',{ascending:false});
+    return error?[]:data||[];
+  }catch(e){return [];}
+}
+
+async function renderOTPDFList(otId){
+  const list=document.getElementById('ot-pdf-list');
+  if(!list)return;
+  list.innerHTML='<div style="font-size:12px;color:var(--text3)">Chargement...</div>';
+  const pdfs=await getOTPDFs(otId);
+  if(!pdfs.length){
+    list.innerHTML='<div style="font-size:12px;color:var(--text3)">Aucune fiche importée</div>';
+    return;
+  }
+  list.innerHTML=pdfs.map(p=>`
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:6px;padding:8px 12px">
+      <span style="font-size:13px">📄</span>
+      <span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.file_name}</span>
+      <span style="font-size:11px;color:var(--text3)">${new Date(p.uploaded_at).toLocaleDateString('fr-FR')}</span>
+      <button class="btn btn-sm btn-edit" onclick="viewOTPDF('${p.storage_path}','${p.file_name}')" title="Télécharger">👁</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteOTPDF('${p.id}','${p.storage_path}','${otId}')" title="Supprimer">🗑</button>
+    </div>`).join('');
+}
+
+async function importOTPDF(input){
+  const file=input.files[0]; if(!file)return;
+  if(!SB||SB_MODE!=='online'){alert('Connexion Supabase requise.');return;}
+  const otTitle=document.getElementById('ot-detail-title').textContent.split(' — ')[0];
+  const ots=state[currentCompany].ots||[];
+  const o=ots.find(x=>x.num===otTitle||x.id===otTitle);
+  if(!o){alert('OT introuvable.');return;}
+  const otId=o.id||o.num;
+  const path=`${currentCompany}/${otId}/${Date.now()}_${file.name}`;
+  const statusEl=document.getElementById('ot-pdf-list');
+  statusEl.innerHTML='<div style="font-size:12px;color:var(--text3)">⏳ Upload en cours...</div>';
+  try{
+    // Upload dans le bucket
+    const {error:upErr}=await SB.storage.from('ot-attachments').upload(path,file,{contentType:'application/pdf',upsert:false});
+    if(upErr)throw upErr;
+    // Enregistrer les métadonnées
+    const session=await SB.auth.getSession();
+    const {error:dbErr}=await SB.from('ot_attachments').insert({
+      entreprise_id:currentCompany, ot_id:otId,
+      file_name:file.name, storage_path:path,
+      uploaded_by:session?.data?.session?.user?.id||null
+    });
+    if(dbErr)throw dbErr;
+    input.value='';
+    renderOTPDFList(otId);
+  }catch(e){
+    statusEl.innerHTML=`<div style="font-size:12px;color:var(--red)">❌ Erreur : ${e.message||e}</div>`;
+  }
+}
+
+async function viewOTPDF(storagePath, fileName){
+  if(!SB||SB_MODE!=='online')return;
+  const {data,error}=await SB.storage.from('ot-attachments').createSignedUrl(storagePath,60);
+  if(error||!data?.signedUrl){alert('Impossible d\'ouvrir le fichier.');return;}
+  const a=document.createElement('a');
+  a.href=data.signedUrl;
+  a.download=fileName;
+  a.target='_blank';
+  a.click();
+}
+
+async function deleteOTPDF(attachmentId, storagePath, otId){
+  if(!confirm('Supprimer cette fiche PDF ?'))return;
+  if(!SB||SB_MODE!=='online')return;
+  await SB.storage.from('ot-attachments').remove([storagePath]);
+  await SB.from('ot_attachments').delete().eq('id',attachmentId);
+  renderOTPDFList(otId);
+}
+
 function renderHistoTable(){
   // Build histo from terminated OTs
   const ots=(state[currentCompany].ots||[]).filter(o=>o.statut==='termine');
