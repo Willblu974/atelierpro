@@ -3282,14 +3282,14 @@ async function importOTPDF(input){
     // Upload dans le bucket
     const {error:upErr}=await SB.storage.from('ot-attachments').upload(path,file,{contentType:'application/pdf',upsert:false});
     if(upErr)throw upErr;
-    // Enregistrer les métadonnées
+    // Enregistrer les métadonnées via secure-write (contourne RLS)
     const session=await SB.auth.getSession();
-    const {error:dbErr}=await SB.from('ot_attachments').insert({
+    const {error:dbErr}=await secureWrite('ot_attachments','insert',{
       entreprise_id:currentCompany, ot_id:otId,
       file_name:file.name, storage_path:path,
       uploaded_by:session?.data?.session?.user?.id||null
     });
-    if(dbErr)throw dbErr;
+    if(dbErr)throw new Error(dbErr);
     input.value='';
     renderOTPDFList(otId);
   }catch(e){
@@ -3312,7 +3312,7 @@ async function deleteOTPDF(attachmentId, storagePath, otId){
   if(!confirm('Supprimer cette fiche PDF ?'))return;
   if(!SB||SB_MODE!=='online')return;
   await SB.storage.from('ot-attachments').remove([storagePath]);
-  await SB.from('ot_attachments').delete().eq('id',attachmentId);
+  await secureWrite('ot_attachments','delete',null,attachmentId);
   renderOTPDFList(otId);
 }
 
