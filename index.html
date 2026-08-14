@@ -353,6 +353,7 @@ textarea{resize:vertical;min-height:80px;}
     <div class="nav-item" onclick="showPage('rapports',this)"><span class="nav-icon">&#128200;</span> Rapports</div>
     <div class="nav-section">Configuration</div>
     <div class="nav-item" id="nav-utilisateurs" onclick="showPage('utilisateurs',this)"><span class="nav-icon">&#128101;</span> Utilisateurs</div>
+    <div class="nav-item" id="nav-connexions" onclick="showPage('connexions',this)"><span class="nav-icon">&#128274;</span> Historique connexions</div>
     <div class="nav-item" onclick="showPage('parametres',this)"><span class="nav-icon">&#9881;&#65039;</span> Param&egrave;tres</div>
   </nav>
   <div class="sidebar-footer">AtelierPro v1.0 &middot; <span id="footer-company">BTP R&eacute;union</span></div>
@@ -912,6 +913,36 @@ textarea{resize:vertical;min-height:80px;}
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- PAGE HISTORIQUE CONNEXIONS -->
+<div class="page" id="page-connexions">
+  <div class="section-header">
+    <div class="section-title">🔒 Historique des connexions</div>
+    <button class="btn btn-sm btn-edit" onclick="loadLoginHistory()">&#8635; Rafraîchir</button>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <input type="text" id="conn-search" placeholder="Rechercher un utilisateur..." style="max-width:260px" oninput="applyConnFilters()">
+    <select id="conn-entreprise-filter" style="max-width:200px" onchange="applyConnFilters()">
+      <option value="">Toutes entreprises</option>
+      <option value="A">Sarl Ocetra</option>
+      <option value="B">TSMOI</option>
+      <option value="C">Ocetra Mayotte</option>
+    </select>
+    <input type="date" id="conn-date-filter" style="max-width:180px" onchange="applyConnFilters()">
+  </div>
+
+  <div class="card">
+    <div class="card-body" style="overflow-x:auto;padding:0">
+      <table>
+        <thead><tr>
+          <th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Entreprise</th><th>Date</th><th>Heure</th>
+        </tr></thead>
+        <tbody id="conn-tbody"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -3116,14 +3147,22 @@ function showPage(id,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   el.classList.add('active');
-  const titles={dashboard:'Tableau de bord',calendrier:'Calendrier',materiels:'Matériels',maintenance:'Maintenance',pieces:'Pièces détachées',inventaire:'Inventaire',stock:'Gestion de stock',fournisseurs:'Fournisseurs',commandes:'Bons de commande',transport:'Transport & Douanes',couts:"Coûts d'entretien",rapports:'Rapports',parametres:'Paramètres',utilisateurs:'Utilisateurs'};
+  const titles={dashboard:'Tableau de bord',calendrier:'Calendrier',materiels:'Matériels',maintenance:'Maintenance',pieces:'Pièces détachées',inventaire:'Inventaire',stock:'Gestion de stock',fournisseurs:'Fournisseurs',commandes:'Bons de commande',transport:'Transport & Douanes',couts:"Coûts d'entretien",rapports:'Rapports',parametres:'Paramètres',utilisateurs:'Utilisateurs',connexions:'Historique connexions'};
   if(id==='utilisateurs'){ loadUsers(); loadInvitationCodes(); }
+  if(id==='connexions'){
+    if(getUserRole()!=='admin'){
+      alert('❌ Accès réservé aux administrateurs.');
+      showPage('dashboard', document.querySelector('.nav-item'));
+      return;
+    }
+    loadLoginHistory();
+  }
   if(id==='calendrier'){ renderCalendrier(); }
   if(id==='dashboard'){ renderDashboard(COMPANIES[currentCompany]); }
   if(id==='stock'){ renderStock(COMPANIES[currentCompany]); renderArchivesSection(); }
   if(id==='inventaire'){ renderInventaire(); }
   document.getElementById('page-title').textContent=titles[id]||id;
-  document.getElementById('topbar-new').style.display=['parametres','couts','rapports','utilisateurs'].includes(id)?'none':'';
+  document.getElementById('topbar-new').style.display=['parametres','couts','rapports','utilisateurs','connexions'].includes(id)?'none':'';
   currentPage=id;
   if(SB_PROFILE) applyPageRole(id);
 }
@@ -5705,7 +5744,22 @@ async function afterLogin(user){
   loadFromStorage(); // charger evenements (localStorage) avant que Supabase ne sauvegarde
   await loadFromSupabase();
   loadMaterielsPourConsultation(); // charger matériels des autres entreprises (consultation)
+  logLoginEvent(user, SB_PROFILE, coId);
   enterApp();
+}
+
+async function logLoginEvent(user, profile, coId){
+  if(!SB || SB_MODE!=='online') return;
+  try{
+    await secureWrite('login_history','insert',{
+      user_id:user.id,
+      email:user.email,
+      nom:profile?.nom||user.email,
+      role:profile?.role||'technicien',
+      entreprise_id:coId,
+      login_at:new Date().toISOString(),
+    });
+  }catch(e){ console.warn('[logLoginEvent]',e); }
 }
 
 function doLocalLogin(){
@@ -5790,6 +5844,10 @@ function applyRoles(){
     const txt = n.textContent.trim();
     if(txt.includes('Paramètres') || txt.includes('Utilisateurs')){
       n.style.display = (role==='technicien' || role==='visiteur' || role==='resp_travaux' || role==='chef_de_chantier') ? 'none' : '';
+    }
+    // Historique connexions : admin uniquement
+    if(txt.includes('Historique connexions')){
+      n.style.display = (role==='admin') ? '' : 'none';
     }
   });
 
@@ -6085,6 +6143,60 @@ async function loadUsers(){
     document.getElementById('user-resp-kpi').textContent=resps;
     document.getElementById('user-tech-kpi').textContent=techs;
   } catch(e){ console.warn(e.message); }
+}
+
+/* ── HISTORIQUE DES CONNEXIONS ────────────────────────────── */
+let _connHistoryData = [];
+
+async function loadLoginHistory(){
+  const tbody = document.getElementById('conn-tbody');
+  if(!tbody) return;
+  if(!SB||SB_MODE!=='online'){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Connexion Supabase requise</td></tr>';
+    return;
+  }
+  tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Chargement...</td></tr>';
+  try {
+    const {data,error} = await SB.from('login_history').select('*').order('login_at',{ascending:false}).limit(500);
+    if(error){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--red)">Erreur de chargement</td></tr>'; return; }
+    _connHistoryData = data||[];
+    renderConnTable(_connHistoryData);
+  } catch(e){ console.warn('[loadLoginHistory]',e); }
+}
+
+function renderConnTable(rows){
+  const tbody = document.getElementById('conn-tbody');
+  if(!tbody) return;
+  const roleLabels={admin:'Admin',responsable:'Responsable',technicien:'Technicien',resp_travaux:'Resp. travaux',chef_de_chantier:'Chef de chantier',comptabilite:'Comptabilité',visiteur:'Visiteur'};
+  const coNames={A:'Sarl Ocetra',B:'TSMOI',C:'Ocetra Mayotte'};
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">Aucune connexion enregistrée</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r=>{
+    const d = new Date(r.login_at);
+    return `<tr>
+      <td style="font-weight:500">${r.nom||'—'}</td>
+      <td>${r.email||'—'}</td>
+      <td><span class="badge badge-info">${roleLabels[r.role]||r.role||'—'}</span></td>
+      <td>${coNames[r.entreprise_id]||r.entreprise_id||'—'}</td>
+      <td>${d.toLocaleDateString('fr-FR')}</td>
+      <td>${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
+    </tr>`;
+  }).join('');
+}
+
+function applyConnFilters(){
+  const search = (document.getElementById('conn-search')?.value||'').toLowerCase();
+  const co = document.getElementById('conn-entreprise-filter')?.value||'';
+  const date = document.getElementById('conn-date-filter')?.value||'';
+  const filtered = _connHistoryData.filter(r=>{
+    const matchSearch = !search || (r.nom||'').toLowerCase().includes(search) || (r.email||'').toLowerCase().includes(search);
+    const matchCo = !co || r.entreprise_id===co;
+    const matchDate = !date || (r.login_at||'').startsWith(date);
+    return matchSearch && matchCo && matchDate;
+  });
+  renderConnTable(filtered);
 }
 
 async function loadInvitationCodes(){
