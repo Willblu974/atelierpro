@@ -1977,8 +1977,14 @@ function familleBadge(id,st){
 function renderMateriels(co,st){
   ensureMatState(co);
   ensureFournState(co);
-  document.getElementById('mat-famille-filter').innerHTML='<option value="">Toutes familles</option>'+st.familles.map(f=>`<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
-  document.getElementById('mat-statut-filter').innerHTML='<option value="">Tous statuts</option>'+st.statuts.map(s=>`<option value="${s.id}">${s.icon||''} ${s.name}</option>`).join('');
+  const familleFilterEl = document.getElementById('mat-famille-filter');
+  const statutFilterEl = document.getElementById('mat-statut-filter');
+  const prevFamilleFilter = familleFilterEl.value;
+  const prevStatutFilter = statutFilterEl.value;
+  familleFilterEl.innerHTML='<option value="">Toutes familles</option>'+st.familles.map(f=>`<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
+  statutFilterEl.innerHTML='<option value="">Tous statuts</option>'+st.statuts.map(s=>`<option value="${s.id}">${s.icon||''} ${s.name}</option>`).join('');
+  familleFilterEl.value = prevFamilleFilter;
+  statutFilterEl.value = prevStatutFilter;
   document.getElementById('mat-form-famille').innerHTML=st.familles.map(f=>`<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
   document.getElementById('mat-form-statut').innerHTML=st.statuts.map(s=>`<option value="${s.id}">${s.icon||''} ${s.name}</option>`).join('');
   document.getElementById('mat-form-fourn').innerHTML='<option value="">— Aucun —</option>'+(state[currentCompany].fournisseurs||[]).map(f=>`<option value="${f.nom}">${f.nom}</option>`).join('');
