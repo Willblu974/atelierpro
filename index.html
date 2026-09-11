@@ -832,18 +832,11 @@ textarea{resize:vertical;min-height:80px;}
       </div>
 
       <div class="card" style="margin-top:20px">
-        <div class="card-header"><strong>&#128276; Notifications par email</strong></div>
+        <div class="card-header"><strong>&#128230; Alertes stock bas par email</strong></div>
         <div class="card-body" style="padding:16px 18px">
+          <p style="font-size:12px;color:var(--text3);margin:0 0 12px">Envoie un email récapitulatif des pièces en stock bas ou en rupture (toutes entreprises). L'adresse centrale <strong>wilfrid.beaulieu@ocetra.io</strong> reçoit systématiquement une copie.</p>
           <div class="form-grid" id="notif-config-form">
             <div class="form-group"><label>Adresse email destinataire</label><input id="notif-email" class="param-edit-control" type="email" placeholder="responsable@entreprise.re" oninput="saveNotifConfig()"></div>
-            <div class="form-group">
-              <label>Clé API Resend</label>
-              <input id="notif-apikey" class="param-edit-control" type="password" placeholder="re_xxxxxxxxxxxx" oninput="saveNotifConfig()">
-              <div style="margin-top:5px;padding:8px 10px;background:#faeeda;border-left:3px solid #ba7517;border-radius:4px;font-size:11px;color:#854f0b">
-                ⚠️ <strong>Attention :</strong> Cette clé est stockée dans votre navigateur. N'utilisez pas une clé de production avec des droits étendus — créez une clé Resend dédiée avec uniquement la permission d'envoi d'emails.
-              </div>
-            </div>
-            <div class="form-group"><label>Email expéditeur (domaine vérifié sur Resend)</label><input id="notif-from" class="param-edit-control" placeholder="alertes@votredomaine.com" oninput="saveNotifConfig()"></div>
             <div class="form-group"><label>Vérification automatique (heures)</label>
               <select id="notif-interval" class="param-edit-control" onchange="saveNotifConfig();startNotifTimer()">
                 <option value="0">Désactivé</option>
@@ -5415,38 +5408,13 @@ function collectAlerts(){
     const co = COMPANIES[coId];
     const st = state[coId];
 
-    // Stock critique / rupture
+    // Stock critique / rupture uniquement
     const pieces = st.pieces || co.pieces || [];
     pieces.forEach(p => {
       if(p.st === 'alert' || p.stock === 0){
         alerts.push({type:'danger', co:co.name, cat:'Stock', msg:`Rupture : ${p.nom} (${p.ref}) — ${p.stock} unité(s) restante(s), seuil = ${p.seuil}`});
       } else if(p.st === 'warn'){
         alerts.push({type:'warn', co:co.name, cat:'Stock', msg:`Stock bas : ${p.nom} (${p.ref}) — ${p.stock} unité(s), seuil = ${p.seuil}`});
-      }
-    });
-
-    // OT urgents non terminés
-    const ots = st.ots || co.ots || [];
-    ots.forEach(o => {
-      if((o.prio === 'alert') && o.statut !== 'termine'){
-        alerts.push({type:'danger', co:co.name, cat:'OT Urgent', msg:`${o.num} — ${o.mat} — Statut : ${o.statut === 'bloque' ? 'Bloqué pièce' : o.statut === 'encours' ? 'En cours' : 'Planifié'}`});
-      }
-    });
-
-    // Révisions matériels
-    var matsRev=st.materiels||co.materiels||[];
-    matsRev.forEach(function(m){
-      var rs=revisionStatus(m);
-      if(!rs) return;
-      if(rs.cls==='alert') alerts.push({type:'danger',co:co.name,cat:'Révision',msg:m.code+' — '+m.nom+' : révision dépassée de '+(-rs.diff)+' jour(s) (était prévue le '+new Date(m.revision).toLocaleDateString('fr-FR')+')'});
-      else if(rs.cls==='warn') alerts.push({type:'warn',co:co.name,cat:'Révision',msg:m.code+' — '+m.nom+' : révision dans '+rs.diff+' jour(s) (le '+new Date(m.revision).toLocaleDateString('fr-FR')+')'});
-    });
-
-    // BDC bloqués en douane
-    const bdcs = st.bdcs || co.commandes || [];
-    bdcs.forEach(b => {
-      if(b.statut === 'bloque'){
-        alerts.push({type:'warn', co:co.name, cat:'Douane', msg:`BDC bloqué : ${b.num} — ${b.fourn} — ${b.mont}`});
       }
     });
   });
@@ -5468,14 +5436,11 @@ function previewAlerts(){
 
 async function sendAlertEmail(manual=false){
   const cfg = getNotifConfig();
-  if(!cfg.apikey || !cfg.email || !cfg.from){
-    if(manual) setNotifStatus("⚠️ Configurez email, clé API et expéditeur d'abord.", 'var(--amber)');
-    return;
-  }
+  const destEmail = cfg.email || 'wilfrid.beaulieu@ocetra.io';
 
   const alerts = collectAlerts();
   if(!alerts.length){
-    if(manual) setNotifStatus('✅ Aucune alerte à envoyer.', 'var(--teal)');
+    if(manual) setNotifStatus('✅ Aucune alerte stock bas à envoyer.', 'var(--teal)');
     return;
   }
 
@@ -5487,37 +5452,47 @@ async function sendAlertEmail(manual=false){
   const htmlBody = `
 <div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:20px">
   <div style="background:#0f6e56;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0">
-    <h2 style="margin:0;font-size:18px">🔔 AtelierPro — Rapport d'alertes</h2>
+    <h2 style="margin:0;font-size:18px">📦 AtelierPro — Alertes stock bas</h2>
     <p style="margin:4px 0 0;opacity:.8;font-size:13px">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</p>
   </div>
   <div style="border:1px solid #e2e0d8;border-top:none;border-radius:0 0 8px 8px;padding:20px">
-    ${dangers.length ? `<h3 style="color:#a32d2d;margin-top:0">🔴 Alertes critiques (${dangers.length})</h3><ul style="padding-left:18px">${dangers.map(a=>`<li style="margin-bottom:6px"><strong>[${a.co}] ${a.cat}</strong> — ${a.msg}</li>`).join('')}</ul>` : ''}
-    ${warns.length ? `<h3 style="color:#854f0b">🟡 Avertissements (${warns.length})</h3><ul style="padding-left:18px">${warns.map(a=>`<li style="margin-bottom:6px"><strong>[${a.co}] ${a.cat}</strong> — ${a.msg}</li>`).join('')}</ul>` : ''}
+    ${dangers.length ? `<h3 style="color:#a32d2d;margin-top:0">🔴 Ruptures de stock (${dangers.length})</h3><ul style="padding-left:18px">${dangers.map(a=>`<li style="margin-bottom:6px"><strong>[${a.co}]</strong> — ${a.msg}</li>`).join('')}</ul>` : ''}
+    ${warns.length ? `<h3 style="color:#854f0b">🟡 Stocks bas (${warns.length})</h3><ul style="padding-left:18px">${warns.map(a=>`<li style="margin-bottom:6px"><strong>[${a.co}]</strong> — ${a.msg}</li>`).join('')}</ul>` : ''}
     <p style="font-size:12px;color:#9c9a94;margin-top:20px;border-top:1px solid #e2e0d8;padding-top:12px">
-      Cet email a été envoyé automatiquement par AtelierPro.<br>
+      Cet email a été envoyé depuis AtelierPro.<br>
       Pour modifier vos préférences, rendez-vous dans Paramètres → Notifications.
     </p>
   </div>
 </div>`;
 
+  // Adresse centrale toujours en copie, en plus de l'adresse configurée
+  const destinataires = new Set([destEmail, 'wilfrid.beaulieu@ocetra.io']);
+
   try {
-    const res = await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/dynamic-handler', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: cfg.from,
-        to: cfg.email,
-        subject: `⚠️ AtelierPro — ${alerts.length} alerte(s) : ${dangers.length} critique(s), ${warns.length} avertissement(s)`,
-        html: htmlBody,
-        apikey: cfg.apikey
-      })
-    });
-    const data = await res.json();
-    if(res.ok){
-      setNotifStatus('✅ Email envoyé à '+cfg.email, 'var(--teal)');
+    const session = await SB.auth.getSession();
+    const token = session?.data?.session?.access_token;
+    let ok = true, sentTo = [];
+    for(const email of destinataires){
+      const res = await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': localStorage.getItem('sb_key') || 'sb_publishable_FQbh4RjyoRgHeT0AcpivRA_mpnxf4f6',
+        },
+        body: JSON.stringify({
+          to: email,
+          subject: `📦 AtelierPro — ${alerts.length} alerte(s) stock bas`,
+          html: htmlBody,
+        })
+      });
+      if(res.ok){ sentTo.push(email); } else { ok = false; }
+    }
+    if(sentTo.length){
+      setNotifStatus('✅ Email envoyé à '+sentTo.join(', '), 'var(--teal)');
       localStorage.setItem('atelierPro_notif_last', new Date().toISOString());
     } else {
-      setNotifStatus('❌ Erreur : '+(data.message||data.name||'Inconnue'), 'var(--red)');
+      setNotifStatus('❌ Erreur lors de l\'envoi', 'var(--red)');
     }
   } catch(e){
     setNotifStatus('❌ Erreur réseau : '+e.message, 'var(--red)');
