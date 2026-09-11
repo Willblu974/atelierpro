@@ -2677,7 +2677,7 @@ async function saveDemandePret(){
 
   // Sauvegarde partagée via Supabase (visible par l'entreprise cible)
   if(SB && SB_MODE==='online'){
-    await secureWrite('demandes_pret','insert',{
+    const insertResult = await secureWrite('demandes_pret','insert',{
       id:rec.id,
       entreprise_source:rec.entrepriseSource,
       nom_source:rec.nomSource,
@@ -2690,6 +2690,10 @@ async function saveDemandePret(){
       contact:rec.contact,
       statut:'en_attente',
     });
+    if(insertResult.error){
+      console.error('[saveDemandePret] Échec enregistrement Supabase:', insertResult.error);
+      alert('⚠️ La demande a été notifiée par email mais n\'a PAS pu être enregistrée dans la base de données.\nErreur : '+insertResult.error+'\n\nElle n\'apparaîtra donc pas dans les tableaux de bord tant que ce problème n\'est pas résolu.');
+    }
 
     // Notification email aux admins/responsables de l'entreprise cible
     try{
