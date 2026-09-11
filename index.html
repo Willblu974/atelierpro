@@ -2653,7 +2653,7 @@ function dpUpdateMatCount(){
   if(el) el.textContent=n>0?n+' sélectionné'+(n>1?'s':''):'';
 }
 
-function saveDemandePret(){
+async function saveDemandePret(){
   const date=document.getElementById('dp-date').value;
   const duree=document.getElementById('dp-duree').value;
   const motif=document.getElementById('dp-motif').value.trim();
@@ -2681,11 +2681,53 @@ function saveDemandePret(){
   };
   state[coCible].demandesPret.push(rec);
   saveToStorage();
+
+  // Sauvegarde partagée via Supabase (visible par l'entreprise cible)
+  if(SB && SB_MODE==='online'){
+    await secureWrite('demandes_pret','insert',{
+      id:rec.id,
+      entreprise_source:rec.entrepriseSource,
+      nom_source:rec.nomSource,
+      entreprise_cible:rec.coCibleId,
+      mat_codes:rec.matCodes,
+      mat_labels:rec.matLabels,
+      date_souhaitee:rec.dateSouhaitee,
+      duree:rec.duree,
+      motif:rec.motif,
+      contact:rec.contact,
+      statut:'en_attente',
+    });
+
+    // Notification email aux admins/responsables de l'entreprise cible
+    try{
+      const session=await SB.auth.getSession();
+      const token=session?.data?.session?.access_token;
+      await fetch('https://rsuiquqfkahnztizkgrk.supabase.co/functions/v1/notify-loan-request',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':`Bearer ${token}`,
+          'apikey':localStorage.getItem('sb_key')||'sb_publishable_FQbh4RjyoRgHeT0AcpivRA_mpnxf4f6',
+        },
+        body:JSON.stringify({
+          entrepriseCible:rec.coCibleId,
+          entrepriseSource:rec.entrepriseSource,
+          nomSource:rec.nomSource,
+          matLabels:rec.matLabels,
+          dateSouhaitee:rec.dateSouhaitee,
+          duree:rec.duree,
+          motif:rec.motif,
+          contact:rec.contact,
+        })
+      });
+    }catch(e){ console.warn('[saveDemandePret] notification email échouée:',e); }
+  }
+
   closeModal('modal-demande-pret');
   alert('✅ Demande de '+matCodes.length+' matériel(s) envoyée à '+(COMPANIES[coCible]?.name||coCible)+' !');
 }
 
-function traiterDemandePret(coId, demandeId, action){
+async function traiterDemandePret(coId, demandeId, action){
   ensureDemandesState(coId);
   const d=state[coId].demandesPret.find(function(x){return x.id===demandeId;});
   if(!d) return;
@@ -2723,6 +2765,9 @@ function traiterDemandePret(coId, demandeId, action){
   }
 
   saveToStorage();
+  if(SB && SB_MODE==='online'){
+    await secureWrite('demandes_pret','update',{statut:action},demandeId);
+  }
   renderDashboard(COMPANIES[currentCompany]);
   renderCalendrier();
 }
@@ -2764,15 +2809,21 @@ function renderDemandesSection(){
 }
 
 
-function supprimerDemandePret(coCible, demandeId){
+async function supprimerDemandePret(coCible, demandeId){
   if(!confirm('Supprimer cette demande ?')) return;
   ensureDemandesState(coCible);
   state[coCible].demandesPret=state[coCible].demandesPret.filter(function(x){return x.id!==demandeId;});
+  if(state[currentCompany].demandesPretEnvoyees){
+    state[currentCompany].demandesPretEnvoyees=state[currentCompany].demandesPretEnvoyees.filter(function(x){return x.id!==demandeId;});
+  }
   // Supprimer aussi l'immobilisation associée si elle existait
   if(state[coCible].evenements){
     state[coCible].evenements=state[coCible].evenements.filter(function(e){return e.id!=='pret_'+demandeId;});
   }
   saveToStorage();
+  if(SB && SB_MODE==='online'){
+    await secureWrite('demandes_pret','delete',null,demandeId);
+  }
   renderDashboard(COMPANIES[currentCompany]);
   renderCalendrier();
 }
@@ -2780,32 +2831,25 @@ function supprimerDemandePret(coCible, demandeId){
 function renderDemandesEnvoyeesSection(){
   const tbody=document.getElementById('dash-demandes-env-tbody');
   if(!tbody) return;
-  const ownCo=SB_PROFILE?.entreprise_id||currentCompany;
   const header=document.getElementById('dash-demandes-env-header');
   const card=document.getElementById('dash-demandes-env-card');
   const today=new Date().toISOString().split('T')[0];
   const coNoms={};
   Object.keys(COMPANIES).forEach(function(k){coNoms[k]=COMPANIES[k].name;});
   const df=function(s){return s?new Date(s).toLocaleDateString('fr-FR'):'—';};
-  var toutes=[];
-  Object.keys(state).forEach(function(co){
-    if(!state[co].demandesPret) return;
-    state[co].demandesPret.forEach(function(d){
-      if(d.entrepriseSource!==ownCo) return;
-      // Masquer les demandes acceptées dont la période est terminée
-      if(d.statut==='acceptee'){
-        var debut=d.dateSouhaitee||'';
-        var fin=debut;
-        if(debut && d.duree){
-          var fd=new Date(debut);
-          fd.setDate(fd.getDate()+(parseInt(d.duree)||1)-1);
-          fin=fd.toISOString().split('T')[0];
-        }
-        if(fin && fin<today) return; // période expirée → on saute
+  var toutes=(state[currentCompany].demandesPretEnvoyees||[]).filter(function(d){
+    if(d.statut==='acceptee'){
+      var debut=d.dateSouhaitee||'';
+      var fin=debut;
+      if(debut && d.duree){
+        var fd=new Date(debut);
+        fd.setDate(fd.getDate()+(parseInt(d.duree)||1)-1);
+        fin=fd.toISOString().split('T')[0];
       }
-      toutes.push(Object.assign({},d,{_coCible:co}));
-    });
-  });
+      if(fin && fin<today) return false; // période expirée → on masque
+    }
+    return true;
+  }).map(function(d){ return Object.assign({},d,{_coCible:d.coCibleId}); });
   toutes.sort(function(a,b){return (b.dateCreation||'').localeCompare(a.dateCreation||'');});
   if(header) header.style.display=toutes.length?'':'none';
   if(card) card.style.display=toutes.length?'':'none';
@@ -5992,7 +6036,8 @@ async function loadFromSupabase(){
     const [
       {data:familles},{data:statuts},{data:materiels},
       {data:ots},{data:pieces},{data:mvts},
-      {data:fourns},{data:bdcs},{data:prets},{data:transportRows2}
+      {data:fourns},{data:bdcs},{data:prets},{data:transportRows2},
+      {data:demandesRecues},{data:demandesEnvoyees}
     ]=await Promise.all([
       SB.from('familles').select('*').eq('entreprise_id',co),
       SB.from('statuts').select('*').eq('entreprise_id',co),
@@ -6004,6 +6049,8 @@ async function loadFromSupabase(){
       SB.from('bons_commande').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}),
       SB.from('prets_materiels').select('*').eq('entreprise_id',co).order('created_at',{ascending:false}),
       SB.from('transport_suivi').select('*').eq('entreprise_id',co).limit(1),
+      SB.from('demandes_pret').select('*').eq('entreprise_cible',co).order('created_at',{ascending:false}),
+      SB.from('demandes_pret').select('*').eq('entreprise_source',co).order('created_at',{ascending:false}),
     ]);
     state[co].familles=(familles||[]).map(f=>({id:f.id,name:f.name,desc:f.desc_,icon:f.icon,color:{bg:f.color_bg,text:f.color_text},system:f.system}));
     state[co].statuts=(statuts||[]).map(s=>({id:s.id,name:s.name,desc:s.desc_,icon:s.icon,color:{bg:s.color_bg,text:s.color_text},system:s.system}));
@@ -6016,6 +6063,22 @@ async function loadFromSupabase(){
     state[co].bdcs=(bdcs||[]).map(b=>({id:b.id,num:b.num,fourn:b.fourn_nom,date:b.date_cmd,mode:b.mode,mont:b.montant,art:b.nb_articles,statut:b.statut,livraison:b.date_livraison,articles:b.articles}));
     state[co].prets=(prets||[]).map(p=>({id:p.id,matCode:p.materiel_code,matLabel:p.materiel_label,datePret:p.date_pret,dateRetour:p.date_retour_prevue,entreprise:p.entreprise_emprunteuse,convoyeur:p.convoyeur,tel:p.telephone,notes:p.notes,statut:p.statut||'encours'}));
     const trRow = transportRows2 && transportRows2[0];
+    state[co].demandesPret=(demandesRecues||[]).map(d=>({
+      id:d.id, matCode:(d.mat_codes||[])[0], matLabel:(d.mat_labels||[])[0],
+      matCodes:d.mat_codes||[], matLabels:d.mat_labels||[],
+      entrepriseSource:d.entreprise_source, nomSource:d.nom_source,
+      coCibleId:d.entreprise_cible, dateCreation:d.date_creation,
+      dateSouhaitee:d.date_souhaitee, duree:d.duree, motif:d.motif,
+      contact:d.contact, statut:d.statut||'en_attente',
+    }));
+    state[co].demandesPretEnvoyees=(demandesEnvoyees||[]).map(d=>({
+      id:d.id, matCode:(d.mat_codes||[])[0], matLabel:(d.mat_labels||[])[0],
+      matCodes:d.mat_codes||[], matLabels:d.mat_labels||[],
+      entrepriseSource:d.entreprise_source, nomSource:d.nom_source,
+      coCibleId:d.entreprise_cible, dateCreation:d.date_creation,
+      dateSouhaitee:d.date_souhaitee, duree:d.duree, motif:d.motif,
+      contact:d.contact, statut:d.statut||'en_attente',
+    }));
     state[co].transport = trRow
       ? {bdc:trRow.bdc||'—',fourn:trRow.fournisseur||'Aucune expédition en cours',mode:trRow.mode||'—',progress:trRow.progress||0,progressColor:trRow.progress_color||'#9c9a94',progressTxt:trRow.progress_txt||'—',alert:trRow.alert||null,rows:(()=>{try{return JSON.parse(trRow.rows||'[]')}catch(e){return []}})(),surcout:trRow.surcout||'—'}
       : {bdc:'—',fourn:'Aucune expédition en cours',mode:'—',progress:0,progressColor:'#9c9a94',progressTxt:'—',alert:null,rows:[],surcout:'—'};
@@ -6067,7 +6130,7 @@ async function loadMaterielsPourConsultation(){
 /* ── SUPABASE REALTIME ──────────────────────────────────── */
 function subscribeRealtime(co){
   if(window._realtimeChannel) SB.removeChannel(window._realtimeChannel);
-  var tables=['materiels','ordres_travail','pieces','fournisseurs','bons_commande','mouvements_stock','familles','statuts','prets_materiels','transport_suivi'];
+  var tables=['materiels','ordres_travail','pieces','fournisseurs','bons_commande','mouvements_stock','familles','statuts','prets_materiels','transport_suivi','demandes_pret'];
   var ch=SB.channel('atelierpro-'+co);
   tables.forEach(function(t){
     ch=ch.on('postgres_changes',{event:'*',schema:'public',table:t,filter:'entreprise_id=eq.'+co},function(){
