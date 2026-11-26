@@ -3789,11 +3789,16 @@ async function launchBDCAIScan(){
     const {data:{session}}=await SB.auth.getSession();
     if(!session?.access_token) throw new Error('Session expirée.');
     const {data,error}=await SB.functions.invoke('extract-articles',{
-      body:{pdfText:rawText.substring(0,8000)},
+      body:{pdfText:rawText.substring(0,30000)},
       headers:{Authorization:'Bearer '+session.access_token}
     });
     if(error) throw new Error(error.message||JSON.stringify(error));
     if(!data?.ok) throw new Error(data?.error||'Erreur Edge Function');
+    // En-tête du bon de commande détecté par l'IA
+    const setChamp=(id,val)=>{ if(val!==null && val!==undefined && val!=='') document.getElementById(id).value=val; };
+    setChamp('bdc-f-fourn',data.fournisseur);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(data.date||'')) setChamp('bdc-f-date',data.date);
+    setChamp('bdc-f-mont',data.montant_ht);
     const articles=data.articles||[];
     if(!articles.length) throw new Error('Aucun article trouvé.');
     window._bdcAIItems=articles.map(a=>({
@@ -7783,7 +7788,7 @@ async function launchAIScan(){
     const {data:{session}}=await SB.auth.getSession();
     if(!session?.access_token) throw new Error('Session expirée, veuillez vous reconnecter.');
     const {data,error}=await SB.functions.invoke('extract-articles',{
-      body:{pdfText:rawText.substring(0,8000)},
+      body:{pdfText:rawText.substring(0,30000)},
       headers:{Authorization:'Bearer '+session.access_token}
     });
     if(error) throw new Error(error.message||JSON.stringify(error));
